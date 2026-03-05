@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
 
     // ── Send delivery email ───────────────────────────────────────────
     const siteUrl     = process.env.NEXT_PUBLIC_SITE_URL!;
-    const downloadUrl = `${siteUrl}/api/rrg/download?token=${downloadToken}`;
+    const downloadUrl = `${siteUrl}/rrg/download?token=${downloadToken}`;
 
     if (buyerEmail) {
       try {
