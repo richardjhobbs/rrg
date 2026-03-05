@@ -32,7 +32,7 @@ export async function POST(req: NextRequest) {
     const downloadToken  = randomBytes(32).toString('hex');
     const downloadExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
     const siteUrl        = process.env.NEXT_PUBLIC_SITE_URL!;
-    const downloadUrl    = `${siteUrl}/api/rrg/download?token=${downloadToken}`;
+    const downloadUrl    = `${siteUrl}/rrg/download?token=${downloadToken}`;
 
     await db
       .from('rrg_purchases')
