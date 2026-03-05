@@ -2,8 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 
 // ── Typed DB client (server-side, uses service key) ───────────────────
 export const db = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_KEY!,
+  process.env.NEXT_PUBLIC_SUPABASE_URL ?? 'https://placeholder.supabase.co',
+  process.env.SUPABASE_SERVICE_KEY ?? 'placeholder-key',
   { auth: { persistSession: false } }
 );
 
