@@ -110,9 +110,11 @@ export async function sendFileDeliveryEmail({
   txHash: string;
   downloadUrl: string;
 }): Promise<void> {
-  const dropUrl    = `${SITE_URL}/rrg/drop/${tokenId}`;
-  const basescanUrl = `https://basescan.org/tx/${txHash}`;
-  const shortTx    = `${txHash.slice(0, 10)}…${txHash.slice(-6)}`;
+  const isTestnet   = process.env.NEXT_PUBLIC_CHAIN_ID === '84532';
+  const scanBase    = isTestnet ? 'https://sepolia.basescan.org' : 'https://basescan.org';
+  const dropUrl     = `${SITE_URL}/rrg/drop/${tokenId}`;
+  const basescanUrl = `${scanBase}/tx/${txHash}`;
+  const shortTx     = txHash; // full hash so the link is unambiguous
 
   const html = `
 <!DOCTYPE html>
