@@ -11,13 +11,8 @@
 
 import { ethers } from 'ethers';
 
-// USDC on Base uses name "USD Coin" and version "2"
-export const USDC_PERMIT_NAME    = 'USD Coin';
-export const USDC_PERMIT_VERSION = '2';
-
-// USDC on Base Sepolia uses different name
-export const USDC_TESTNET_PERMIT_NAME    = 'USD Coin';
-export const USDC_TESTNET_PERMIT_VERSION = '2';
+// Domain name/version are fetched live from the USDC contract to avoid
+// hardcode mismatches — Base Sepolia USDC may differ from mainnet.
 
 export const PERMIT_TYPES = {
   Permit: [
@@ -48,9 +43,11 @@ export interface PermitPayload {
   tokenId: number;
 }
 
-// ── Minimal USDC ABI for nonce check ──────────────────────────────────
-const USDC_NONCE_ABI = [
+// ── Minimal USDC ABI (nonce + EIP-712 domain fields) ──────────────────
+const USDC_ABI = [
   'function nonces(address owner) external view returns (uint256)',
+  'function name() external view returns (string)',
+  'function version() external view returns (string)',
 ] as const;
 
 export async function buildPermitPayload(
@@ -69,16 +66,23 @@ export async function buildPermitPayload(
     : process.env.NEXT_PUBLIC_BASE_RPC_URL!;
 
   const provider = new ethers.JsonRpcProvider(rpcUrl);
-  const usdc     = new ethers.Contract(usdcAddress, USDC_NONCE_ABI, provider);
-  const nonce    = await usdc.nonces(buyerWallet);
+  const usdc     = new ethers.Contract(usdcAddress, USDC_ABI, provider);
+
+  // Fetch nonce, name, and version in parallel directly from the contract
+  // so the EIP-712 domain exactly matches what the USDC contract expects.
+  const [nonce, usdcName, usdcVersion] = await Promise.all([
+    usdc.nonces(buyerWallet) as Promise<bigint>,
+    usdc.name()              as Promise<string>,
+    usdc.version()           as Promise<string>,
+  ]);
 
   // 10-minute deadline from now
   const deadline = BigInt(Math.floor(Date.now() / 1000) + 600);
 
   return {
     domain: {
-      name:              testnet ? USDC_TESTNET_PERMIT_NAME : USDC_PERMIT_NAME,
-      version:           testnet ? USDC_TESTNET_PERMIT_VERSION : USDC_PERMIT_VERSION,
+      name:              usdcName,
+      version:           usdcVersion,
       chainId,
       verifyingContract: usdcAddress,
     },
