@@ -1,0 +1,102 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { db, claimNextTokenId, getSubmissionById } from '@/lib/rrg/db';
+import { isAdminFromCookies, adminUnauthorized } from '@/lib/rrg/auth';
+import { getRRGContract, toUsdc6dp } from '@/lib/rrg/contract';
+import { sendApprovalNotification } from '@/lib/rrg/email';
+
+export const dynamic = 'force-dynamic';
+
+// POST /api/rrg/approve — admin only
+// Body: { submissionId, edition_size, price_usdc }
+export async function POST(req: NextRequest) {
+  if (!(await isAdminFromCookies())) return adminUnauthorized();
+
+  try {
+    const { submissionId, edition_size, price_usdc } = await req.json();
+
+    if (!submissionId) {
+      return NextResponse.json({ error: 'submissionId required' }, { status: 400 });
+    }
+
+    const editionSize = parseInt(edition_size, 10);
+    const priceUsdc   = parseFloat(price_usdc);
+
+    if (!editionSize || editionSize < 1 || editionSize > 50) {
+      return NextResponse.json({ error: 'edition_size must be 1–50' }, { status: 400 });
+    }
+    if (!priceUsdc || priceUsdc < 0.5 || priceUsdc > 50) {
+      return NextResponse.json({ error: 'price_usdc must be 0.50–50.00' }, { status: 400 });
+    }
+
+    const submission = await getSubmissionById(submissionId);
+    if (!submission) {
+      return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
+    }
+    if (submission.status !== 'pending') {
+      return NextResponse.json({ error: `Submission is already ${submission.status}` }, { status: 409 });
+    }
+
+    // ── Claim next token ID ───────────────────────────────────────────
+    const tokenId = await claimNextTokenId();
+
+    // ── Register drop on-chain ────────────────────────────────────────
+    const isTestnet = process.env.NEXT_PUBLIC_CHAIN_ID === '84532';
+    const contract  = getRRGContract(isTestnet);
+    const price6dp  = toUsdc6dp(priceUsdc);
+
+    const tx = await contract.registerDrop(
+      tokenId,
+      submission.creator_wallet,
+      price6dp,
+      editionSize
+    );
+    const receipt = await tx.wait(1);
+
+    // ── Update DB ─────────────────────────────────────────────────────
+    await db
+      .from('rrg_submissions')
+      .update({
+        status:       'approved',
+        token_id:     tokenId,
+        edition_size: editionSize,
+        price_usdc:   priceUsdc.toFixed(2),
+        approved_at:  new Date().toISOString(),
+      })
+      .eq('id', submissionId);
+
+    // ── Send approval notification ────────────────────────────────────
+    let notificationSent = false;
+    if (submission.creator_email) {
+      try {
+        await sendApprovalNotification({
+          to:           submission.creator_email,
+          title:        submission.title,
+          tokenId,
+          priceUsdc,
+          editionSize,
+          creatorWallet: submission.creator_wallet,
+        });
+        await db
+          .from('rrg_submissions')
+          .update({ approval_notification_sent: true })
+          .eq('id', submissionId);
+        notificationSent = true;
+      } catch (emailErr) {
+        // Non-fatal — log but don't fail the approval
+        console.error('[approve] Email notification failed:', emailErr);
+      }
+    }
+
+    return NextResponse.json({
+      success:          true,
+      tokenId,
+      txHash:           receipt.hash,
+      notificationSent,
+      dropUrl:          `${process.env.NEXT_PUBLIC_SITE_URL}/rrg/drop/${tokenId}`,
+    });
+
+  } catch (err) {
+    console.error('[/api/rrg/approve]', err);
+    return NextResponse.json({ error: String(err) }, { status: 500 });
+  }
+}
