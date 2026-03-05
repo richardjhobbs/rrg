@@ -1,6 +1,5 @@
-import { getPurchaseByDownloadToken, getSubmissionById } from '@/lib/rrg/db';
+import { getPurchaseByDownloadToken, getSubmissionById, db } from '@/lib/rrg/db';
 import { getSignedUrl } from '@/lib/rrg/storage';
-import { db } from '@/lib/rrg/db';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';

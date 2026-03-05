@@ -5,8 +5,8 @@ import { getSignedUrl } from '@/lib/rrg/storage';
 export const dynamic = 'force-dynamic';
 
 // GET /api/rrg/download?token=<downloadToken>
-// Returns a redirect to a signed Supabase URL for the zip of all submission files.
-// Also supports wallet-based auth: ?wallet=<wallet>&tokenId=<tokenId>
+// Redirects to the proper download page — kept for backwards compatibility
+// with any links generated before the /rrg/download page existed.
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
@@ -14,7 +14,13 @@ export async function GET(req: NextRequest) {
     const wallet   = searchParams.get('wallet')?.toLowerCase();
     const tokenIdP = searchParams.get('tokenId');
 
-    if (!token && !(wallet && tokenIdP)) {
+    // ── Token-based: redirect to the download page ─────────────────────
+    if (token) {
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? '';
+      return NextResponse.redirect(`${siteUrl}/rrg/download?token=${token}`, 302);
+    }
+
+    if (!wallet || !tokenIdP) {
       return NextResponse.json(
         { error: 'Provide either token or wallet+tokenId' },
         { status: 400 }
