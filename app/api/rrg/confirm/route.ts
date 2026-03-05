@@ -114,8 +114,12 @@ export async function POST(req: NextRequest) {
     });
 
   } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
     console.error('[/api/rrg/confirm]', err);
-    return NextResponse.json({ error: 'Purchase failed. Please try again.' }, { status: 500 });
+    return NextResponse.json(
+      { error: `Purchase failed: ${detail}` },
+      { status: 500 }
+    );
   }
 }
 
