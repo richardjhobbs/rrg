@@ -1,6 +1,6 @@
 import { createConfig, http } from 'wagmi';
 import { base, baseSepolia } from 'viem/chains';
-import { injected, coinbaseWallet } from 'wagmi/connectors';
+import { metaMask, coinbaseWallet } from 'wagmi/connectors';
 
 const isTestnet = process.env.NEXT_PUBLIC_CHAIN_ID === '84532';
 
@@ -10,7 +10,7 @@ export const targetChainId  = targetChain.id;
 export const wagmiConfig = createConfig({
   chains: [baseSepolia, base],
   connectors: [
-    injected(),
+    metaMask(),
     coinbaseWallet({ appName: 'RRG — richard-hobbs.com' }),
   ],
   transports: {

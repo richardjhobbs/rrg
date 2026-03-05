@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   useAccount,
   useConnect,
@@ -36,10 +36,13 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isTe
   const { switchChainAsync }     = useSwitchChain();
   const chainId                  = useChainId();
 
-  const [step,   setStep]   = useState<Step>('idle');
-  const [email,  setEmail]  = useState('');
-  const [error,  setError]  = useState('');
-  const [result, setResult] = useState<PurchaseResult | null>(null);
+  const [step,    setStep]    = useState<Step>('idle');
+  const [email,   setEmail]   = useState('');
+  const [error,   setError]   = useState('');
+  const [result,  setResult]  = useState<PurchaseResult | null>(null);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   const scanBase = isTestnet
     ? 'https://sepolia.basescan.org'
@@ -148,7 +151,7 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isTe
             Purchasing for{' '}
             <span className="text-white font-medium">${priceUsdc.toFixed(2)} USDC</span>
           </p>
-          <p className="text-xs text-white/30 mt-1">
+          <p className="text-xs text-white/50 mt-1">
             You&apos;ll sign a gasless USDC permit — no ETH needed for gas.
           </p>
         </div>
@@ -166,7 +169,7 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isTe
             className="w-full bg-transparent border border-white/20 px-4 py-2.5 text-sm
                        focus:border-white outline-none transition-colors placeholder:text-white/20"
           />
-          <p className="mt-1.5 text-xs text-white/20">
+          <p className="mt-1.5 text-xs text-white/40">
             Files also accessible via wallet lookup after purchase
           </p>
         </div>
@@ -201,7 +204,7 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isTe
         <p className="text-white/60 text-sm font-mono animate-pulse">
           {step === 'signing' ? 'Waiting for signature…' : 'Minting on Base…'}
         </p>
-        <p className="text-xs text-white/20 mt-3">
+        <p className="text-xs text-white/40 mt-3">
           {step === 'signing'
             ? 'Check your wallet — approve the USDC permit'
             : 'Transaction submitted, awaiting confirmation (10–30s)'}
@@ -236,6 +239,7 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isTe
   }
 
   // ── Idle — main CTA ──────────────────────────────────────────────────
+  const walletReady = mounted && isConnected && !!address;
   return (
     <div className="space-y-3">
       <button
@@ -243,22 +247,22 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isTe
         className="w-full py-4 bg-white text-black text-sm font-medium
                    hover:bg-white/90 transition-all tracking-wide"
       >
-        {isConnected
+        {walletReady
           ? `Purchase for $${priceUsdc.toFixed(2)} USDC`
           : 'Connect Wallet to Purchase'}
       </button>
-      {isConnected && address && (
-        <p className="text-xs font-mono text-white/20 text-center">
+      {walletReady && (
+        <p className="text-xs font-mono text-white/40 text-center">
           {address.slice(0, 6)}…{address.slice(-4)}
           <button
             onClick={() => disconnect()}
-            className="ml-2 hover:text-white/40 transition-colors"
+            className="ml-2 hover:text-white/60 transition-colors"
           >
             (disconnect)
           </button>
         </p>
       )}
-      <p className="text-xs text-white/20 text-center">
+      <p className="text-xs text-white/40 text-center">
         Gasless · USDC on Base · files delivered on mint
       </p>
     </div>
@@ -289,9 +293,15 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isTe
     setError('');
 
     try {
-      // Ensure correct chain right before signing
-      if (chainId !== targetChainId) {
+      // Always switch — switchChainAsync is a no-op if already on the right chain,
+      // and guarantees wagmi's internal state is correct before signTypedDataAsync
+      // (avoids stale-closure chainId mismatch in viem v2 strict validation).
+      try {
         await switchChainAsync({ chainId: targetChainId });
+      } catch {
+        throw new Error(
+          `Please switch to ${isTestnet ? 'Base Sepolia' : 'Base'} in your wallet.`
+        );
       }
 
       // 1 — Get permit payload from server
