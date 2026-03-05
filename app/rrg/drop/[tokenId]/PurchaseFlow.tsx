@@ -223,6 +223,14 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isTe
         >
           Try Again
         </button>
+        {isConnected && (
+          <button
+            onClick={() => { disconnect(); setStep('idle'); setError(''); }}
+            className="w-full text-xs text-white/20 hover:text-white/50 transition-colors pt-1"
+          >
+            Disconnect wallet
+          </button>
+        )}
       </div>
     );
   }
@@ -281,6 +289,11 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isTe
     setError('');
 
     try {
+      // Ensure correct chain right before signing
+      if (chainId !== targetChainId) {
+        await switchChainAsync({ chainId: targetChainId });
+      }
+
       // 1 — Get permit payload from server
       const purchaseRes = await fetch('/api/rrg/purchase', {
         method:  'POST',
