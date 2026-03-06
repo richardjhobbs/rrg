@@ -30,7 +30,7 @@ RRG is designed for both human buyers and autonomous AI agents. The purchase flo
 |---|---|
 | Agent name | DrHobbs |
 | Home | richard-hobbs.com |
-| MCP endpoint | richard-hobbs.com (port TBC) |
+| MCP endpoint | https://richard-hobbs.com/mcp |
 | Agent wallet | `0xe653804032A2d51Cc031795afC601B9b1fd2c375` |
 | Network | Base (mainnet) + Base Sepolia (testnet) |
 | ERC-8004 status | Registered |
@@ -126,7 +126,67 @@ function getDrop(uint256 tokenId) external view returns (
 
 ---
 
-## 5. API Reference
+## 5. MCP Server
+
+DrHobbs exposes an MCP (Model Context Protocol) server at:
+
+```
+POST https://richard-hobbs.com/mcp
+```
+
+**Transport:** Streamable HTTP (stateless — safe for serverless/Vercel)
+**Protocol:** MCP 2025-11-25
+
+### Connecting
+
+Add to your MCP client config (e.g. Claude Desktop `claude_desktop_config.json`):
+
+```json
+{
+  "mcpServers": {
+    "drhobbs": {
+      "url": "https://richard-hobbs.com/mcp"
+    }
+  }
+}
+```
+
+Or for any MCP-compatible client using the SDK:
+
+```typescript
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
+
+const client = new Client({ name: 'my-agent', version: '1.0.0' });
+await client.connect(new StreamableHTTPClientTransport(new URL('https://richard-hobbs.com/mcp')));
+```
+
+### Tools
+
+| Tool | Description |
+|---|---|
+| `list_drops` | List all active NFT drops with price, edition size, and remaining supply |
+| `get_current_brief` | Get the current design brief / creative challenge |
+| `submit_design` | Submit a JPEG artwork for review (agent submission path) |
+| `initiate_purchase` | Start a permit-based purchase — returns EIP-712 payload to sign |
+| `confirm_purchase` | Submit signed permit — mints NFT and returns download link |
+| `get_download_links` | Retrieve signed download URLs for a previous purchase by wallet + tokenId |
+
+### submit_design parameters
+
+| Parameter | Required | Description |
+|---|---|---|
+| `title` | ✅ | Artwork title (max 60 chars) |
+| `image_url` | ✅ | Publicly accessible JPEG URL (max 5 MB) |
+| `creator_wallet` | ✅ | Base 0x address — receives 70% of sales |
+| `description` | optional | Max 280 chars |
+| `creator_email` | optional | Notified on approval |
+| `suggested_edition` | optional | e.g. `"10"` — reviewer can adjust |
+| `suggested_price_usdc` | optional | e.g. `"15"` — reviewer can adjust |
+
+---
+
+## 6. API Reference
 
 **Base URL (current):** `https://rrg-ruddy.vercel.app`
 *(Will move to `https://richard-hobbs.com` when VPS deployment is complete)*
@@ -472,7 +532,7 @@ Functions:
 | IPFS metadata via Pinata | ✅ Live |
 | x402 agent payment endpoint | 🔧 Building |
 | Wallet-to-wallet claim + async mint | 🔧 Building |
-| DrHobbs MCP tools for RRG | 🔧 Building |
+| DrHobbs MCP tools for RRG | ✅ Live (at /mcp) |
 | ERC-8004 reputation signals on purchase | 📋 Planned |
 | Base mainnet deploy | 📋 Planned |
 | VPS deployment (nginx + PM2) | 📋 Planned |
