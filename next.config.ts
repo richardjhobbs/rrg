@@ -1,13 +1,8 @@
 import type { NextConfig } from "next";
 
-// NEXT_PUBLIC_BASE_PATH controls the basePath for subpath deployments.
-// - VPS (richard-hobbs.com/rrg): set NEXT_PUBLIC_BASE_PATH=/rrg
-// - Vercel (rrg-ruddy.vercel.app):  leave unset (root)
-const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
-
+// The RRG app's pages are already routed under /rrg/ (app/rrg/*, app/rrg/download, etc.)
+// No basePath needed — nginx proxies /rrg and /_next to this app as-is.
 const nextConfig: NextConfig = {
-  basePath,
-  // Required for standalone output on VPS (smaller footprint, faster cold start)
   output: 'standalone',
 };
 
