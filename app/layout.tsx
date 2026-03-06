@@ -18,6 +18,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           {children}
         </Providers>
+        <footer className="mt-20 border-t border-white/10 px-6 py-6 text-center">
+          <div className="flex justify-center gap-6 text-xs font-mono text-white/30">
+            <a
+              href="https://richard-hobbs.com/terms"
+              className="hover:text-white/60 transition-colors"
+            >
+              Terms
+            </a>
+            <a
+              href="https://richard-hobbs.com/privacy"
+              className="hover:text-white/60 transition-colors"
+            >
+              Privacy
+            </a>
+          </div>
+        </footer>
       </body>
     </html>
   );

@@ -194,7 +194,7 @@ export default async function RRGGallery() {
             </a>
             {' '}and{' '}
             <a
-              href="https://t.me/RealRealGenuine"
+              href="https://t.me/+NqhvQQ-afOw0ZTk1"
               target="_blank"
               rel="noopener noreferrer"
               className="text-white/80 underline underline-offset-2 hover:text-white transition-colors"
