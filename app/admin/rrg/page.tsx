@@ -22,6 +22,9 @@ interface Submission {
   status: string;
   created_at: string;
   previewUrl?: string | null;
+  // Parsed from description tag:
+  suggestedEdition?: string;
+  suggestedPrice?: string;
 }
 
 interface Drop {
@@ -279,7 +282,17 @@ function SubmissionsTab() {
     setLoading(true);
     const res  = await fetch('/api/rrg/submissions');
     const data = await res.json();
-    setSubmissions(data.submissions || []);
+    // Parse submitter suggestions out of description tag
+    const parsed = (data.submissions || []).map((s: Submission) => {
+      const match = (s.description || '').match(/\[Suggested: (\S+) ed · \$([0-9.]+) USDC\]/);
+      return {
+        ...s,
+        suggestedEdition: match?.[1] ?? '',
+        suggestedPrice:   match?.[2] ?? '',
+        description:      s.description?.replace(/\n?\[Suggested:[^\]]+\]/, '').trim() || null,
+      };
+    });
+    setSubmissions(parsed);
     setLoading(false);
   }, []);
 
@@ -392,6 +405,13 @@ function SubmissionsTab() {
                     </span>
                     {s.creator_email && <span>{s.creator_email}</span>}
                   </div>
+                  {(s.suggestedEdition || s.suggestedPrice) && (
+                    <div className="mt-2 text-xs font-mono text-amber-400/60">
+                      Suggested: {s.suggestedEdition ? `${s.suggestedEdition} ed` : ''}
+                      {s.suggestedEdition && s.suggestedPrice ? ' · ' : ''}
+                      {s.suggestedPrice ? `$${s.suggestedPrice} USDC` : ''}
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -464,7 +484,11 @@ function SubmissionsTab() {
                 <div className="border-t border-white/10 p-4 flex gap-3">
                   <button
                     onClick={() => {
-                      setApproveForm({ id: s.id, edition_size: '10', price_usdc: '5' });
+                      setApproveForm({
+                        id:           s.id,
+                        edition_size: s.suggestedEdition || '10',
+                        price_usdc:   s.suggestedPrice   || '5',
+                      });
                       setRejectForm(null);
                     }}
                     className="px-5 py-1.5 bg-white text-black text-xs font-medium hover:bg-white/90 transition-all"

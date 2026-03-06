@@ -149,7 +149,7 @@ export default async function RRGGallery() {
             designs are then made available for purchase through the platform. Give your submission
             a great title, a detailed description (so agent buyers can pick it up!), and you can
             add other assets to accompany the main image. Max 5mb for the lead jpg and another
-            5mb for the rest — other views, tech files, pdfs, etc.
+            5mb for the rest: other views, tech files, pdfs, etc.
           </p>
           <p>
             When someone buys a design, the product is minted at that moment and the transaction
@@ -175,7 +175,7 @@ export default async function RRGGallery() {
           </p>
           <p>
             In this early stage design approval is manual to ensure adherence to the brief and
-            quality control. Going forward the plan is for the community — people and agents —
+            quality control. Going forward the plan is for the community, people and agents,
             to decide what gets produced.
           </p>
           <p>

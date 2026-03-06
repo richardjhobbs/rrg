@@ -29,11 +29,21 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Optional fields ──────────────────────────────────────────────
-    const description       = (formData.get('description') as string)?.trim().slice(0, 280) || null;
+    const rawDescription    = (formData.get('description') as string)?.trim().slice(0, 280) || '';
     const creator_email     = (formData.get('creator_email') as string)?.trim() || null;
     const creator_handle    = (formData.get('creator_handle') as string)?.trim() || null;
     const brief_id          = (formData.get('brief_id') as string) || null;
     const submission_channel: string = (formData.get('channel') as string) || 'web';
+
+    // ── Submitter suggestions (shown in admin, appended to description) ─
+    const suggestedEdition  = (formData.get('suggested_edition') as string)?.trim() || '';
+    const suggestedPrice    = (formData.get('suggested_price_usdc') as string)?.trim() || '';
+    const suggestionTag     = (suggestedEdition || suggestedPrice)
+      ? `[Suggested: ${suggestedEdition || '?'} ed · $${suggestedPrice || '?'} USDC]`
+      : '';
+    const description       = rawDescription
+      ? (suggestionTag ? `${rawDescription}\n${suggestionTag}` : rawDescription)
+      : (suggestionTag || null);
 
     // ── Additional files validation ──────────────────────────────────
     const additionalFiles: File[] = [];

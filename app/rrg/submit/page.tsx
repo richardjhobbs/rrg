@@ -20,6 +20,8 @@ export default function SubmitPage() {
     description: '',
     creator_wallet: '',
     creator_email: '',
+    suggested_edition: '',
+    suggested_price_usdc: '',
   });
   const [jpeg, setJpeg] = useState<File | null>(null);
   const [additionalFiles, setAdditionalFiles] = useState<FileList | null>(null);
@@ -43,6 +45,8 @@ export default function SubmitPage() {
     fd.append('description', form.description);
     fd.append('creator_wallet', form.creator_wallet);
     fd.append('creator_email', form.creator_email);
+    if (form.suggested_edition)    fd.append('suggested_edition', form.suggested_edition);
+    if (form.suggested_price_usdc) fd.append('suggested_price_usdc', form.suggested_price_usdc);
     fd.append('jpeg', jpeg);
     if (additionalFiles) {
       for (let i = 0; i < additionalFiles.length; i++) {
@@ -130,6 +134,43 @@ export default function SubmitPage() {
             placeholder="Materials, process, inspiration — anything relevant"
           />
         </div>
+
+        {/* Edition + Price suggestions — shown in admin approval, not stored as separate columns */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-2">
+              Suggested Edition Size
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={50}
+              placeholder="e.g. 10"
+              value={form.suggested_edition}
+              onChange={(e) => setForm({ ...form, suggested_edition: e.target.value })}
+              className="w-full bg-transparent border border-white/20 px-4 py-3 text-sm
+                         focus:border-white outline-none transition-colors placeholder:text-white/20"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-2">
+              Proposed Price (USDC)
+            </label>
+            <input
+              type="number"
+              min={0.5}
+              step={0.5}
+              placeholder="e.g. 15"
+              value={form.suggested_price_usdc}
+              onChange={(e) => setForm({ ...form, suggested_price_usdc: e.target.value })}
+              className="w-full bg-transparent border border-white/20 px-4 py-3 text-sm
+                         focus:border-white outline-none transition-colors placeholder:text-white/20"
+            />
+          </div>
+        </div>
+        <p className="text-xs text-white/20 -mt-4">
+          Optional suggestions for the reviewer. Final edition size and price are set on approval.
+        </p>
 
         {/* Main JPEG */}
         <div>
