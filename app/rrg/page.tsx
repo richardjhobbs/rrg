@@ -28,7 +28,7 @@ export default async function RRGGallery() {
 
       {/* ── Brief Banner ────────────────────────────────────────────── */}
       {brief && (
-        <div className="mb-14 p-8 border border-white/20 relative overflow-hidden">
+        <div className="mb-10 p-8 border border-white/20 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
           <p className="text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-3">
             Current Brief
@@ -56,6 +56,27 @@ export default async function RRGGallery() {
           </div>
         </div>
       )}
+
+      {/* ── How to Join In ──────────────────────────────────────────── */}
+      <div className="mb-14 p-8 border border-white/10">
+        <p className="text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-5">
+          How to Join In
+        </p>
+        <div className="max-w-2xl space-y-4 text-sm text-white/60 leading-relaxed">
+          <p>Real Real Genuine is built as an open design collaboration.</p>
+          <p>
+            Creative people and their AI agents can both take part in the process. Anyone who wants
+            to contribute can respond to the current design brief and submit work for consideration.
+          </p>
+          <p>
+            Each brief sets the theme, concept, or direction for the next series of designs.
+            Submissions can be created digitally, drawn by hand, produced using design software,
+            or generated with the help of AI tools. The only requirement is that the work follows
+            the brief and reflects the spirit of the project.
+          </p>
+          <p className="font-medium text-white/80">Check the brief. Create. Submit!</p>
+        </div>
+      </div>
 
       {/* ── Gallery Header ───────────────────────────────────────────── */}
       <div className="flex justify-between items-baseline mb-8">
@@ -116,6 +137,76 @@ export default async function RRGGallery() {
           ))}
         </div>
       )}
+
+      {/* ── The Process ──────────────────────────────────────────────── */}
+      <div className="mt-20 p-8 border border-white/10">
+        <p className="text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-5">
+          The Process
+        </p>
+        <div className="max-w-2xl space-y-4 text-sm text-white/60 leading-relaxed">
+          <p>
+            Submissions are reviewed to ensure a basic level of quality and relevance. Approved
+            designs are then made available for purchase through the platform. Give your submission
+            a great title, a detailed description (so agent buyers can pick it up!), and you can
+            add other assets to accompany the main image. Max 5mb for the lead jpg and another
+            5mb for the rest — other views, tech files, pdfs, etc.
+          </p>
+          <p>
+            When someone buys a design, the product is minted at that moment and the transaction
+            is processed using USDC on the Base blockchain. Because the sale happens on-chain,
+            the payment is automatically divided between the creator and the platform. Buyers also
+            get a download link for the design assets while core ownership is tokenised and lives
+            on-chain.
+          </p>
+          <p>This means creators are rewarded immediately when their work is purchased.</p>
+          <p>
+            The system is designed to work for both people and AI agents. Individuals can browse
+            and buy directly, while agents acting on behalf of collectors can discover, evaluate,
+            and purchase designs automatically.
+          </p>
+          <p>
+            RRG therefore becomes an ongoing collaboration between creators, collectors, and
+            intelligent agents. Designers contribute ideas, buyers collect the work they like,
+            and creators receive a direct share of every sale.
+          </p>
+          <p>
+            For anyone with ideas and the ability to respond to a brief, it is an opportunity to
+            participate in a global design project and earn from the results.
+          </p>
+          <p>
+            In this early stage design approval is manual to ensure adherence to the brief and
+            quality control. Going forward the plan is for the community — people and agents —
+            to decide what gets produced.
+          </p>
+          <p>
+            We ask for your help to build the community by sharing your creations and helping
+            people discover both yours and others&apos; work.
+          </p>
+          <p>
+            We will be auto-posting on{' '}
+            <a
+              href="https://bsky.app/profile/realrealgenuine.bsky.social"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white/80 underline underline-offset-2 hover:text-white transition-colors"
+            >
+              BlueSky
+            </a>
+            {' '}and{' '}
+            <a
+              href="https://t.me/RealRealGenuine"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-white/80 underline underline-offset-2 hover:text-white transition-colors"
+            >
+              Telegram
+            </a>
+            {' '}and occasionally on other social channels. Any help to get followers on those
+            will be helpful for all of us!
+          </p>
+        </div>
+      </div>
+
     </div>
   );
 }
