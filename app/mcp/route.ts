@@ -107,6 +107,10 @@ function createDrHobbsServer() {
     }
   );
 
+  // ── JPEG magic-byte check ─────────────────────────────────────────────────
+  const isJpegBuffer = (buf: Buffer) =>
+    buf.length >= 3 && buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF;
+
   // ── Tool: submit_design ───────────────────────────────────────────────────
   server.tool(
     'submit_design',
@@ -115,45 +119,68 @@ function createDrHobbsServer() {
       'If approved, the design becomes an ERC-1155 NFT drop on Base.',
       'The creator wallet receives 70% of all sales in USDC.',
       '',
-      'Required: title (≤60 chars), image_url (publicly accessible JPEG, ≤5 MB), creator_wallet (0x Base address).',
+      'Provide the image as EITHER:',
+      '  image_base64 — base64-encoded JPEG, or data URI (data:image/jpeg;base64,...). Preferred for generated images.',
+      '  image_url    — publicly accessible JPEG URL (max 5 MB). Use if the image is already hosted.',
+      '',
+      'Required: title (≤60 chars), creator_wallet (0x Base address).',
       'Optional: description (≤280 chars), creator_email, suggested_edition (e.g. "10"), suggested_price_usdc (e.g. "15").',
     ].join('\n'),
     {
-      title: z.string().max(60).describe('Artwork title (max 60 characters)'),
-      image_url: z.string().url().describe('Publicly accessible URL of a JPEG image (max 5 MB)'),
-      creator_wallet: z.string().regex(/^0x[0-9a-fA-F]{40}$/).describe('Base wallet address — receives 70% of sales'),
-      description: z.string().max(280).optional().describe('Optional description (max 280 characters)'),
-      creator_email: z.string().email().optional().describe('Optional email for approval notification'),
-      suggested_edition: z.string().optional().describe('Suggested edition size e.g. "10" — reviewer can adjust'),
+      title:                z.string().max(60).describe('Artwork title (max 60 characters)'),
+      creator_wallet:       z.string().regex(/^0x[0-9a-fA-F]{40}$/).describe('Base wallet address — receives 70% of sales'),
+      image_base64:         z.string().optional().describe('Base64-encoded JPEG, or data URI (data:image/jpeg;base64,...). Preferred for AI-generated images — no external hosting needed.'),
+      image_url:            z.string().url().optional().describe('Publicly accessible JPEG URL (max 5 MB). Use if image is already hosted.'),
+      description:          z.string().max(280).optional().describe('Optional description (max 280 characters)'),
+      creator_email:        z.string().email().optional().describe('Optional email for approval notification'),
+      suggested_edition:    z.string().optional().describe('Suggested edition size e.g. "10" — reviewer can adjust'),
       suggested_price_usdc: z.string().optional().describe('Suggested price in USDC e.g. "15" — reviewer can adjust'),
     },
-    async ({ title, image_url, creator_wallet, description, creator_email, suggested_edition, suggested_price_usdc }) => {
-      // Fetch image
-      let imageBuffer: Buffer;
-      let detectedContentType: string;
-      try {
-        const imageResp = await fetch(image_url, {
-          signal: AbortSignal.timeout(30_000),
-          headers: { 'User-Agent': 'DrHobbs-RRG/1.0' },
-        });
-        if (!imageResp.ok) {
-          return { isError: true, content: [{ type: 'text', text: `Could not fetch image (HTTP ${imageResp.status})` }] };
-        }
-        detectedContentType = imageResp.headers.get('content-type') || '';
-        imageBuffer = Buffer.from(await imageResp.arrayBuffer());
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        return { isError: true, content: [{ type: 'text', text: `Failed to fetch image: ${msg}` }] };
+    async ({ title, image_url, image_base64, creator_wallet, description, creator_email, suggested_edition, suggested_price_usdc }) => {
+      if (!image_base64 && !image_url) {
+        return { isError: true, content: [{ type: 'text', text: 'Provide either image_base64 or image_url' }] };
       }
 
-      // Validate JPEG
-      const isJpeg =
-        detectedContentType.includes('jpeg') ||
-        detectedContentType.includes('jpg') ||
-        /\.(jpg|jpeg)(\?|$)/i.test(image_url);
-      if (!isJpeg) {
-        return { isError: true, content: [{ type: 'text', text: `Image must be a JPEG (detected: ${detectedContentType})` }] };
+      // Resolve image buffer
+      let imageBuffer: Buffer;
+
+      if (image_base64) {
+        // Strip data URI prefix if present
+        const raw = image_base64.replace(/^data:image\/[a-z]+;base64,/i, '');
+        try {
+          imageBuffer = Buffer.from(raw, 'base64');
+        } catch {
+          return { isError: true, content: [{ type: 'text', text: 'image_base64 is not valid base64' }] };
+        }
+        if (!isJpegBuffer(imageBuffer)) {
+          return { isError: true, content: [{ type: 'text', text: 'image_base64 does not appear to be a JPEG (wrong magic bytes). Ensure the image is JPEG-encoded.' }] };
+        }
+      } else {
+        // Fetch from URL
+        try {
+          const imageResp = await fetch(image_url!, {
+            signal: AbortSignal.timeout(30_000),
+            headers: { 'User-Agent': 'DrHobbs-RRG/1.0' },
+          });
+          if (!imageResp.ok) {
+            return { isError: true, content: [{ type: 'text', text: `Could not fetch image (HTTP ${imageResp.status})` }] };
+          }
+          const detectedContentType = imageResp.headers.get('content-type') || '';
+          imageBuffer = Buffer.from(await imageResp.arrayBuffer());
+          const isJpeg =
+            detectedContentType.includes('jpeg') ||
+            detectedContentType.includes('jpg') ||
+            /\.(jpg|jpeg)(\?|$)/i.test(image_url!) ||
+            isJpegBuffer(imageBuffer);
+          if (!isJpeg) {
+            return { isError: true, content: [{ type: 'text', text: `Image must be a JPEG (detected: ${detectedContentType})` }] };
+          }
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          return { isError: true, content: [{ type: 'text', text: `Failed to fetch image: ${msg}` }] };
+        }
       }
+
       if (imageBuffer.length > 5 * 1024 * 1024) {
         return { isError: true, content: [{ type: 'text', text: `Image is ${(imageBuffer.length / 1024 / 1024).toFixed(1)} MB — must be under 5 MB` }] };
       }
