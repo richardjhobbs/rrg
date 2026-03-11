@@ -124,6 +124,7 @@ function ProductsTab({ brandId }: { brandId: string }) {
     edition_size: '10',
   });
   const [file, setFile] = useState<File | null>(null);
+  const [additionalFiles, setAdditionalFiles] = useState<File[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -156,6 +157,9 @@ function ProductsTab({ brandId }: { brandId: string }) {
     fd.append('price_usdc', form.price_usdc);
     fd.append('edition_size', form.edition_size);
     fd.append('jpeg', file);
+    for (const af of additionalFiles) {
+      fd.append('additional_files', af);
+    }
 
     const res  = await fetch(`/api/brand/${brandId}/products/create`, { method: 'POST', body: fd });
     const data = await res.json();
@@ -165,6 +169,7 @@ function ProductsTab({ brandId }: { brandId: string }) {
       setMsg(`Listed ✓ Token #${data.tokenId} — ${data.dropUrl}`);
       setForm({ title: '', description: '', price_usdc: '5', edition_size: '10' });
       setFile(null);
+      setAdditionalFiles([]);
       setCreating(false);
       load();
     } else {
@@ -252,6 +257,27 @@ function ProductsTab({ brandId }: { brandId: string }) {
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none resize-none"
             />
+          </div>
+          <div>
+            <label className="text-xs font-mono text-white/40 block mb-1">
+              Additional Files <span className="text-white/20">(optional — delivered to buyers post-purchase, max 5 MB total)</span>
+            </label>
+            <input
+              type="file"
+              multiple
+              onChange={(e) => setAdditionalFiles(Array.from(e.target.files || []))}
+              className="w-full text-xs text-white/40 file:bg-white/10 file:border-0 file:px-3 file:py-2
+                         file:text-white file:text-xs file:mr-3 file:cursor-pointer"
+            />
+            {additionalFiles.length > 0 && (
+              <p className="text-xs text-white/20 mt-1 font-mono">
+                {additionalFiles.length} file{additionalFiles.length !== 1 ? 's' : ''} selected
+                ({(additionalFiles.reduce((s, f) => s + f.size, 0) / 1024 / 1024).toFixed(1)} MB)
+              </p>
+            )}
+            <p className="text-xs text-white/15 mt-1">
+              ZIP, PDF, SVG, AI, PSD, etc. — these are perks delivered to the buyer.
+            </p>
           </div>
           <button
             type="submit"

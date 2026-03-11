@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireBrandAuth } from '@/lib/rrg/brand-auth';
 import { db, claimNextTokenId, getBrandById, getCurrentNetwork, RRG_BRAND_ID } from '@/lib/rrg/db';
 import { getRRGContract, toUsdc6dp } from '@/lib/rrg/contract';
-import { uploadSubmissionFile, jpegStoragePath } from '@/lib/rrg/storage';
+import { uploadSubmissionFile, jpegStoragePath, additionalFileStoragePath, additionalFilesPath } from '@/lib/rrg/storage';
 import { calculateSplit } from '@/lib/rrg/splits';
 import { autopostApproval } from '@/lib/rrg/autopost';
 import { getSignedUrl } from '@/lib/rrg/storage';
@@ -59,6 +59,24 @@ export async function POST(
     const contactEmail  = formData.get('contact_email') as string | null;
     const jpeg          = formData.get('jpeg') as File | null;
 
+    // Collect additional files
+    const additionalFiles: File[] = [];
+    for (const [key, val] of formData.entries()) {
+      if (key === 'additional_files' && val instanceof File && val.size > 0) {
+        additionalFiles.push(val);
+      }
+    }
+
+    // Validate additional files total size (5 MB)
+    const MAX_ADDITIONAL_SIZE = 5 * 1024 * 1024;
+    const additionalTotalSize = additionalFiles.reduce((sum, f) => sum + f.size, 0);
+    if (additionalTotalSize > MAX_ADDITIONAL_SIZE) {
+      return NextResponse.json(
+        { error: `Additional files total must be under 5 MB (got ${(additionalTotalSize / 1024 / 1024).toFixed(1)} MB)` },
+        { status: 400 }
+      );
+    }
+
     // Validate required fields
     if (!title || title.trim().length > 60) {
       return NextResponse.json({ error: 'title is required (max 60 chars)' }, { status: 400 });
@@ -93,6 +111,21 @@ export async function POST(
     const filename     = `brand-${Date.now()}.${format.ext}`;
     const jpegPath     = jpegStoragePath(submissionId, filename);
     await uploadSubmissionFile(jpegPath, imageBuffer, format.mimeType);
+
+    // ── Upload additional files ────────────────────────────────────────
+    let additionalPath: string | null = null;
+    let additionalSizeBytes: number | null = null;
+
+    if (additionalFiles.length > 0) {
+      for (const file of additionalFiles) {
+        const buf = Buffer.from(await file.arrayBuffer());
+        const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const storagePath = additionalFileStoragePath(submissionId, safeName);
+        await uploadSubmissionFile(storagePath, buf, file.type || 'application/octet-stream');
+      }
+      additionalPath = additionalFilesPath(submissionId);
+      additionalSizeBytes = additionalTotalSize;
+    }
 
     // ── Calculate split ───────────────────────────────────────────────
     const split = calculateSplit({
@@ -133,6 +166,8 @@ export async function POST(
         jpeg_storage_path: jpegPath,
         jpeg_filename:     filename,
         jpeg_size_bytes:   imageBuffer.length,
+        additional_files_path:       additionalPath,
+        additional_files_size_bytes: additionalSizeBytes,
         brand_id:          brandId,
         creator_type:      'human',
         is_brand_product:  true,
