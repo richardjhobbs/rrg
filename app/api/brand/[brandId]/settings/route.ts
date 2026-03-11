@@ -13,7 +13,8 @@ function detectImageFormat(buf: Buffer): { ext: string; mimeType: string } | nul
   return null;
 }
 
-const MAX_IMAGE_SIZE = 2 * 1024 * 1024; // 2 MB for brand images
+const MAX_LOGO_SIZE   = 2  * 1024 * 1024; // 2 MB for logo
+const MAX_BANNER_SIZE = 10 * 1024 * 1024; // 10 MB for banner
 
 // GET /api/brand/[brandId]/settings — get brand profile
 export async function GET(
@@ -92,7 +93,7 @@ export async function PATCH(
 
     // Handle logo upload
     if (logoFile) {
-      if (logoFile.size > MAX_IMAGE_SIZE) {
+      if (logoFile.size > MAX_LOGO_SIZE) {
         return NextResponse.json({ error: 'Logo must be under 2 MB' }, { status: 400 });
       }
       const buf = Buffer.from(await logoFile.arrayBuffer());
@@ -114,8 +115,8 @@ export async function PATCH(
 
     // Handle banner upload
     if (bannerFile) {
-      if (bannerFile.size > MAX_IMAGE_SIZE) {
-        return NextResponse.json({ error: 'Banner must be under 2 MB' }, { status: 400 });
+      if (bannerFile.size > MAX_BANNER_SIZE) {
+        return NextResponse.json({ error: 'Banner must be under 10 MB' }, { status: 400 });
       }
       const buf = Buffer.from(await bannerFile.arrayBuffer());
       const fmt = detectImageFormat(buf);
