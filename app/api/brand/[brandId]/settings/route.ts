@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireBrandAuth } from '@/lib/rrg/brand-auth';
 import { getBrandById, db } from '@/lib/rrg/db';
-import { uploadSubmissionFile } from '@/lib/rrg/storage';
 
 export const dynamic = 'force-dynamic';
 
@@ -102,9 +101,14 @@ export async function PATCH(
         return NextResponse.json({ error: 'Logo must be JPEG or PNG' }, { status: 400 });
       }
       const path = `brands/${brandId}/logo.${fmt.ext}`;
-      // Upsert: delete old then upload (storage.upload doesn't allow overwrite by default)
-      await db.storage.from('rrg-submissions').remove([`brands/${brandId}/logo.jpg`, `brands/${brandId}/logo.png`]);
-      await uploadSubmissionFile(path, buf, fmt.mimeType);
+      // Remove old format variant (jpg↔png), then upsert current
+      const otherExt = fmt.ext === 'jpg' ? 'png' : 'jpg';
+      await db.storage.from('rrg-submissions').remove([`brands/${brandId}/logo.${otherExt}`]);
+      const { error: uploadErr } = await db.storage.from('rrg-submissions').upload(path, buf, {
+        contentType: fmt.mimeType,
+        upsert: true,
+      });
+      if (uploadErr) throw new Error(`Logo upload failed: ${uploadErr.message}`);
       updates['logo_path'] = path;
     }
 
@@ -119,8 +123,13 @@ export async function PATCH(
         return NextResponse.json({ error: 'Banner must be JPEG or PNG' }, { status: 400 });
       }
       const path = `brands/${brandId}/banner.${fmt.ext}`;
-      await db.storage.from('rrg-submissions').remove([`brands/${brandId}/banner.jpg`, `brands/${brandId}/banner.png`]);
-      await uploadSubmissionFile(path, buf, fmt.mimeType);
+      const otherExt = fmt.ext === 'jpg' ? 'png' : 'jpg';
+      await db.storage.from('rrg-submissions').remove([`brands/${brandId}/banner.${otherExt}`]);
+      const { error: uploadErr } = await db.storage.from('rrg-submissions').upload(path, buf, {
+        contentType: fmt.mimeType,
+        upsert: true,
+      });
+      if (uploadErr) throw new Error(`Banner upload failed: ${uploadErr.message}`);
       updates['banner_path'] = path;
     }
 
