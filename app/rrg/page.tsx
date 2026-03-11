@@ -1,4 +1,4 @@
-import { getApprovedDropsPaginated, getPurchaseCountsByTokenIds, getCurrentBrief, getRecentBriefs } from '@/lib/rrg/db';
+import { getApprovedDropsPaginated, getPurchaseCountsByTokenIds, getCurrentBrief, getRecentBriefs, getAllActiveBrands, RRG_BRAND_ID } from '@/lib/rrg/db';
 import { getSignedUrl } from '@/lib/rrg/storage';
 import Link from 'next/link';
 import AgentTrustBadge from '@/components/rrg/AgentTrustBadge';
@@ -27,10 +27,14 @@ export default async function RRGGallery({
   const page      = Math.max(1, parseInt(params.page ?? '1', 10) || 1);
   const briefParam = params.brief ?? 'all';
 
-  const [brief, allBriefs] = await Promise.all([
+  const [brief, allBriefs, brands] = await Promise.all([
     getCurrentBrief(),
     getRecentBriefs(20),
+    getAllActiveBrands(),
   ]);
+
+  // Brand lookup map for labelling drops
+  const brandMap = new Map(brands.map(b => [b.id, b]));
 
   // Resolve briefId filter: 'all' → undefined, 'current' → current brief id, else UUID
   const resolvedBriefId = briefParam === 'all'
@@ -59,7 +63,10 @@ export default async function RRGGallery({
       const soldOut = drop.token_id != null
         ? (purchaseCounts.get(drop.token_id) ?? 0) >= drop.edition_size
         : false;
-      return { ...drop, imageUrl, soldOut };
+      const brand = drop.brand_id ? brandMap.get(drop.brand_id) : null;
+      const brandName = brand && brand.id !== RRG_BRAND_ID ? brand.name : null;
+      const brandSlug = brand && brand.id !== RRG_BRAND_ID ? brand.slug : null;
+      return { ...drop, imageUrl, soldOut, brandName, brandSlug };
     })
   );
 
@@ -189,6 +196,11 @@ export default async function RRGGallery({
                 <span>${parseFloat(drop.price_usdc || '0').toFixed(2)} USDC</span>
                 <span>{drop.edition_size} ed.</span>
               </div>
+              {drop.brandName && (
+                <p className="mt-1.5 text-[10px] font-mono text-white/25 uppercase tracking-wider">
+                  by {drop.brandName}
+                </p>
+              )}
               {drop.creator_bio && bioExcerpt(drop.creator_bio) && (
                 <p className="mt-2 text-xs text-white/20 leading-snug line-clamp-2">
                   {bioExcerpt(drop.creator_bio)}

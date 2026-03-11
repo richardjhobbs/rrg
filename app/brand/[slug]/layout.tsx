@@ -1,89 +1,51 @@
-'use client';
+import { getBrandBySlug } from '@/lib/rrg/db';
+import { notFound } from 'next/navigation';
+import Link from 'next/link';
+import type { Metadata } from 'next';
 
-import { useState, useEffect, createContext, useContext } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+type Props = {
+  params: Promise<{ slug: string }>;
+  children: React.ReactNode;
+};
 
-interface BrandContext {
-  brandId: string;
-  brandName: string;
-  brandSlug: string;
-  userEmail: string;
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const brand = await getBrandBySlug(slug);
+  if (!brand) return { title: 'Brand Not Found' };
+  return {
+    title: `${brand.name} — Powered by RRG`,
+    description: brand.headline || brand.description || `${brand.name} on Real Real Genuine`,
+  };
 }
 
-const BrandCtx = createContext<BrandContext | null>(null);
-export const useBrandContext = () => useContext(BrandCtx);
-
-export default function BrandLayout({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const params = useParams();
-  const slug   = params.slug as string;
-
-  const [ctx,     setCtx]     = useState<BrandContext | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch('/api/brand/auth/check')
-      .then((r) => r.json())
-      .then((d) => {
-        if (!d.authenticated) {
-          router.push('/brand/login');
-          return;
-        }
-        // Find the brand matching the slug
-        const match = d.brands?.find(
-          (b: { brandSlug: string }) => b.brandSlug === slug
-        );
-        if (!match) {
-          router.push('/brand/login');
-          return;
-        }
-        setCtx({
-          brandId:   match.brandId,
-          brandName: match.brandName,
-          brandSlug: match.brandSlug,
-          userEmail: d.user.email,
-        });
-        setLoading(false);
-      })
-      .catch(() => router.push('/brand/login'));
-  }, [slug, router]);
-
-  const handleLogout = async () => {
-    await fetch('/api/brand/auth/logout', { method: 'POST' });
-    router.push('/brand/login');
-  };
-
-  if (loading || !ctx) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <p className="font-mono text-white/30 text-sm">Loading…</p>
-      </div>
-    );
-  }
+export default async function BrandPublicLayout({ children, params }: Props) {
+  const { slug } = await params;
+  const brand = await getBrandBySlug(slug);
+  if (!brand || brand.status !== 'active') return notFound();
 
   return (
-    <BrandCtx.Provider value={ctx}>
-      <div className="min-h-screen bg-black text-white">
-        {/* Header */}
-        <header className="border-b border-white/10 px-6 py-4 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            <span className="font-mono text-xs uppercase tracking-[0.3em] text-white/60">
-              {ctx.brandName}
-            </span>
-            <span className="text-xs text-white/20 font-mono">Brand Admin</span>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-xs text-white/30 font-mono">{ctx.userEmail}</span>
-            <button
-              onClick={handleLogout}
-              className="text-xs text-white/30 hover:text-white transition-colors font-mono"
-            >
-              Logout
-            </button>
-          </div>
-        </header>
-        {children}
-      </div>
-    </BrandCtx.Provider>
+    <div className="min-h-screen bg-black text-white">
+      <header className="border-b border-white/10 px-6 py-4 flex justify-between items-center">
+        <Link
+          href={`/brand/${slug}`}
+          className="text-sm font-mono tracking-[0.3em] hover:opacity-70 transition-opacity uppercase"
+        >
+          {brand.name}
+        </Link>
+        <nav className="flex gap-6 text-sm text-white/60">
+          <Link href={`/brand/${slug}`} className="hover:text-white transition-colors">
+            Gallery
+          </Link>
+          <Link href="/rrg" className="hover:text-white transition-colors text-white/30">
+            RRG
+          </Link>
+        </nav>
+      </header>
+      <main>{children}</main>
+      <footer className="border-t border-white/10 px-6 py-8 mt-24 text-xs text-white/20 font-mono flex justify-between">
+        <span>{brand.name}</span>
+        <span>Powered by RRG · realrealgenuine.com</span>
+      </footer>
+    </div>
   );
 }

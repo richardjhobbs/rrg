@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useBrandContext } from '../layout';
+import { useBrandContext } from './layout';
 
 // ── Types ──────────────────────────────────────────────────────────
 interface Drop {
