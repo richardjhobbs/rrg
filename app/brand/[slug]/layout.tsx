@@ -36,6 +36,9 @@ export default async function BrandPublicLayout({ children, params }: Props) {
           <Link href={`/brand/${slug}`} className="hover:text-white transition-colors">
             Gallery
           </Link>
+          <Link href={`/brand/${slug}/submit`} className="hover:text-white transition-colors">
+            Submit
+          </Link>
           <Link href="/rrg" className="hover:text-white transition-colors text-white/30">
             RRG
           </Link>

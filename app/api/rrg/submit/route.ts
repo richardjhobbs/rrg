@@ -61,15 +61,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Additional files must total under 5 MB' }, { status: 400 });
     }
 
-    // ── Auto-populate brief_id from current brief if not provided ────
+    // ── Resolve brand_id: explicit > brief-derived > default ──────────
+    const explicit_brand_id = (formData.get('brand_id') as string)?.trim() || null;
     let resolvedBriefId = brief_id;
-    let resolvedBrandId: string = RRG_BRAND_ID;
+    let resolvedBrandId: string = explicit_brand_id || RRG_BRAND_ID;
+
     if (!resolvedBriefId) {
-      const currentBrief = await getCurrentBrief();
+      const currentBrief = await getCurrentBrief(explicit_brand_id || undefined);
       resolvedBriefId = currentBrief?.id ?? null;
-      resolvedBrandId = currentBrief?.brand_id ?? RRG_BRAND_ID;
-    } else {
-      // If brief_id was provided, resolve brand_id from that brief
+      if (!explicit_brand_id) {
+        resolvedBrandId = currentBrief?.brand_id ?? RRG_BRAND_ID;
+      }
+    } else if (!explicit_brand_id) {
+      // If brief_id was provided but no explicit brand_id, resolve from brief
       const { data: brief } = await db
         .from('rrg_briefs')
         .select('brand_id')

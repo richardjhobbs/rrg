@@ -27,7 +27,7 @@ export default function BriefFilter({
     } else {
       params.set('brief', val);
     }
-    params.set('page', '1'); // reset to page 1 on filter change
+    params.delete('page'); // reset to page 1 on filter change
     const qs = params.toString();
     router.push(qs ? `/rrg?${qs}` : '/rrg');
   };

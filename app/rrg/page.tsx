@@ -3,6 +3,7 @@ import { getSignedUrl } from '@/lib/rrg/storage';
 import Link from 'next/link';
 import AgentTrustBadge from '@/components/rrg/AgentTrustBadge';
 import BriefFilter from '@/components/rrg/BriefFilter';
+import BrandChips from '@/components/rrg/BrandChips';
 
 export const dynamic = 'force-dynamic';
 
@@ -21,19 +22,29 @@ function bioExcerpt(bio: string, maxLen = 90): string {
 export default async function RRGGallery({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; brief?: string }>;
+  searchParams: Promise<{ page?: string; brief?: string; brand?: string }>;
 }) {
-  const params    = await searchParams;
-  const page      = Math.max(1, parseInt(params.page ?? '1', 10) || 1);
+  const params     = await searchParams;
+  const page       = Math.max(1, parseInt(params.page ?? '1', 10) || 1);
   const briefParam = params.brief ?? 'all';
+  const brandParam = params.brand ?? 'all';
 
-  const [brief, allBriefs, brands] = await Promise.all([
-    getCurrentBrief(),
-    getRecentBriefs(20),
-    getAllActiveBrands(),
+  // Fetch all active brands for the chips bar
+  const brands = await getAllActiveBrands();
+
+  // Resolve selected brand
+  const selectedBrand = brandParam !== 'all'
+    ? brands.find(b => b.slug === brandParam) ?? null
+    : null;
+  const selectedBrandId = selectedBrand?.id ?? undefined;
+
+  // Fetch brief + past briefs scoped to selected brand (or all if 'all')
+  const [brief, allBriefs] = await Promise.all([
+    getCurrentBrief(selectedBrandId),
+    getRecentBriefs(20, selectedBrandId),
   ]);
 
-  // Brand lookup map for labelling drops
+  // Brand lookup map for labelling drops (only needed when showing all brands)
   const brandMap = new Map(brands.map(b => [b.id, b]));
 
   // Resolve briefId filter: 'all' → undefined, 'current' → current brief id, else UUID
@@ -43,7 +54,9 @@ export default async function RRGGallery({
     ? brief?.id ?? undefined
     : briefParam;
 
-  const { drops, totalCount } = await getApprovedDropsPaginated(page, DROPS_PER_PAGE, resolvedBriefId);
+  const { drops, totalCount } = await getApprovedDropsPaginated(
+    page, DROPS_PER_PAGE, resolvedBriefId, selectedBrandId
+  );
 
   const totalPages = Math.max(1, Math.ceil(totalCount / DROPS_PER_PAGE));
 
@@ -70,6 +83,22 @@ export default async function RRGGallery({
     })
   );
 
+  // Build query string helper for pagination links
+  const buildQs = (overrides: Record<string, string | undefined>) => {
+    const qs = new URLSearchParams();
+    if (brandParam !== 'all') qs.set('brand', brandParam);
+    if (briefParam !== 'all') qs.set('brief', briefParam);
+    for (const [k, v] of Object.entries(overrides)) {
+      if (v) qs.set(k, v);
+      else qs.delete(k);
+    }
+    const str = qs.toString();
+    return str ? `/rrg?${str}` : '/rrg';
+  };
+
+  // Determine the submit link: brand-specific or default RRG
+  const submitSlug = selectedBrand?.slug ?? 'rrg';
+
   return (
     <div className="px-6 py-12 max-w-6xl mx-auto">
 
@@ -78,7 +107,7 @@ export default async function RRGGallery({
         <div className="mb-10 p-8 border border-white/20 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
           <p className="text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-3">
-            Current Brief
+            Current Brief{selectedBrand ? ` — ${selectedBrand.name}` : ''}
           </p>
           <h2 className="text-2xl font-light mb-3 leading-snug">{brief.title}</h2>
           <p className="text-white/60 leading-relaxed mb-5 max-w-xl text-sm">
@@ -86,11 +115,11 @@ export default async function RRGGallery({
           </p>
           <div className="flex items-center gap-6">
             <Link
-              href="/rrg/submit"
+              href={`/brand/${submitSlug}/submit`}
               className="inline-flex items-center gap-2 px-6 py-2.5 border border-white text-sm
                          hover:bg-white hover:text-black transition-all font-medium"
             >
-              Submit a Design →
+              Submit a Design &rarr;
             </Link>
             {brief.ends_at && (
               <p className="text-xs font-mono text-white/30">
@@ -125,6 +154,14 @@ export default async function RRGGallery({
         </div>
       </div>
 
+      {/* ── Brand Chips ─────────────────────────────────────────────── */}
+      <div className="mb-6">
+        <BrandChips
+          brands={brands.map(b => ({ slug: b.slug, name: b.name }))}
+          selected={brandParam}
+        />
+      </div>
+
       {/* ── Gallery Header ───────────────────────────────────────────── */}
       <div className="flex justify-between items-center mb-8">
         <div className="flex items-center gap-4">
@@ -141,10 +178,10 @@ export default async function RRGGallery({
           <AgentTrustBadge />
           {!brief && (
             <Link
-              href="/rrg/submit"
+              href={`/brand/${submitSlug}/submit`}
               className="text-sm border border-white/30 px-4 py-1.5 hover:border-white transition-all"
             >
-              Submit →
+              Submit &rarr;
             </Link>
           )}
         </div>
@@ -154,8 +191,8 @@ export default async function RRGGallery({
       {dropsWithUrls.length === 0 ? (
         <div className="text-center py-32 text-white/20 font-mono text-sm">
           <p>No drops yet.</p>
-          <Link href="/rrg/submit" className="mt-4 inline-block text-white/40 hover:text-white transition-colors">
-            Be the first to submit →
+          <Link href={`/brand/${submitSlug}/submit`} className="mt-4 inline-block text-white/40 hover:text-white transition-colors">
+            Be the first to submit &rarr;
           </Link>
         </div>
       ) : (
@@ -212,36 +249,33 @@ export default async function RRGGallery({
       )}
 
       {/* ── Pagination ───────────────────────────────────────────────── */}
-      {totalPages > 1 && (() => {
-        const briefQs = briefParam !== 'all' ? `brief=${briefParam}&` : '';
-        return (
-          <div className="flex justify-end items-center gap-4 mt-10 text-sm font-mono">
-            {page > 1 ? (
-              <Link
-                href={page === 2 ? (briefQs ? `/rrg?${briefQs.slice(0,-1)}` : '/rrg') : `/rrg?${briefQs}page=${page - 1}`}
-                className="text-white/50 hover:text-white transition-colors"
-              >
-                &larr; Prev
-              </Link>
-            ) : (
-              <span className="text-white/15">&larr; Prev</span>
-            )}
-            <span className="text-white/30 tabular-nums">
-              {page} / {totalPages}
-            </span>
-            {page < totalPages ? (
-              <Link
-                href={`/rrg?${briefQs}page=${page + 1}`}
-                className="text-white/50 hover:text-white transition-colors"
-              >
-                Next &rarr;
-              </Link>
-            ) : (
-              <span className="text-white/15">Next &rarr;</span>
-            )}
-          </div>
-        );
-      })()}
+      {totalPages > 1 && (
+        <div className="flex justify-end items-center gap-4 mt-10 text-sm font-mono">
+          {page > 1 ? (
+            <Link
+              href={page === 2 ? buildQs({ page: undefined }) : buildQs({ page: String(page - 1) })}
+              className="text-white/50 hover:text-white transition-colors"
+            >
+              &larr; Prev
+            </Link>
+          ) : (
+            <span className="text-white/15">&larr; Prev</span>
+          )}
+          <span className="text-white/30 tabular-nums">
+            {page} / {totalPages}
+          </span>
+          {page < totalPages ? (
+            <Link
+              href={buildQs({ page: String(page + 1) })}
+              className="text-white/50 hover:text-white transition-colors"
+            >
+              Next &rarr;
+            </Link>
+          ) : (
+            <span className="text-white/15">Next &rarr;</span>
+          )}
+        </div>
+      )}
 
       {/* ── The Process ──────────────────────────────────────────────── */}
       <div className="mt-20 p-8 border border-white/10">

@@ -90,14 +90,23 @@ export default async function BrandStorefront({
           <p className="text-white/60 leading-relaxed mb-5 max-w-xl text-sm">
             {brief.description}
           </p>
-          {brief.ends_at && (
-            <p className="text-xs font-mono text-white/30">
-              Deadline:{' '}
-              {new Date(brief.ends_at).toLocaleDateString('en-GB', {
-                day: 'numeric', month: 'long', year: 'numeric',
-              })}
-            </p>
-          )}
+          <div className="flex items-center gap-6">
+            <Link
+              href={`/brand/${slug}/submit`}
+              className="inline-flex items-center gap-2 px-6 py-2.5 border border-white text-sm
+                         hover:bg-white hover:text-black transition-all font-medium"
+            >
+              Submit a Design &rarr;
+            </Link>
+            {brief.ends_at && (
+              <p className="text-xs font-mono text-white/30">
+                Deadline:{' '}
+                {new Date(brief.ends_at).toLocaleDateString('en-GB', {
+                  day: 'numeric', month: 'long', year: 'numeric',
+                })}
+              </p>
+            )}
+          </div>
         </div>
       )}
 

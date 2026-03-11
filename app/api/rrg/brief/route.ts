@@ -1,12 +1,14 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentBrief } from '@/lib/rrg/db';
 
 export const dynamic = 'force-dynamic';
 
 // GET /api/rrg/brief — public: returns current active brief or null
-export async function GET() {
+// Optional: ?brandId=UUID to scope to a specific brand
+export async function GET(req: NextRequest) {
   try {
-    const brief = await getCurrentBrief();
+    const brandId = req.nextUrl.searchParams.get('brandId') || undefined;
+    const brief = await getCurrentBrief(brandId);
     return NextResponse.json({ brief });
   } catch (err) {
     console.error('[/api/rrg/brief]', err);
