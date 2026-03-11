@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, getDropByTokenId, getCurrentNetwork } from '@/lib/rrg/db';
+import { db, getDropByTokenId, getCurrentNetwork, getBrandById, RRG_BRAND_ID } from '@/lib/rrg/db';
 import { getRRGContract } from '@/lib/rrg/contract';
 import { splitSignature } from '@/lib/rrg/permit';
 import { getSignedUrl } from '@/lib/rrg/storage';
@@ -8,6 +8,7 @@ import { sendFileDeliveryEmail } from '@/lib/rrg/email';
 import { randomBytes } from 'crypto';
 import { autopostSale } from '@/lib/rrg/autopost';
 import { postReputationSignal } from '@/lib/rrg/erc8004';
+import { calculateSplit } from '@/lib/rrg/splits';
 
 export const dynamic = 'force-dynamic';
 
@@ -73,11 +74,45 @@ export async function POST(req: NextRequest) {
         download_token:     downloadToken,
         download_expires_at: downloadExpiry,
         network:             getCurrentNetwork(),
+        brand_id:            drop.brand_id ?? RRG_BRAND_ID,
       })
       .select()
       .single();
 
     if (dbError) throw dbError;
+
+    // ── Record revenue distribution ──────────────────────────────────
+    try {
+      const brandId = drop.brand_id ?? RRG_BRAND_ID;
+      const brand   = brandId !== RRG_BRAND_ID ? await getBrandById(brandId) : null;
+      // Legacy = pre-multi-brand RRG drops where on-chain creator != platformWallet
+      const isLegacy = brandId === RRG_BRAND_ID && !drop.is_brand_product;
+
+      const split = calculateSplit({
+        totalUsdc:      parseFloat(drop.price_usdc ?? '0'),
+        brandId,
+        creatorWallet:  drop.creator_wallet,
+        brandWallet:    brand?.wallet_address ?? null,
+        isBrandProduct: drop.is_brand_product ?? false,
+        isLegacy,
+      });
+
+      await db.from('rrg_distributions').insert({
+        purchase_id:    purchase.id,
+        brand_id:       brandId,
+        total_usdc:     split.totalUsdc,
+        creator_usdc:   split.creatorUsdc,
+        brand_usdc:     split.brandUsdc,
+        platform_usdc:  split.platformUsdc,
+        creator_wallet: split.creatorWallet,
+        brand_wallet:   split.brandWallet,
+        split_type:     split.splitType,
+        status:         'pending',
+      });
+    } catch (distErr) {
+      console.error('[confirm] Distribution record failed:', distErr);
+      // Non-fatal — purchase still succeeded
+    }
 
     // ── Autopost sale (non-blocking) ─────────────────────────────────────
     (async () => {

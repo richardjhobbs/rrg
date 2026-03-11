@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ethers } from 'ethers';
-import { db } from '@/lib/rrg/db';
+import { db, getBrandById, RRG_BRAND_ID } from '@/lib/rrg/db';
 import { sendFileDeliveryEmail } from '@/lib/rrg/email';
 import { getSignedUrl } from '@/lib/rrg/storage';
 import { uploadToIpfsInBackground } from '@/lib/rrg/ipfs';
@@ -8,6 +8,7 @@ import { getRRGContract } from '@/lib/rrg/contract';
 import { autopostSale } from '@/lib/rrg/autopost';
 import { postReputationSignal } from '@/lib/rrg/erc8004';
 import { randomBytes } from 'crypto';
+import { calculateSplit } from '@/lib/rrg/splits';
 
 export const dynamic = 'force-dynamic';
 
@@ -178,7 +179,7 @@ export async function POST(req: NextRequest) {
     const siteUrl        = process.env.NEXT_PUBLIC_SITE_URL!;
     const downloadUrl    = `${siteUrl}/rrg/download?token=${downloadToken}`;
 
-    const { error: insertErr } = await db
+    const { data: purchase, error: insertErr } = await db
       .from('rrg_purchases')
       .insert({
         submission_id:       submission.id,
@@ -191,12 +192,46 @@ export async function POST(req: NextRequest) {
         download_expires_at: downloadExpiry,
         files_delivered:     false,
         mint_status:         'pending',
+        brand_id:            submission.brand_id ?? RRG_BRAND_ID,
         ...(email ? { delivery_email: email } : {}),
-      });
+      })
+      .select()
+      .single();
 
     if (insertErr) {
       console.error('[/api/rrg/claim] DB insert error:', insertErr);
       return NextResponse.json({ error: 'Database error recording purchase' }, { status: 500 });
+    }
+
+    // ── Record revenue distribution ──────────────────────────────────
+    try {
+      const brandId = submission.brand_id ?? RRG_BRAND_ID;
+      const brand   = brandId !== RRG_BRAND_ID ? await getBrandById(brandId) : null;
+      const isLegacy = brandId === RRG_BRAND_ID && !submission.is_brand_product;
+
+      const split = calculateSplit({
+        totalUsdc:      parseFloat(submission.price_usdc ?? '0'),
+        brandId,
+        creatorWallet:  submission.creator_wallet,
+        brandWallet:    brand?.wallet_address ?? null,
+        isBrandProduct: submission.is_brand_product ?? false,
+        isLegacy,
+      });
+
+      await db.from('rrg_distributions').insert({
+        purchase_id:    purchase.id,
+        brand_id:       brandId,
+        total_usdc:     split.totalUsdc,
+        creator_usdc:   split.creatorUsdc,
+        brand_usdc:     split.brandUsdc,
+        platform_usdc:  split.platformUsdc,
+        creator_wallet: split.creatorWallet,
+        brand_wallet:   split.brandWallet,
+        split_type:     split.splitType,
+        status:         'pending',
+      });
+    } catch (distErr) {
+      console.error('[claim] Distribution record failed:', distErr);
     }
 
     // ── Send delivery email if provided ───────────────────────────────────

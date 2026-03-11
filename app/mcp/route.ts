@@ -11,10 +11,15 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import { z } from 'zod';
-import { db, getApprovedDrops, getCurrentBrief, getDropByTokenId } from '@/lib/rrg/db';
+import {
+  db, getApprovedDrops, getCurrentBrief, getDropByTokenId,
+  getAllActiveBrands, getBrandBySlug, getBrandById, getOpenBriefs,
+  getBrandSalesStats, RRG_BRAND_ID,
+} from '@/lib/rrg/db';
 import { uploadSubmissionFile, jpegStoragePath, getSignedUrl } from '@/lib/rrg/storage';
 import { buildPermitPayload, splitSignature } from '@/lib/rrg/permit';
 import { getRRGContract, getRRGReadOnly, toUsdc6dp } from '@/lib/rrg/contract';
+import { calculateSplit } from '@/lib/rrg/splits';
 import { randomUUID, randomBytes } from 'crypto';
 
 export const dynamic = 'force-dynamic';
@@ -31,10 +36,20 @@ function createDrHobbsServer() {
   // ── Tool: list_drops ──────────────────────────────────────────────────────
   server.tool(
     'list_drops',
-    'List all active RRG NFT drops available for purchase. Returns title, price in USDC, edition size, and remaining supply.',
-    {},
-    async () => {
-      const drops = await getApprovedDrops();
+    'List all active RRG NFT drops available for purchase. Optionally filter by brand. Returns title, price in USDC, edition size, and remaining supply.',
+    {
+      brand_slug: z.string().optional().describe('Optional brand slug to filter drops by a specific brand'),
+    },
+    async ({ brand_slug }) => {
+      let brandId: string | undefined;
+      if (brand_slug) {
+        const brand = await getBrandBySlug(brand_slug);
+        if (!brand) {
+          return { isError: true, content: [{ type: 'text', text: `Brand "${brand_slug}" not found` }] };
+        }
+        brandId = brand.id;
+      }
+      const drops = await getApprovedDrops(brandId);
 
       // Enrich with on-chain minted count where possible
       const enriched = await Promise.all(
@@ -58,6 +73,7 @@ function createDrHobbsServer() {
             editionSize: drop.edition_size,
             remaining,
             ipfsUrl:     drop.ipfs_url,
+            brandId:     drop.brand_id ?? RRG_BRAND_ID,
           };
         })
       );
@@ -82,13 +98,23 @@ function createDrHobbsServer() {
   // ── Tool: get_current_brief ───────────────────────────────────────────────
   server.tool(
     'get_current_brief',
-    'Get the current RRG design brief — the active creative challenge that creators are invited to respond to with artwork submissions.',
-    {},
-    async () => {
-      const brief = await getCurrentBrief();
+    'Get the current design brief — the active creative challenge. Optionally filter by brand slug to get a specific brand\'s brief.',
+    {
+      brand_slug: z.string().optional().describe('Optional brand slug to get that brand\'s current brief instead of the default RRG brief'),
+    },
+    async ({ brand_slug }) => {
+      let brandId: string | undefined;
+      if (brand_slug) {
+        const brand = await getBrandBySlug(brand_slug);
+        if (!brand) {
+          return { isError: true, content: [{ type: 'text', text: `Brand "${brand_slug}" not found` }] };
+        }
+        brandId = brand.id;
+      }
+      const brief = await getCurrentBrief(brandId);
       if (!brief) {
         return {
-          content: [{ type: 'text', text: 'No active design brief at this time.' }],
+          content: [{ type: 'text', text: brand_slug ? `No active brief for brand "${brand_slug}".` : 'No active design brief at this time.' }],
         };
       }
       return {
@@ -100,6 +126,7 @@ function createDrHobbsServer() {
             description: brief.description,
             startsAt:    brief.starts_at,
             endsAt:      brief.ends_at,
+            brandId:     brief.brand_id ?? RRG_BRAND_ID,
           }, null, 2),
         }],
       };
@@ -116,26 +143,27 @@ function createDrHobbsServer() {
     [
       'Submit an original digital artwork to RRG for review.',
       'If approved, the design becomes an ERC-1155 NFT drop on Base.',
-      'The creator wallet receives 70% of all sales in USDC.',
       '',
       'Provide the image as EITHER:',
       '  image_base64 — base64-encoded JPEG, or data URI (data:image/jpeg;base64,...). Preferred for generated images.',
       '  image_url    — publicly accessible JPEG URL (max 5 MB). Use if the image is already hosted.',
       '',
       'Required: title (≤60 chars), creator_wallet (0x Base address).',
-      'Optional: description (≤280 chars), creator_email, suggested_edition (e.g. "10"), suggested_price_usdc (e.g. "15").',
+      'Optional: description (≤280 chars), creator_email, suggested_edition, suggested_price_usdc.',
+      'Optional: brief_id — target a specific brand challenge (from list_briefs). Submission will be associated with that brand.',
     ].join('\n'),
     {
       title:                z.string().max(60).describe('Artwork title (max 60 characters)'),
-      creator_wallet:       z.string().regex(/^0x[0-9a-fA-F]{40}$/).describe('Base wallet address — receives 70% of sales'),
+      creator_wallet:       z.string().regex(/^0x[0-9a-fA-F]{40}$/).describe('Base wallet address — receives sales revenue'),
       image_base64:         z.string().optional().describe('Base64-encoded JPEG, or data URI (data:image/jpeg;base64,...). Preferred for AI-generated images — no external hosting needed.'),
       image_url:            z.string().url().optional().describe('Publicly accessible JPEG URL (max 5 MB). Use if image is already hosted.'),
       description:          z.string().max(280).optional().describe('Optional description (max 280 characters)'),
       creator_email:        z.string().email().optional().describe('Optional email for approval notification'),
       suggested_edition:    z.string().optional().describe('Suggested edition size e.g. "10" — reviewer can adjust'),
       suggested_price_usdc: z.string().optional().describe('Suggested price in USDC e.g. "15" — reviewer can adjust'),
+      brief_id:             z.string().optional().describe('Target a specific brand challenge by brief ID (from list_briefs)'),
     },
-    async ({ title, image_url, image_base64, creator_wallet, description, creator_email, suggested_edition, suggested_price_usdc }) => {
+    async ({ title, image_url, image_base64, creator_wallet, description, creator_email, suggested_edition, suggested_price_usdc, brief_id }) => {
       if (!image_base64 && !image_url) {
         return { isError: true, content: [{ type: 'text', text: 'Provide either image_base64 or image_url' }] };
       }
@@ -200,11 +228,29 @@ function createDrHobbsServer() {
       const jpegPath     = jpegStoragePath(submissionId, filename);
       await uploadSubmissionFile(jpegPath, imageBuffer, 'image/jpeg');
 
+      // Resolve brand_id from brief_id or current brief
+      let resolvedBriefId: string | null = brief_id?.trim() || null;
+      let resolvedBrandId: string = RRG_BRAND_ID;
+
+      if (resolvedBriefId) {
+        const { data: briefRow } = await db
+          .from('rrg_briefs')
+          .select('brand_id')
+          .eq('id', resolvedBriefId)
+          .single();
+        resolvedBrandId = briefRow?.brand_id ?? RRG_BRAND_ID;
+      } else {
+        const currentBrief = await getCurrentBrief();
+        resolvedBriefId = currentBrief?.id ?? null;
+        resolvedBrandId = currentBrief?.brand_id ?? RRG_BRAND_ID;
+      }
+
       // Insert DB record
       const { data, error } = await db
         .from('rrg_submissions')
         .insert({
           id:                 submissionId,
+          brief_id:           resolvedBriefId,
           creator_wallet:     creator_wallet.trim().toLowerCase(),
           creator_email:      creator_email?.trim() || null,
           title:              title.trim(),
@@ -214,6 +260,8 @@ function createDrHobbsServer() {
           jpeg_storage_path:  jpegPath,
           jpeg_filename:      filename,
           jpeg_size_bytes:    imageBuffer.length,
+          brand_id:           resolvedBrandId,
+          creator_type:       'agent' as const,
         })
         .select()
         .single();
@@ -339,11 +387,40 @@ function createDrHobbsServer() {
           amount_usdc:         drop.price_usdc,
           download_token:      downloadToken,
           download_expires_at: downloadExpiry,
+          brand_id:            drop.brand_id ?? RRG_BRAND_ID,
         })
         .select()
         .single();
 
       if (dbError) throw dbError;
+
+      // Record distribution (non-fatal)
+      try {
+        const brandId = drop.brand_id ?? RRG_BRAND_ID;
+        const brand   = brandId !== RRG_BRAND_ID ? await getBrandById(brandId) : null;
+        const split   = calculateSplit({
+          totalUsdc:      parseFloat(drop.price_usdc ?? '0'),
+          brandId,
+          creatorWallet:  drop.creator_wallet,
+          brandWallet:    brand?.wallet_address ?? null,
+          isBrandProduct: drop.is_brand_product ?? false,
+          isLegacy:       false,
+        });
+        await db.from('rrg_distributions').insert({
+          purchase_id:    purchase.id,
+          brand_id:       brandId,
+          total_usdc:     split.totalUsdc.toFixed(2),
+          creator_usdc:   split.creatorUsdc.toFixed(2),
+          brand_usdc:     split.brandUsdc.toFixed(2),
+          platform_usdc:  split.platformUsdc.toFixed(2),
+          creator_wallet: split.creatorWallet,
+          brand_wallet:   split.brandWallet,
+          split_type:     split.splitType,
+          status:         'pending',
+        });
+      } catch (distErr) {
+        console.error('[confirm_purchase] distribution record failed:', distErr);
+      }
 
       const siteUrl     = process.env.NEXT_PUBLIC_SITE_URL!;
       const downloadUrl = `${siteUrl}/rrg/download?token=${downloadToken}`;
@@ -398,6 +475,131 @@ function createDrHobbsServer() {
         content: [{
           type: 'text',
           text: JSON.stringify({ files: urls, txHash: purchase.tx_hash }, null, 2),
+        }],
+      };
+    }
+  );
+
+  // ── Tool: list_brands ────────────────────────────────────────────────────
+  server.tool(
+    'list_brands',
+    'List all active brands on the RRG platform. Returns name, slug, headline, description, website, and product/brief counts.',
+    {},
+    async () => {
+      const brands = await getAllActiveBrands();
+
+      const enriched = await Promise.all(
+        brands.map(async (brand) => {
+          // Count open briefs for this brand
+          const { data: briefCount } = await db
+            .from('rrg_briefs')
+            .select('id', { count: 'exact', head: true })
+            .eq('brand_id', brand.id)
+            .eq('is_current', true);
+
+          // Count approved drops for this brand
+          const { data: dropCount } = await db
+            .from('rrg_submissions')
+            .select('id', { count: 'exact', head: true })
+            .eq('brand_id', brand.id)
+            .eq('status', 'approved');
+
+          return {
+            name:           brand.name,
+            slug:           brand.slug,
+            headline:       brand.headline,
+            description:    brand.description,
+            websiteUrl:     brand.website_url,
+            openBriefs:     briefCount?.length ?? 0,
+            productCount:   dropCount?.length ?? 0,
+          };
+        })
+      );
+
+      if (enriched.length === 0) {
+        return { content: [{ type: 'text', text: 'No active brands on the platform.' }] };
+      }
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify(enriched, null, 2) }],
+      };
+    }
+  );
+
+  // ── Tool: list_briefs ───────────────────────────────────────────────────
+  server.tool(
+    'list_briefs',
+    'List all open design briefs (creative challenges) across brands. Optionally filter by brand slug.',
+    {
+      brand_slug: z.string().optional().describe('Optional brand slug to filter briefs by a specific brand'),
+    },
+    async ({ brand_slug }) => {
+      let brandId: string | undefined;
+      if (brand_slug) {
+        const brand = await getBrandBySlug(brand_slug);
+        if (!brand) {
+          return { isError: true, content: [{ type: 'text', text: `Brand "${brand_slug}" not found` }] };
+        }
+        brandId = brand.id;
+      }
+
+      const briefs = await getOpenBriefs(brandId);
+
+      if (briefs.length === 0) {
+        return { content: [{ type: 'text', text: brand_slug ? `No open briefs for "${brand_slug}".` : 'No open briefs at this time.' }] };
+      }
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify(briefs, null, 2) }],
+      };
+    }
+  );
+
+  // ── Tool: get_brand ─────────────────────────────────────────────────────
+  server.tool(
+    'get_brand',
+    'Get full details for a brand including its profile, open briefs, and purchasable drops.',
+    {
+      brand_slug: z.string().describe('Brand slug (e.g. "rrg", "my-brand")'),
+    },
+    async ({ brand_slug }) => {
+      const brand = await getBrandBySlug(brand_slug);
+      if (!brand) {
+        return { isError: true, content: [{ type: 'text', text: `Brand "${brand_slug}" not found` }] };
+      }
+
+      const [briefs, drops, stats] = await Promise.all([
+        getOpenBriefs(brand.id),
+        getApprovedDrops(brand.id),
+        getBrandSalesStats(brand.id),
+      ]);
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            brand: {
+              name:        brand.name,
+              slug:        brand.slug,
+              headline:    brand.headline,
+              description: brand.description,
+              websiteUrl:  brand.website_url,
+            },
+            openBriefs: briefs.map(b => ({
+              id:          b.id,
+              title:       b.title,
+              description: b.description,
+              startsAt:    b.starts_at,
+              endsAt:      b.ends_at,
+            })),
+            drops: drops.map(d => ({
+              tokenId:     d.token_id,
+              title:       d.title,
+              priceUsdc:   d.price_usdc,
+              editionSize: d.edition_size,
+            })),
+            stats,
+          }, null, 2),
         }],
       };
     }

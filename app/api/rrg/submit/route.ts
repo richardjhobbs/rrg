@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, getCurrentBrief } from '@/lib/rrg/db';
+import { db, getCurrentBrief, RRG_BRAND_ID } from '@/lib/rrg/db';
 import { uploadSubmissionFile, jpegStoragePath, additionalFileStoragePath } from '@/lib/rrg/storage';
 import { randomUUID } from 'crypto';
 
@@ -63,9 +63,19 @@ export async function POST(req: NextRequest) {
 
     // ── Auto-populate brief_id from current brief if not provided ────
     let resolvedBriefId = brief_id;
+    let resolvedBrandId: string = RRG_BRAND_ID;
     if (!resolvedBriefId) {
       const currentBrief = await getCurrentBrief();
       resolvedBriefId = currentBrief?.id ?? null;
+      resolvedBrandId = currentBrief?.brand_id ?? RRG_BRAND_ID;
+    } else {
+      // If brief_id was provided, resolve brand_id from that brief
+      const { data: brief } = await db
+        .from('rrg_briefs')
+        .select('brand_id')
+        .eq('id', resolvedBriefId)
+        .single();
+      resolvedBrandId = brief?.brand_id ?? RRG_BRAND_ID;
     }
 
     // ── Generate submission ID ────────────────────────────────────────
@@ -106,6 +116,8 @@ export async function POST(req: NextRequest) {
         jpeg_size_bytes:     jpeg.size,
         additional_files_path:        additionalPath,
         additional_files_size_bytes:  additionalFilesTotal || null,
+        brand_id:            resolvedBrandId,
+        creator_type:        'human' as const,
       })
       .select()
       .single();

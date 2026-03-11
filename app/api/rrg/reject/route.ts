@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/rrg/db';
+import { db, getSubmissionById } from '@/lib/rrg/db';
 import { isAdminFromCookies, adminUnauthorized } from '@/lib/rrg/auth';
+import { sendRejectionNotification } from '@/lib/rrg/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,20 @@ export async function POST(req: NextRequest) {
       .eq('status', 'pending');
 
     if (error) throw error;
+
+    // Send rejection email if creator provided an email (non-fatal)
+    try {
+      const submission = await getSubmissionById(submissionId);
+      if (submission?.creator_email) {
+        await sendRejectionNotification({
+          to:     submission.creator_email,
+          title:  submission.title,
+          reason: reason || null,
+        });
+      }
+    } catch (emailErr) {
+      console.error('[/api/rrg/reject] Rejection email failed:', emailErr);
+    }
 
     return NextResponse.json({ success: true });
   } catch (err) {

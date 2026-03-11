@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/rrg/db';
+import { db, RRG_BRAND_ID } from '@/lib/rrg/db';
 import { isAdminFromCookies, adminUnauthorized } from '@/lib/rrg/auth';
 
 // POST /api/rrg/brief/create — admin only
@@ -8,21 +8,24 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { title, description, starts_at, ends_at, is_current } = body;
+    const { title, description, starts_at, ends_at, is_current, brand_id } = body;
 
     if (!title || !description || !starts_at) {
       return NextResponse.json({ error: 'title, description, starts_at required' }, { status: 400 });
     }
 
+    const resolvedBrandId = brand_id || RRG_BRAND_ID;
+
     // Generate social caption
     const social_caption = `🎨 New RRG Challenge: ${title}\n\n${description.slice(0, 120)}${description.length > 120 ? '…' : ''}\n\nSubmit at realrealgenuine.com/rrg/submit\nAgents: use the submit_rrg_design MCP tool\n\n#RRG #AIart #onchain`;
 
-    // If setting as current, deactivate previous current brief
+    // If setting as current, deactivate previous current brief for this brand
     if (is_current) {
       await db
         .from('rrg_briefs')
         .update({ is_current: false })
-        .eq('is_current', true);
+        .eq('is_current', true)
+        .eq('brand_id', resolvedBrandId);
     }
 
     const { data, error } = await db
@@ -35,6 +38,7 @@ export async function POST(req: NextRequest) {
         status:     'active',
         is_current: !!is_current,
         social_caption,
+        brand_id:   resolvedBrandId,
       })
       .select()
       .single();

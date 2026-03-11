@@ -37,7 +37,38 @@ interface Drop {
   approved_at: string;
 }
 
-type Tab = 'briefs' | 'submissions' | 'drops';
+interface Brand {
+  id: string;
+  name: string;
+  slug: string;
+  description?: string | null;
+  headline?: string | null;
+  contact_email: string;
+  wallet_address: string;
+  website_url?: string | null;
+  status: string;
+  max_self_listings: number;
+  self_listings_used: number;
+  created_at: string;
+}
+
+interface Distribution {
+  id: string;
+  created_at: string;
+  purchase_id: string;
+  brand_id?: string | null;
+  total_usdc: string;
+  creator_usdc: string;
+  brand_usdc: string;
+  platform_usdc: string;
+  creator_wallet?: string | null;
+  brand_wallet?: string | null;
+  split_type: string;
+  status: string;
+  notes?: string | null;
+}
+
+type Tab = 'briefs' | 'submissions' | 'drops' | 'brands' | 'distributions';
 
 // ── Main component ─────────────────────────────────────────────────────
 export default function AdminPage() {
@@ -128,7 +159,7 @@ export default function AdminPage() {
 
       {/* Tabs */}
       <div className="border-b border-white/10 px-6 flex gap-6">
-        {(['submissions', 'briefs', 'drops'] as Tab[]).map((t) => (
+        {(['submissions', 'briefs', 'drops', 'brands', 'distributions'] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -145,9 +176,11 @@ export default function AdminPage() {
 
       {/* Tab content */}
       <div className="px-6 py-8 max-w-5xl">
-        {tab === 'briefs'      && <BriefTab />}
-        {tab === 'submissions' && <SubmissionsTab />}
-        {tab === 'drops'       && <DropsTab />}
+        {tab === 'briefs'        && <BriefTab />}
+        {tab === 'submissions'   && <SubmissionsTab />}
+        {tab === 'drops'         && <DropsTab />}
+        {tab === 'brands'        && <BrandsTab />}
+        {tab === 'distributions' && <DistributionsTab />}
       </div>
     </div>
   );
@@ -592,6 +625,451 @@ function DropsTab() {
                   Contract ↗
                 </a>
               </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Brands Tab ────────────────────────────────────────────────────────
+function BrandsTab() {
+  const [brands,    setBrands]    = useState<Brand[]>([]);
+  const [loading,   setLoading]   = useState(true);
+  const [creating,  setCreating]  = useState(false);
+  const [inviting,  setInviting]  = useState<string | null>(null); // brandId being invited
+  const [msg,       setMsg]       = useState('');
+  const [form,      setForm]      = useState({
+    name: '', slug: '', contact_email: '', wallet_address: '', description: '', headline: '', website_url: '',
+  });
+  const [inviteForm, setInviteForm] = useState({ email: '', temp_password: '' });
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const res  = await fetch('/api/rrg/admin/brands');
+    const data = await res.json();
+    setBrands(data.brands || []);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleCreate = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setMsg('');
+    const res = await fetch('/api/rrg/admin/brands/create', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify(form),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setMsg(`Brand "${data.brand.name}" created ✓`);
+      setForm({ name: '', slug: '', contact_email: '', wallet_address: '', description: '', headline: '', website_url: '' });
+      setCreating(false);
+      load();
+    } else {
+      setMsg(`Error: ${data.error}`);
+    }
+  };
+
+  const handleInvite = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!inviting) return;
+    setMsg('');
+    const res = await fetch('/api/rrg/admin/brands/invite', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ brand_id: inviting, email: inviteForm.email, temp_password: inviteForm.temp_password }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setMsg(`Invited ${inviteForm.email} ✓`);
+      setInviteForm({ email: '', temp_password: '' });
+      setInviting(null);
+    } else {
+      setMsg(`Error: ${data.error}`);
+    }
+  };
+
+  const handleStatusToggle = async (brand: Brand) => {
+    const newStatus = brand.status === 'active' ? 'suspended' : 'active';
+    setMsg('');
+    const res = await fetch(`/api/rrg/admin/brands/${brand.id}`, {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ status: newStatus }),
+    });
+    if (res.ok) {
+      setMsg(`Brand ${newStatus === 'active' ? 'activated' : 'suspended'} ✓`);
+      load();
+    } else {
+      const data = await res.json();
+      setMsg(`Error: ${data.error}`);
+    }
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xs font-mono uppercase tracking-widest text-white/40">Brands</h2>
+        <button
+          onClick={() => setCreating(!creating)}
+          className="text-xs border border-white/30 px-4 py-1.5 hover:border-white transition-all"
+        >
+          {creating ? 'Cancel' : '+ Register Brand'}
+        </button>
+      </div>
+
+      {msg && (
+        <div className="mb-4 p-3 border border-white/20 bg-white/5 text-xs font-mono text-white/80">
+          {msg}
+        </div>
+      )}
+
+      {creating && (
+        <form onSubmit={handleCreate} className="mb-8 p-6 border border-white/20 space-y-4">
+          <h3 className="text-sm font-medium mb-2">Register New Brand</h3>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="text-xs font-mono text-white/40 block mb-1">Name *</label>
+              <input
+                type="text" required maxLength={100}
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+                className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-mono text-white/40 block mb-1">Slug *</label>
+              <input
+                type="text" required maxLength={50}
+                placeholder="my-brand"
+                value={form.slug}
+                onChange={(e) => setForm({ ...form, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
+                className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none font-mono"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-mono text-white/40 block mb-1">Contact Email *</label>
+              <input
+                type="email" required
+                value={form.contact_email}
+                onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
+                className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-mono text-white/40 block mb-1">Wallet Address *</label>
+              <input
+                type="text" required
+                placeholder="0x…"
+                value={form.wallet_address}
+                onChange={(e) => setForm({ ...form, wallet_address: e.target.value })}
+                className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none font-mono"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-mono text-white/40 block mb-1">Headline</label>
+              <input
+                type="text" maxLength={200}
+                value={form.headline}
+                onChange={(e) => setForm({ ...form, headline: e.target.value })}
+                className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-mono text-white/40 block mb-1">Website</label>
+              <input
+                type="url"
+                value={form.website_url}
+                onChange={(e) => setForm({ ...form, website_url: e.target.value })}
+                className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="text-xs font-mono text-white/40 block mb-1">Description</label>
+            <textarea
+              rows={3} maxLength={1000}
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+              className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none resize-none"
+            />
+          </div>
+          <button
+            type="submit"
+            className="px-6 py-2 bg-white text-black text-sm font-medium hover:bg-white/90 transition-all"
+          >
+            Create Brand →
+          </button>
+        </form>
+      )}
+
+      {loading ? (
+        <p className="text-white/20 text-xs font-mono">Loading…</p>
+      ) : brands.length === 0 ? (
+        <p className="text-white/20 text-xs font-mono">No brands registered.</p>
+      ) : (
+        <div className="space-y-4">
+          {brands.map((b) => (
+            <div key={b.id} className="border border-white/10 overflow-hidden">
+              <div className="p-5">
+                <div className="flex justify-between items-start mb-2">
+                  <div>
+                    <h3 className="text-sm font-medium">{b.name}</h3>
+                    <span className="text-xs font-mono text-white/30">/{b.slug}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-mono px-2 py-0.5 ${
+                      b.status === 'active'    ? 'bg-green-400/20 text-green-400' :
+                      b.status === 'pending'   ? 'bg-amber-400/20 text-amber-400' :
+                      b.status === 'suspended' ? 'bg-red-400/20 text-red-400' :
+                                                 'bg-white/10 text-white/40'
+                    }`}>
+                      {b.status.toUpperCase()}
+                    </span>
+                  </div>
+                </div>
+                {b.headline && <p className="text-xs text-white/50 mb-2">{b.headline}</p>}
+                <div className="flex gap-4 text-xs text-white/20 font-mono flex-wrap">
+                  <span title={b.wallet_address}>
+                    {b.wallet_address.slice(0, 6)}…{b.wallet_address.slice(-4)}
+                  </span>
+                  <span>{b.contact_email}</span>
+                  <span>Listings: {b.self_listings_used}/{b.max_self_listings}</span>
+                  <span>{new Date(b.created_at).toLocaleDateString()}</span>
+                  {b.website_url && <a href={b.website_url} target="_blank" rel="noopener noreferrer" className="hover:text-white/50">{b.website_url}</a>}
+                </div>
+              </div>
+
+              {/* Invite form */}
+              {inviting === b.id ? (
+                <form onSubmit={handleInvite} className="border-t border-white/10 p-4 flex gap-3 items-end">
+                  <div>
+                    <label className="text-xs font-mono text-white/40 block mb-1">Admin email</label>
+                    <input
+                      type="email" required
+                      value={inviteForm.email}
+                      onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
+                      className="w-56 bg-transparent border border-white/20 px-3 py-1.5 text-sm focus:border-white outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-mono text-white/40 block mb-1">Temp password</label>
+                    <input
+                      type="text" required minLength={8}
+                      value={inviteForm.temp_password}
+                      onChange={(e) => setInviteForm({ ...inviteForm, temp_password: e.target.value })}
+                      className="w-40 bg-transparent border border-white/20 px-3 py-1.5 text-sm focus:border-white outline-none"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="px-5 py-1.5 bg-white text-black text-sm font-medium hover:bg-white/90 transition-all"
+                  >
+                    Send Invite
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setInviting(null)}
+                    className="text-xs text-white/30 hover:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </form>
+              ) : (
+                <div className="border-t border-white/10 p-4 flex gap-3">
+                  <button
+                    onClick={() => { setInviting(b.id); setInviteForm({ email: '', temp_password: '' }); }}
+                    className="px-4 py-1.5 text-xs border border-white/20 hover:border-white/50 transition-all"
+                  >
+                    Invite Admin
+                  </button>
+                  <button
+                    onClick={() => handleStatusToggle(b)}
+                    className={`px-4 py-1.5 text-xs border transition-all ${
+                      b.status === 'active'
+                        ? 'border-red-400/30 text-red-400 hover:border-red-400'
+                        : 'border-green-400/30 text-green-400 hover:border-green-400'
+                    }`}
+                  >
+                    {b.status === 'active' ? 'Suspend' : 'Activate'}
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Distributions Tab ─────────────────────────────────────────────────
+function DistributionsTab() {
+  const [distributions, setDistributions] = useState<Distribution[]>([]);
+  const [loading,       setLoading]       = useState(true);
+  const [statusFilter,  setStatusFilter]  = useState<string>('');
+  const [acting,        setActing]        = useState<string | null>(null);
+  const [msg,           setMsg]           = useState('');
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const qs = statusFilter ? `?status=${statusFilter}` : '';
+    const res  = await fetch(`/api/rrg/admin/distributions${qs}`);
+    const data = await res.json();
+    setDistributions(data.distributions || []);
+    setLoading(false);
+  }, [statusFilter]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleMarkCompleted = async (id: string) => {
+    setActing(id);
+    setMsg('');
+    const res = await fetch(`/api/rrg/admin/distributions/${id}`, {
+      method:  'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ status: 'completed', notes: `Marked completed by admin on ${new Date().toISOString().split('T')[0]}` }),
+    });
+    if (res.ok) {
+      setMsg('Distribution marked completed ✓');
+      load();
+    } else {
+      const data = await res.json();
+      setMsg(`Error: ${data.error}`);
+    }
+    setActing(null);
+  };
+
+  // Summary totals
+  const totals = distributions.reduce(
+    (acc, d) => ({
+      total:    acc.total    + parseFloat(d.total_usdc),
+      creator:  acc.creator  + parseFloat(d.creator_usdc),
+      brand:    acc.brand    + parseFloat(d.brand_usdc),
+      platform: acc.platform + parseFloat(d.platform_usdc),
+    }),
+    { total: 0, creator: 0, brand: 0, platform: 0 }
+  );
+
+  const splitLabel = (s: string) => {
+    const labels: Record<string, string> = {
+      'challenge_35_35_30':  'Challenge 35/35/30',
+      'brand_product_70_30': 'Brand Product 70/30',
+      'rrg_challenge_35_65': 'RRG Challenge 35/65',
+      'legacy_70_30':        'Legacy 70/30',
+    };
+    return labels[s] || s;
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xs font-mono uppercase tracking-widest text-white/40">Distributions</h2>
+        <div className="flex gap-2">
+          {['', 'pending', 'completed', 'failed'].map((s) => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={`text-xs font-mono px-3 py-1 border transition-all ${
+                statusFilter === s
+                  ? 'border-white text-white'
+                  : 'border-white/20 text-white/30 hover:border-white/50'
+              }`}
+            >
+              {s || 'All'}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {msg && (
+        <div className="mb-4 p-3 border border-white/20 bg-white/5 text-xs font-mono text-white/80">
+          {msg}
+        </div>
+      )}
+
+      {/* Summary */}
+      {distributions.length > 0 && (
+        <div className="mb-6 p-4 border border-white/10 grid grid-cols-4 gap-4 text-center">
+          <div>
+            <p className="text-xs font-mono text-white/30 mb-1">Total</p>
+            <p className="text-sm font-medium">${totals.total.toFixed(2)}</p>
+          </div>
+          <div>
+            <p className="text-xs font-mono text-white/30 mb-1">Creators</p>
+            <p className="text-sm font-medium text-green-400">${totals.creator.toFixed(2)}</p>
+          </div>
+          <div>
+            <p className="text-xs font-mono text-white/30 mb-1">Brands</p>
+            <p className="text-sm font-medium text-blue-400">${totals.brand.toFixed(2)}</p>
+          </div>
+          <div>
+            <p className="text-xs font-mono text-white/30 mb-1">Platform</p>
+            <p className="text-sm font-medium text-amber-400">${totals.platform.toFixed(2)}</p>
+          </div>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="text-white/20 text-xs font-mono">Loading…</p>
+      ) : distributions.length === 0 ? (
+        <p className="text-white/20 text-xs font-mono">No distributions found.</p>
+      ) : (
+        <div className="space-y-3">
+          {distributions.map((d) => (
+            <div key={d.id} className="p-4 border border-white/10">
+              <div className="flex justify-between items-start mb-2">
+                <div>
+                  <span className="text-xs font-mono text-white/50">{splitLabel(d.split_type)}</span>
+                  <span className="text-xs font-mono text-white/20 ml-3">
+                    {new Date(d.created_at).toLocaleString()}
+                  </span>
+                </div>
+                <span className={`text-xs font-mono px-2 py-0.5 ${
+                  d.status === 'completed' ? 'bg-green-400/20 text-green-400' :
+                  d.status === 'pending'   ? 'bg-amber-400/20 text-amber-400' :
+                                             'bg-red-400/20 text-red-400'
+                }`}>
+                  {d.status.toUpperCase()}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-4 gap-2 text-xs font-mono mb-2">
+                <span className="text-white/40">Total: <span className="text-white">${parseFloat(d.total_usdc).toFixed(2)}</span></span>
+                <span className="text-white/40">Creator: <span className="text-green-400">${parseFloat(d.creator_usdc).toFixed(2)}</span></span>
+                <span className="text-white/40">Brand: <span className="text-blue-400">${parseFloat(d.brand_usdc).toFixed(2)}</span></span>
+                <span className="text-white/40">Platform: <span className="text-amber-400">${parseFloat(d.platform_usdc).toFixed(2)}</span></span>
+              </div>
+
+              <div className="flex gap-4 text-xs text-white/20 font-mono">
+                {d.creator_wallet && (
+                  <span>Creator: {d.creator_wallet.slice(0, 6)}…{d.creator_wallet.slice(-4)}</span>
+                )}
+                {d.brand_wallet && (
+                  <span>Brand: {d.brand_wallet.slice(0, 6)}…{d.brand_wallet.slice(-4)}</span>
+                )}
+              </div>
+
+              {d.notes && (
+                <p className="text-xs text-white/30 mt-1">{d.notes}</p>
+              )}
+
+              {d.status === 'pending' && (
+                <div className="mt-3 pt-3 border-t border-white/10">
+                  <button
+                    onClick={() => handleMarkCompleted(d.id)}
+                    disabled={acting === d.id}
+                    className="px-4 py-1.5 text-xs bg-green-400/20 text-green-400 border border-green-400/30
+                               hover:border-green-400 disabled:opacity-40 transition-all"
+                  >
+                    {acting === d.id ? 'Marking…' : 'Mark Completed'}
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>

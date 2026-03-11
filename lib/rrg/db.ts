@@ -7,19 +7,48 @@ export const db = createClient(
   { auth: { persistSession: false } }
 );
 
+// ── Constants ─────────────────────────────────────────────────────────
+export const RRG_BRAND_ID = '00000000-0000-4000-8000-000000000001';
+
 // ── Types ─────────────────────────────────────────────────────────────
 
 export type BriefStatus = 'active' | 'closed' | 'archived';
 export type SubmissionStatus = 'pending' | 'approved' | 'rejected';
 export type SubmissionChannel = 'web' | 'api' | 'telegram' | 'bluesky';
 export type BuyerType = 'human' | 'agent';
+export type CreatorType = 'human' | 'agent';
 export type RrgNetwork = 'base';
+export type BrandStatus = 'pending' | 'active' | 'suspended' | 'archived';
+export type DistributionStatus = 'pending' | 'completed' | 'failed';
 
 // ── Network helpers ────────────────────────────────────────────────────
 
 /** Returns the network name — always 'base' (mainnet). */
 export function getCurrentNetwork(): RrgNetwork {
   return 'base';
+}
+
+// ── Interfaces ────────────────────────────────────────────────────────
+
+export interface RrgBrand {
+  id: string;
+  created_at: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  headline: string | null;
+  logo_path: string | null;
+  banner_path: string | null;
+  website_url: string | null;
+  social_links: Record<string, string>;
+  contact_email: string;
+  wallet_address: string;
+  status: BrandStatus;
+  tc_accepted_at: string | null;
+  tc_version: string | null;
+  max_self_listings: number;
+  self_listings_used: number;
+  created_by: string | null;
 }
 
 export interface RrgBrief {
@@ -33,6 +62,7 @@ export interface RrgBrief {
   is_current: boolean;
   social_caption: string | null;
   response_count: number;
+  brand_id: string | null;
 }
 
 export interface RrgSubmission {
@@ -61,6 +91,9 @@ export interface RrgSubmission {
   ipfs_url: string | null;
   creator_bio: string | null;
   network: RrgNetwork;
+  brand_id: string | null;
+  creator_type: CreatorType;
+  is_brand_product: boolean;
 }
 
 export interface RrgPurchase {
@@ -80,47 +113,168 @@ export interface RrgPurchase {
   mint_status: string;
   payment_method: string;
   network: RrgNetwork;
+  brand_id: string | null;
 }
 
-// ── Brief helpers ──────────────────────────────────────────────────────
+export interface RrgDistribution {
+  id: string;
+  created_at: string;
+  purchase_id: string;
+  brand_id: string | null;
+  total_usdc: number;
+  creator_usdc: number;
+  brand_usdc: number;
+  platform_usdc: number;
+  creator_wallet: string | null;
+  brand_wallet: string | null;
+  split_type: string;
+  status: DistributionStatus;
+  notes: string | null;
+}
 
-export async function getCurrentBrief(): Promise<RrgBrief | null> {
+// ── Brand helpers ─────────────────────────────────────────────────────
+
+export async function getBrandById(id: string): Promise<RrgBrand | null> {
   const { data } = await db
-    .from('rrg_briefs')
+    .from('rrg_brands')
     .select('*')
-    .eq('is_current', true)
-    .eq('status', 'active')
+    .eq('id', id)
     .single();
   return data ?? null;
 }
 
-export async function getRecentBriefs(limit = 6): Promise<RrgBrief[]> {
+export async function getBrandBySlug(slug: string): Promise<RrgBrand | null> {
   const { data } = await db
+    .from('rrg_brands')
+    .select('*')
+    .eq('slug', slug)
+    .single();
+  return data ?? null;
+}
+
+export async function getAllActiveBrands(): Promise<RrgBrand[]> {
+  const { data } = await db
+    .from('rrg_brands')
+    .select('*')
+    .eq('status', 'active')
+    .order('created_at', { ascending: true });
+  return data ?? [];
+}
+
+export async function getAllBrands(): Promise<RrgBrand[]> {
+  const { data } = await db
+    .from('rrg_brands')
+    .select('*')
+    .order('created_at', { ascending: false });
+  return data ?? [];
+}
+
+export async function getBrandSalesStats(brandId: string): Promise<{
+  totalSales: number;
+  totalRevenue: number;
+  pendingDistributions: number;
+}> {
+  // Count purchases for this brand
+  const { count: totalSales } = await db
+    .from('rrg_purchases')
+    .select('id', { count: 'exact', head: true })
+    .eq('brand_id', brandId);
+
+  // Sum revenue from distributions
+  const { data: distData } = await db
+    .from('rrg_distributions')
+    .select('total_usdc, status')
+    .eq('brand_id', brandId);
+
+  let totalRevenue = 0;
+  let pendingDistributions = 0;
+  for (const d of distData ?? []) {
+    totalRevenue += parseFloat(d.total_usdc);
+    if (d.status === 'pending') pendingDistributions++;
+  }
+
+  return {
+    totalSales: totalSales ?? 0,
+    totalRevenue,
+    pendingDistributions,
+  };
+}
+
+// ── Brief helpers ──────────────────────────────────────────────────────
+
+export async function getCurrentBrief(brandId?: string): Promise<RrgBrief | null> {
+  let query = db
     .from('rrg_briefs')
     .select('*')
+    .eq('is_current', true)
+    .eq('status', 'active');
+
+  if (brandId) {
+    query = query.eq('brand_id', brandId);
+  }
+
+  const { data } = await query.single();
+  return data ?? null;
+}
+
+export async function getRecentBriefs(limit = 6, brandId?: string): Promise<RrgBrief[]> {
+  let query = db
+    .from('rrg_briefs')
+    .select('*');
+
+  if (brandId) {
+    query = query.eq('brand_id', brandId);
+  }
+
+  const { data } = await query
     .order('created_at', { ascending: false })
     .limit(limit);
   return data ?? [];
 }
 
-// ── Submission helpers ─────────────────────────────────────────────────
-
-export async function getPendingSubmissions(): Promise<RrgSubmission[]> {
-  const { data } = await db
-    .from('rrg_submissions')
+export async function getOpenBriefs(brandId?: string): Promise<RrgBrief[]> {
+  let query = db
+    .from('rrg_briefs')
     .select('*')
-    .eq('status', 'pending')
-    .order('created_at', { ascending: true });
+    .eq('status', 'active');
+
+  if (brandId) {
+    query = query.eq('brand_id', brandId);
+  }
+
+  const { data } = await query
+    .order('created_at', { ascending: false });
   return data ?? [];
 }
 
-export async function getApprovedDrops(): Promise<RrgSubmission[]> {
-  const { data } = await db
+// ── Submission helpers ─────────────────────────────────────────────────
+
+export async function getPendingSubmissions(brandId?: string): Promise<RrgSubmission[]> {
+  let query = db
+    .from('rrg_submissions')
+    .select('*')
+    .eq('status', 'pending');
+
+  if (brandId) {
+    query = query.eq('brand_id', brandId);
+  }
+
+  const { data } = await query.order('created_at', { ascending: true });
+  return data ?? [];
+}
+
+export async function getApprovedDrops(brandId?: string): Promise<RrgSubmission[]> {
+  let query = db
     .from('rrg_submissions')
     .select('*')
     .eq('status', 'approved')
-    .eq('network', getCurrentNetwork())
-    .order('approved_at', { ascending: false });
+    .eq('network', getCurrentNetwork());
+
+  if (brandId) {
+    query = query.eq('brand_id', brandId);
+  }
+
+  const { data } = await query.order('approved_at', { ascending: false });
   return data ?? [];
 }
 
@@ -128,6 +282,7 @@ export async function getApprovedDropsPaginated(
   page: number,
   perPage: number,
   briefId?: string | null,
+  brandId?: string,
 ): Promise<{ drops: RrgSubmission[]; totalCount: number }> {
   const offset = (page - 1) * perPage;
 
@@ -139,6 +294,9 @@ export async function getApprovedDropsPaginated(
 
   if (briefId) {
     query = query.eq('brief_id', briefId);
+  }
+  if (brandId) {
+    query = query.eq('brand_id', brandId);
   }
 
   const { data, count } = await query
@@ -224,4 +382,25 @@ export async function getPurchaseByDownloadToken(token: string): Promise<RrgPurc
     .eq('download_token', token)
     .single();
   return data ?? null;
+}
+
+// ── Distribution helpers ──────────────────────────────────────────────
+
+export async function getDistributions(
+  status?: DistributionStatus,
+  brandId?: string,
+): Promise<RrgDistribution[]> {
+  let query = db
+    .from('rrg_distributions')
+    .select('*');
+
+  if (status) {
+    query = query.eq('status', status);
+  }
+  if (brandId) {
+    query = query.eq('brand_id', brandId);
+  }
+
+  const { data } = await query.order('created_at', { ascending: false });
+  return data ?? [];
 }

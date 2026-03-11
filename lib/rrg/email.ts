@@ -155,6 +155,59 @@ export async function sendFileDeliveryEmail({
   });
 }
 
+// ── 3. Rejection notification ─────────────────────────────────────────
+
+export async function sendRejectionNotification({
+  to,
+  title,
+  reason,
+}: {
+  to: string;
+  title: string;
+  reason?: string | null;
+}): Promise<void> {
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #e5e5e5; margin: 0; padding: 40px 20px; }
+  .card { max-width: 520px; margin: 0 auto; background: #111; border: 1px solid #222; border-radius: 12px; overflow: hidden; }
+  .header { background: #555; padding: 24px 28px; }
+  .header h1 { margin: 0; font-size: 20px; color: #fff; font-weight: 700; }
+  .body { padding: 28px; }
+  .body p { margin: 0 0 16px; line-height: 1.6; color: #ccc; font-size: 14px; }
+  .reason { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 16px; margin: 20px 0; }
+  .reason-label { color: #888; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px; }
+  .reason-text { color: #e5e5e5; font-size: 14px; line-height: 1.6; }
+  .btn { display: inline-block; background: #d4ff22; color: #0a0a0a; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 14px; margin-top: 8px; }
+  .footer { padding: 20px 28px; border-top: 1px solid #1a1a1a; font-size: 12px; color: #555; }
+</style></head>
+<body>
+<div class="card">
+  <div class="header"><h1>Update on your submission</h1></div>
+  <div class="body">
+    <p>Thanks for submitting <strong style="color:#e5e5e5">"${escHtml(title)}"</strong> to RRG.</p>
+    <p>After review, we weren't able to accept this submission for our current collection.</p>
+    ${reason ? `
+    <div class="reason">
+      <div class="reason-label">Feedback</div>
+      <div class="reason-text">${escHtml(reason)}</div>
+    </div>` : ''}
+    <p>We encourage you to refine and resubmit — we'd love to see more of your work.</p>
+    <a class="btn" href="${SITE_URL}/rrg/submit">Submit again →</a>
+  </div>
+  <div class="footer"><a href="${SITE_URL}/rrg" style="color:#e5e5e5; text-decoration:none">Browse all drops</a></div>
+</div>
+</body>
+</html>`;
+
+  await sendEmail({
+    to,
+    subject: `Update on your RRG submission — "${title}"`,
+    html,
+  });
+}
+
 // ── HTML escape helper ─────────────────────────────────────────────────
 function escHtml(str: string): string {
   return str

@@ -33,7 +33,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { db, getCurrentBrief } from '@/lib/rrg/db';
+import { db, getCurrentBrief, RRG_BRAND_ID } from '@/lib/rrg/db';
 import { uploadSubmissionFile, jpegStoragePath } from '@/lib/rrg/storage';
 import { randomUUID } from 'crypto';
 
@@ -237,15 +237,31 @@ export async function POST(req: NextRequest) {
     const jpegPath     = jpegStoragePath(submissionId, filename);
     await uploadSubmissionFile(jpegPath, imageBuffer, format.mimeType);
 
-    // ── Auto-populate brief_id from current brief ────────────────────
-    const currentBrief = await getCurrentBrief();
+    // ── Auto-populate brief_id and brand_id from current brief ────────
+    const briefIdFromBody = (body.brief_id as string)?.trim() || null;
+    let resolvedBriefId: string | null = briefIdFromBody;
+    let resolvedBrandId: string = RRG_BRAND_ID;
+
+    if (briefIdFromBody) {
+      // Resolve brand_id from the specified brief
+      const { data: brief } = await db
+        .from('rrg_briefs')
+        .select('brand_id')
+        .eq('id', briefIdFromBody)
+        .single();
+      resolvedBrandId = brief?.brand_id ?? RRG_BRAND_ID;
+    } else {
+      const currentBrief = await getCurrentBrief();
+      resolvedBriefId = currentBrief?.id ?? null;
+      resolvedBrandId = currentBrief?.brand_id ?? RRG_BRAND_ID;
+    }
 
     // ── Insert submission record ──────────────────────────────────────
     const { data, error } = await db
       .from('rrg_submissions')
       .insert({
         id:                  submissionId,
-        brief_id:            currentBrief?.id ?? null,
+        brief_id:            resolvedBriefId,
         creator_wallet:      creator_wallet.trim().toLowerCase(),
         creator_email:       creator_email?.trim() || null,
         title:               title.trim(),
@@ -255,6 +271,8 @@ export async function POST(req: NextRequest) {
         jpeg_storage_path:   jpegPath,
         jpeg_filename:       filename,
         jpeg_size_bytes:     imageBuffer.length,
+        brand_id:            resolvedBrandId,
+        creator_type:        'agent' as const,
       })
       .select()
       .single();

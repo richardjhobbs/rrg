@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, claimNextTokenId, getSubmissionById, getCurrentBrief, getCurrentNetwork } from '@/lib/rrg/db';
+import { db, claimNextTokenId, getSubmissionById, getCurrentBrief, getCurrentNetwork, getBrandById, RRG_BRAND_ID } from '@/lib/rrg/db';
 import { isAdminFromCookies, adminUnauthorized } from '@/lib/rrg/auth';
 import { getRRGContract, toUsdc6dp } from '@/lib/rrg/contract';
 import { sendApprovalNotification } from '@/lib/rrg/email';
 import { getSignedUrl } from '@/lib/rrg/storage';
 import { autopostApproval } from '@/lib/rrg/autopost';
+import { calculateSplit } from '@/lib/rrg/splits';
 
 export const dynamic = 'force-dynamic';
 
@@ -41,13 +42,27 @@ export async function POST(req: NextRequest) {
     // ── Claim next token ID ───────────────────────────────────────────
     const tokenId = await claimNextTokenId();
 
+    // ── Calculate revenue split ─────────────────────────────────────
+    const brandId = submission.brand_id ?? RRG_BRAND_ID;
+    const brand   = brandId !== RRG_BRAND_ID ? await getBrandById(brandId) : null;
+    const isLegacy = false; // New approvals are never legacy
+
+    const split = calculateSplit({
+      totalUsdc:      priceUsdc,
+      brandId,
+      creatorWallet:  submission.creator_wallet,
+      brandWallet:    brand?.wallet_address ?? null,
+      isBrandProduct: submission.is_brand_product ?? false,
+      isLegacy,
+    });
+
     // ── Register drop on-chain ────────────────────────────────────────
     const contract  = getRRGContract();
     const price6dp  = toUsdc6dp(priceUsdc);
 
     const tx = await contract.registerDrop(
       tokenId,
-      submission.creator_wallet,
+      split.onChainCreator, // platform wallet for multi-brand, creator for legacy
       price6dp,
       editionSize
     );
