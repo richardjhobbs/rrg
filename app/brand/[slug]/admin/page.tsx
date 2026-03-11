@@ -40,9 +40,23 @@ interface BrandSettings {
   wallet_address: string;
   website_url?: string | null;
   social_links?: Record<string, string>;
+  logo_path?: string | null;
+  banner_path?: string | null;
   max_self_listings: number;
   self_listings_used: number;
 }
+
+const SOCIAL_PLATFORMS = [
+  { key: 'twitter', label: 'X / Twitter', placeholder: 'https://x.com/...' },
+  { key: 'instagram', label: 'Instagram', placeholder: 'https://instagram.com/...' },
+  { key: 'bluesky', label: 'BlueSky', placeholder: 'https://bsky.app/profile/...' },
+  { key: 'telegram', label: 'Telegram', placeholder: 'https://t.me/...' },
+  { key: 'discord', label: 'Discord', placeholder: 'https://discord.gg/...' },
+  { key: 'youtube', label: 'YouTube', placeholder: 'https://youtube.com/...' },
+  { key: 'tiktok', label: 'TikTok', placeholder: 'https://tiktok.com/@...' },
+  { key: 'linkedin', label: 'LinkedIn', placeholder: 'https://linkedin.com/...' },
+  { key: 'github', label: 'GitHub', placeholder: 'https://github.com/...' },
+];
 
 type Tab = 'products' | 'sales' | 'settings';
 
@@ -380,6 +394,11 @@ function SettingsTab({ brandId }: { brandId: string }) {
   const [form,    setForm]    = useState({
     name: '', headline: '', description: '', website_url: '', contact_email: '',
   });
+  const [socials, setSocials] = useState<Record<string, string>>({});
+  const [logoFile, setLogoFile]     = useState<File | null>(null);
+  const [bannerFile, setBannerFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview]     = useState<string | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/brand/${brandId}/settings`)
@@ -394,28 +413,72 @@ function SettingsTab({ brandId }: { brandId: string }) {
             website_url:   d.brand.website_url || '',
             contact_email: d.brand.contact_email || '',
           });
+          setSocials(d.brand.social_links || {});
         }
         setLoading(false);
       })
       .catch(() => setLoading(false));
   }, [brandId]);
 
+  // Generate client-side previews for selected files
+  const handleLogoSelect = (file: File | null) => {
+    setLogoFile(file);
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setLogoPreview(url);
+    } else {
+      setLogoPreview(null);
+    }
+  };
+  const handleBannerSelect = (file: File | null) => {
+    setBannerFile(file);
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setBannerPreview(url);
+    } else {
+      setBannerPreview(null);
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
     setMsg('');
 
-    const res = await fetch(`/api/brand/${brandId}/settings`, {
-      method:  'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify(form),
-    });
+    // Use FormData when images are included, JSON otherwise
+    const hasFiles = logoFile || bannerFile;
+
+    let res: Response;
+
+    if (hasFiles) {
+      const fd = new FormData();
+      fd.append('name', form.name);
+      fd.append('headline', form.headline);
+      fd.append('description', form.description);
+      fd.append('website_url', form.website_url);
+      fd.append('contact_email', form.contact_email);
+      fd.append('social_links', JSON.stringify(socials));
+      if (logoFile)   fd.append('logo', logoFile);
+      if (bannerFile) fd.append('banner', bannerFile);
+      res = await fetch(`/api/brand/${brandId}/settings`, { method: 'PATCH', body: fd });
+    } else {
+      res = await fetch(`/api/brand/${brandId}/settings`, {
+        method:  'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ ...form, social_links: socials }),
+      });
+    }
+
     const data = await res.json();
     setSaving(false);
 
     if (res.ok) {
       setMsg('Settings saved ✓');
       setBrand(data.brand);
+      setLogoFile(null);
+      setBannerFile(null);
+      setLogoPreview(null);
+      setBannerPreview(null);
     } else {
       setMsg(`Error: ${data.error}`);
     }
@@ -445,7 +508,62 @@ function SettingsTab({ brandId }: { brandId: string }) {
       </div>
 
       {/* Editable fields */}
-      <form onSubmit={handleSave} className="space-y-4 max-w-lg">
+      <form onSubmit={handleSave} className="space-y-6 max-w-2xl">
+
+        {/* ── Brand Images ─────────────────────────────────── */}
+        <div className="p-5 border border-white/10 space-y-5">
+          <p className="text-xs font-mono uppercase tracking-widest text-white/30">Brand Images</p>
+
+          {/* Logo */}
+          <div>
+            <label className="text-xs font-mono text-white/40 block mb-2">
+              Logo <span className="text-white/20">(Square, JPEG/PNG, max 2 MB)</span>
+            </label>
+            <div className="flex items-center gap-4">
+              {(logoPreview || brand.logo_path) && (
+                <div className="shrink-0 w-16 h-16 border border-white/15 overflow-hidden bg-white/5">
+                  <img
+                    src={logoPreview || `/api/brand/${brandId}/image?type=logo&t=${Date.now()}`}
+                    alt="Logo preview"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+              )}
+              <input
+                type="file"
+                accept="image/jpeg,image/jpg,image/png"
+                onChange={(e) => handleLogoSelect(e.target.files?.[0] || null)}
+                className="text-xs text-white/40 file:bg-white/10 file:border-0 file:px-3 file:py-2
+                           file:text-white file:text-xs file:mr-3 file:cursor-pointer"
+              />
+            </div>
+          </div>
+
+          {/* Banner */}
+          <div>
+            <label className="text-xs font-mono text-white/40 block mb-2">
+              Banner <span className="text-white/20">(Wide, JPEG/PNG, max 2 MB)</span>
+            </label>
+            {(bannerPreview || brand.banner_path) && (
+              <div className="w-full h-32 mb-3 border border-white/15 overflow-hidden bg-white/5">
+                <img
+                  src={bannerPreview || `/api/brand/${brandId}/image?type=banner&t=${Date.now()}`}
+                  alt="Banner preview"
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            <input
+              type="file"
+              accept="image/jpeg,image/jpg,image/png"
+              onChange={(e) => handleBannerSelect(e.target.files?.[0] || null)}
+              className="text-xs text-white/40 file:bg-white/10 file:border-0 file:px-3 file:py-2
+                         file:text-white file:text-xs file:mr-3 file:cursor-pointer"
+            />
+          </div>
+        </div>
+
+        {/* ── Basic Info ───────────────────────────────────── */}
         <div>
           <label className="text-xs font-mono text-white/40 block mb-1">Name</label>
           <input
@@ -491,7 +609,30 @@ function SettingsTab({ brandId }: { brandId: string }) {
             className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
           />
         </div>
-        {msg && <p className="text-xs font-mono text-green-400">{msg}</p>}
+
+        {/* ── Social Links ─────────────────────────────────── */}
+        <div className="p-5 border border-white/10 space-y-3">
+          <p className="text-xs font-mono uppercase tracking-widest text-white/30">Social Links</p>
+          {SOCIAL_PLATFORMS.map((p) => (
+            <div key={p.key}>
+              <label className="text-xs font-mono text-white/40 block mb-1">{p.label}</label>
+              <input
+                type="url"
+                placeholder={p.placeholder}
+                value={socials[p.key] || ''}
+                onChange={(e) => setSocials({ ...socials, [p.key]: e.target.value })}
+                className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm
+                           focus:border-white outline-none placeholder:text-white/15"
+              />
+            </div>
+          ))}
+        </div>
+
+        {msg && (
+          <p className={`text-xs font-mono ${msg.startsWith('Error') ? 'text-red-400' : 'text-green-400'}`}>
+            {msg}
+          </p>
+        )}
         <button
           type="submit"
           disabled={saving}
