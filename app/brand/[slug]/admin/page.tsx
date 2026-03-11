@@ -542,7 +542,7 @@ function SettingsTab({ brandId }: { brandId: string }) {
           {/* Banner */}
           <div>
             <label className="text-xs font-mono text-white/40 block mb-2">
-              Banner <span className="text-white/20">(Wide, JPEG/PNG, max 10 MB)</span>
+              Banner <span className="text-white/20">(Wide, JPEG/PNG, max 5 MB)</span>
             </label>
             {(bannerPreview || brand.banner_path) && (
               <div className="w-full h-32 mb-3 border border-white/15 overflow-hidden bg-white/5">
