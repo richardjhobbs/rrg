@@ -12,6 +12,21 @@ export const dynamic = 'force-dynamic';
 
 const DROPS_PER_PAGE = 18;
 
+// Social platform display names & icons (simple text-based)
+const SOCIAL_LABELS: Record<string, string> = {
+  twitter: 'X / Twitter',
+  x: 'X',
+  instagram: 'Instagram',
+  bluesky: 'BlueSky',
+  telegram: 'Telegram',
+  discord: 'Discord',
+  youtube: 'YouTube',
+  tiktok: 'TikTok',
+  linkedin: 'LinkedIn',
+  github: 'GitHub',
+  facebook: 'Facebook',
+};
+
 export default async function BrandStorefront({
   params,
   searchParams,
@@ -25,6 +40,16 @@ export default async function BrandStorefront({
 
   const brand = await getBrandBySlug(slug);
   if (!brand || brand.status !== 'active') return notFound();
+
+  // Signed URLs for brand images (if stored in Supabase)
+  let logoUrl: string | null = null;
+  let bannerUrl: string | null = null;
+  try {
+    if (brand.logo_path) logoUrl = await getSignedUrl(brand.logo_path, 3600);
+  } catch { /* non-fatal */ }
+  try {
+    if (brand.banner_path) bannerUrl = await getSignedUrl(brand.banner_path, 3600);
+  } catch { /* non-fatal */ }
 
   const [brief, { drops, totalCount }] = await Promise.all([
     getCurrentBrief(brand.id),
@@ -53,31 +78,79 @@ export default async function BrandStorefront({
     })
   );
 
+  // Parse social links
+  const socialEntries = brand.social_links
+    ? Object.entries(brand.social_links).filter(([, url]) => url)
+    : [];
+
   return (
     <div className="px-6 py-12 max-w-6xl mx-auto">
 
-      {/* ── Brand Info ────────────────────────────────────────────── */}
-      {(brand.headline || brand.description) && (
-        <div className="mb-10 p-8 border border-white/20 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
-          {brand.headline && (
-            <h2 className="text-2xl font-light mb-3 leading-snug">{brand.headline}</h2>
+      {/* ── Brand Profile ───────────────────────────────────────── */}
+      <div className="mb-12">
+        {/* Banner */}
+        {bannerUrl && (
+          <div className="w-full h-48 sm:h-64 mb-6 border border-white/10 overflow-hidden">
+            <img
+              src={bannerUrl}
+              alt={`${brand.name} banner`}
+              className="w-full h-full object-cover"
+            />
+          </div>
+        )}
+
+        <div className="flex items-start gap-6">
+          {/* Logo */}
+          {logoUrl && (
+            <div className="shrink-0 w-20 h-20 border border-white/15 overflow-hidden bg-white/5">
+              <img
+                src={logoUrl}
+                alt={`${brand.name} logo`}
+                className="w-full h-full object-contain"
+              />
+            </div>
           )}
-          {brand.description && (
-            <p className="text-white/60 leading-relaxed max-w-xl text-sm">{brand.description}</p>
-          )}
-          {brand.website_url && (
-            <a
-              href={brand.website_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block mt-4 text-xs text-white/40 hover:text-white/70 transition-colors font-mono"
-            >
-              {brand.website_url.replace(/^https?:\/\//, '')} ↗
-            </a>
-          )}
+
+          {/* Text */}
+          <div className="flex-1 min-w-0">
+            {brand.headline && (
+              <h2 className="text-2xl font-light mb-2 leading-snug">{brand.headline}</h2>
+            )}
+            {brand.description && (
+              <p className="text-white/60 leading-relaxed text-sm max-w-2xl">
+                {brand.description}
+              </p>
+            )}
+
+            {/* Links row */}
+            {(brand.website_url || socialEntries.length > 0) && (
+              <div className="flex flex-wrap items-center gap-4 mt-4">
+                {brand.website_url && (
+                  <a
+                    href={brand.website_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-white/40 hover:text-white/70 transition-colors font-mono"
+                  >
+                    {brand.website_url.replace(/^https?:\/\//, '').replace(/\/$/, '')} &nearr;
+                  </a>
+                )}
+                {socialEntries.map(([platform, url]) => (
+                  <a
+                    key={platform}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-white/30 hover:text-white/60 transition-colors font-mono"
+                  >
+                    {SOCIAL_LABELS[platform.toLowerCase()] ?? platform} &nearr;
+                  </a>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      )}
+      </div>
 
       {/* ── Brief Banner ─────────────────────────────────────────── */}
       {brief && (
@@ -115,12 +188,26 @@ export default async function BrandStorefront({
         <h1 className="text-xs font-mono uppercase tracking-[0.3em] text-white/40">
           Products ({totalCount})
         </h1>
+        {!brief && (
+          <Link
+            href={`/brand/${slug}/submit`}
+            className="text-sm border border-white/30 px-4 py-1.5 hover:border-white transition-all"
+          >
+            Submit &rarr;
+          </Link>
+        )}
       </div>
 
       {/* ── Drop Grid ────────────────────────────────────────────── */}
       {dropsWithUrls.length === 0 ? (
         <div className="text-center py-32 text-white/20 font-mono text-sm">
           <p>No products yet.</p>
+          <Link
+            href={`/brand/${slug}/submit`}
+            className="mt-4 inline-block text-white/40 hover:text-white transition-colors"
+          >
+            Be the first to submit &rarr;
+          </Link>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
