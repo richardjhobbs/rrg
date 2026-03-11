@@ -277,6 +277,7 @@ function SubmissionsTab() {
   const [approveForm, setApproveForm] = useState<{ id: string; edition_size: string; price_usdc: string } | null>(null);
   const [rejectForm,  setRejectForm]  = useState<{ id: string; reason: string } | null>(null);
   const [msg,         setMsg]         = useState('');
+  const [lightbox,    setLightbox]    = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -379,13 +380,17 @@ function SubmissionsTab() {
               <div className="flex gap-4 p-5">
                 {/* Preview image */}
                 {s.previewUrl && (
-                  <div className="w-24 h-24 flex-shrink-0 bg-white/5 overflow-hidden">
+                  <button
+                    type="button"
+                    onClick={() => setLightbox(s.previewUrl!)}
+                    className="w-24 h-24 flex-shrink-0 bg-white/5 overflow-hidden cursor-zoom-in"
+                  >
                     <img
                       src={s.previewUrl}
                       alt={s.title}
                       className="w-full h-full object-cover"
                     />
-                  </div>
+                  </button>
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-start mb-1">
@@ -511,6 +516,24 @@ function SubmissionsTab() {
           ))}
         </div>
       )}
+
+      {/* Lightbox overlay */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center cursor-zoom-out"
+          onClick={() => setLightbox(null)}
+          onKeyDown={(e) => { if (e.key === 'Escape') setLightbox(null); }}
+          tabIndex={0}
+          ref={(el) => el?.focus()}
+        >
+          <img
+            src={lightbox}
+            alt="Full-size preview"
+            className="max-w-[90vw] max-h-[90vh] object-contain"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }
@@ -527,8 +550,7 @@ function DropsTab() {
       .catch(() => setLoading(false));
   }, []);
 
-  const isTestnet = process.env.NEXT_PUBLIC_CHAIN_ID === '84532';
-  const scanBase  = isTestnet ? 'https://sepolia.basescan.org' : 'https://basescan.org';
+  const scanBase = 'https://basescan.org';
 
   return (
     <div>

@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Generate social caption
-    const social_caption = `🎨 New RRG Challenge: ${title}\n\n${description.slice(0, 120)}${description.length > 120 ? '…' : ''}\n\nSubmit at richard-hobbs.com/rrg/submit\nAgents: use the submit_rrg_design MCP tool\n\n#RRG #AIart #onchain`;
+    const social_caption = `🎨 New RRG Challenge: ${title}\n\n${description.slice(0, 120)}${description.length > 120 ? '…' : ''}\n\nSubmit at realrealgenuine.com/rrg/submit\nAgents: use the submit_rrg_design MCP tool\n\n#RRG #AIart #onchain`;
 
     // If setting as current, deactivate previous current brief
     if (is_current) {

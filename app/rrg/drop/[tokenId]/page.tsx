@@ -1,3 +1,4 @@
+import React from 'react';
 import { getDropByTokenId } from '@/lib/rrg/db';
 import { getSignedUrl } from '@/lib/rrg/storage';
 import { getRRGReadOnly } from '@/lib/rrg/contract';
@@ -6,6 +7,52 @@ import PurchaseFlow from './PurchaseFlow';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
+
+// Render bio with clickable links.
+// Supports bare URLs (https://example.com) and markdown links ([My Site](https://example.com)).
+function renderBio(bio: string): React.ReactNode {
+  // Match [text](url) first, then fall back to bare URLs
+  const combinedRegex = /\[([^\]]+)\]\((https?:\/\/[^)]+)\)|https?:\/\/[^\s<>"']+[^\s<>"'.,!?;)]/g;
+  const parts: React.ReactNode[] = [];
+  let lastIdx = 0;
+  let match: RegExpExecArray | null;
+  let key = 0;
+  while ((match = combinedRegex.exec(bio)) !== null) {
+    if (match.index > lastIdx) {
+      parts.push(bio.slice(lastIdx, match.index));
+    }
+    if (match[1] && match[2]) {
+      // Markdown link: [display text](url)
+      parts.push(
+        <a
+          key={key++}
+          href={match[2]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-white/70 underline underline-offset-2 hover:text-white transition-colors"
+        >
+          {match[1]}
+        </a>
+      );
+    } else {
+      // Bare URL — show domain without protocol
+      parts.push(
+        <a
+          key={key++}
+          href={match[0]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-white/70 underline underline-offset-2 hover:text-white transition-colors"
+        >
+          {match[0].replace(/^https?:\/\//, '').replace(/\/$/, '')}
+        </a>
+      );
+    }
+    lastIdx = match.index + match[0].length;
+  }
+  if (lastIdx < bio.length) parts.push(bio.slice(lastIdx));
+  return <>{parts}</>;
+}
 
 interface Props {
   params: Promise<{ tokenId: string }>;
@@ -35,8 +82,7 @@ export default async function DropPage({ params }: Props) {
     soldOut:   false,
   };
   try {
-    const isTestnet = process.env.NEXT_PUBLIC_CHAIN_ID === '84532';
-    const contract  = getRRGReadOnly(isTestnet);
+    const contract  = getRRGReadOnly();
     const data      = await contract.getDrop(tokenId);
     onChain = {
       minted:    Number(data.minted),
@@ -48,8 +94,7 @@ export default async function DropPage({ params }: Props) {
 
   const remaining  = onChain.maxSupply - onChain.minted;
   const priceUsdc  = parseFloat(drop.price_usdc || '0');
-  const isTestnet  = process.env.NEXT_PUBLIC_CHAIN_ID === '84532';
-  const scanBase   = isTestnet ? 'https://sepolia.basescan.org' : 'https://basescan.org';
+  const scanBase   = 'https://basescan.org';
 
   return (
     <div className="px-6 py-12 max-w-5xl mx-auto">
@@ -64,7 +109,7 @@ export default async function DropPage({ params }: Props) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
 
-        {/* ── Image ─────────────────────────────────────────────────── */}
+        {/* Image */}
         <div className="aspect-square bg-white/5 border border-white/10 overflow-hidden sticky top-8">
           {imageUrl ? (
             <img
@@ -79,7 +124,7 @@ export default async function DropPage({ params }: Props) {
           )}
         </div>
 
-        {/* ── Details ───────────────────────────────────────────────── */}
+        {/* Details */}
         <div>
           <p className="text-xs font-mono uppercase tracking-[0.2em] text-white/30 mb-3">
             Token #{tokenId}
@@ -87,7 +132,9 @@ export default async function DropPage({ params }: Props) {
           <h1 className="text-3xl font-light leading-tight mb-4">{drop.title}</h1>
 
           {drop.description && (
-            <p className="text-white/50 text-sm leading-relaxed mb-8">{drop.description}</p>
+            <p className="text-white/50 text-sm leading-relaxed mb-8">
+              {drop.description.replace(/\n?\[Suggested:[^\]]*\]/g, '').trim()}
+            </p>
           )}
 
           {/* Stats strip */}
@@ -112,19 +159,26 @@ export default async function DropPage({ params }: Props) {
           </div>
 
           {/* Creator */}
-          {drop.creator_wallet && (
-            <p className="text-xs font-mono text-white/20 mb-8">
-              Creator:{' '}
-              <a
-                href={`${scanBase}/address/${drop.creator_wallet}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-white/50 transition-colors"
-              >
-                {drop.creator_wallet.slice(0, 6)}…{drop.creator_wallet.slice(-4)}
-              </a>
-            </p>
-          )}
+          <div className="mb-8">
+            {drop.creator_wallet && (
+              <p className="text-xs font-mono text-white/20 mb-3">
+                Creator:{' '}
+                <a
+                  href={`${scanBase}/address/${drop.creator_wallet}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-white/50 transition-colors"
+                >
+                  {drop.creator_wallet.slice(0, 6)}…{drop.creator_wallet.slice(-4)}
+                </a>
+              </p>
+            )}
+            {drop.creator_bio && (
+              <p className="text-sm text-white/40 leading-relaxed">
+                {renderBio(drop.creator_bio)}
+              </p>
+            )}
+          </div>
 
           {/* Purchase flow (client component) */}
           <PurchaseFlow
@@ -132,7 +186,6 @@ export default async function DropPage({ params }: Props) {
             priceUsdc={priceUsdc}
             soldOut={onChain.soldOut}
             active={onChain.active}
-            isTestnet={isTestnet}
           />
 
           {/* What you get */}

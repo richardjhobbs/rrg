@@ -26,9 +26,8 @@ export async function GET(req: NextRequest) {
       // Fetch live on-chain data
       let onChain = null;
       try {
-        const isTestnet = process.env.NEXT_PUBLIC_CHAIN_ID === '84532';
-        const contract  = getRRGReadOnly(isTestnet);
-        const data      = await contract.getDrop(tokenId);
+        const contract = getRRGReadOnly();
+        const data     = await contract.getDrop(tokenId);
         onChain = {
           minted:    Number(data.minted),
           maxSupply: Number(data.maxSupply),
@@ -51,8 +50,7 @@ export async function GET(req: NextRequest) {
     // Optionally enrich with on-chain minted counts
     let enriched = drops;
     try {
-      const isTestnet = process.env.NEXT_PUBLIC_CHAIN_ID === '84532';
-      const contract  = getRRGReadOnly(isTestnet);
+      const contract = getRRGReadOnly();
 
       enriched = await Promise.all(
         drops.map(async (drop) => {

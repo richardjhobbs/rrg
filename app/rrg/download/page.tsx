@@ -71,8 +71,7 @@ export default async function DownloadPage({ searchParams }: Props) {
     .update({ download_expires_at: newExpiry })
     .eq('download_token', token);
 
-  const isTestnet = process.env.NEXT_PUBLIC_CHAIN_ID === '84532';
-  const scanBase  = isTestnet ? 'https://sepolia.basescan.org' : 'https://basescan.org';
+  const scanBase = 'https://basescan.org';
   const txShort   = `${purchase.tx_hash.slice(0, 10)}…${purchase.tx_hash.slice(-6)}`;
   const filename  = submission.jpeg_filename || `rrg-token-${purchase.token_id}.jpg`;
 

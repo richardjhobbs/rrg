@@ -12,7 +12,7 @@
 import { ethers } from 'ethers';
 
 // Domain name/version are fetched live from the USDC contract to avoid
-// hardcode mismatches — Base Sepolia USDC may differ from mainnet.
+// hardcode mismatches.
 
 export const PERMIT_TYPES = {
   Permit: [
@@ -54,16 +54,11 @@ export async function buildPermitPayload(
   buyerWallet: string,
   tokenId: number,
   priceUsdc6dp: bigint,
-  testnet = false
 ): Promise<PermitPayload> {
-  const chainId = testnet ? 84532 : 8453;
-  const usdcAddress = testnet
-    ? process.env.NEXT_PUBLIC_USDC_CONTRACT_TESTNET!
-    : process.env.NEXT_PUBLIC_USDC_CONTRACT_MAINNET!;
-  const rrgAddress = process.env.NEXT_PUBLIC_RRG_CONTRACT_ADDRESS!;
-  const rpcUrl = testnet
-    ? process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL!
-    : process.env.NEXT_PUBLIC_BASE_RPC_URL!;
+  const chainId     = 8453;
+  const usdcAddress = process.env.NEXT_PUBLIC_USDC_CONTRACT_MAINNET!;
+  const rrgAddress  = process.env.NEXT_PUBLIC_RRG_CONTRACT_ADDRESS!;
+  const rpcUrl      = process.env.NEXT_PUBLIC_BASE_RPC_URL!;
 
   const provider = new ethers.JsonRpcProvider(rpcUrl);
   const usdc     = new ethers.Contract(usdcAddress, USDC_ABI, provider);

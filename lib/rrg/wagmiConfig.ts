@@ -1,17 +1,15 @@
 import { createConfig, http } from 'wagmi';
-import { base, baseSepolia } from 'viem/chains';
+import { base } from 'viem/chains';
 import { injected, coinbaseWallet, walletConnect } from 'wagmi/connectors';
 
-const isTestnet = process.env.NEXT_PUBLIC_CHAIN_ID === '84532';
-
-export const targetChain   = isTestnet ? baseSepolia : base;
-export const targetChainId = targetChain.id;
+export const targetChain   = base;
+export const targetChainId = base.id;
 
 // Free project ID from https://cloud.walletconnect.com
 const wcProjectId = process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID ?? '';
 
 export const wagmiConfig = createConfig({
-  chains: [baseSepolia, base],
+  chains: [base],
   connectors: [
     // All browser-extension wallets (MetaMask, Brave, Rabby, Frame, etc.)
     // wagmi v2+ uses EIP-6963 multi-provider discovery — each extension
@@ -19,7 +17,7 @@ export const wagmiConfig = createConfig({
     injected(),
 
     // Coinbase Wallet (browser extension + mobile app)
-    coinbaseWallet({ appName: 'RRG — richard-hobbs.com' }),
+    coinbaseWallet({ appName: 'RRG — realrealgenuine.com' }),
 
     // WalletConnect v2 — QR-code / deep-link for 300+ wallets & mobile
     // Requires NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID env var (free at
@@ -29,8 +27,7 @@ export const wagmiConfig = createConfig({
       : []),
   ],
   transports: {
-    [baseSepolia.id]: http('https://sepolia.base.org'),
-    [base.id]:        http('https://mainnet.base.org'),
+    [base.id]: http('https://mainnet.base.org'),
   },
   ssr: true,
 });

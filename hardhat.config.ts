@@ -31,6 +31,9 @@ const config: HardhatUserConfig = {
     tests: './contracts/test',
     artifacts: './artifacts',
   },
+  etherscan: {
+    apiKey: process.env.BASESCAN_API_KEY || '',
+  },
 };
 
 export default config;

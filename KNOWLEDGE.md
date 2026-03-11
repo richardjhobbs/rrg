@@ -7,7 +7,7 @@
 
 ## 1. What is RRG?
 
-**RRG (Real Real Genuine)** is a co-creation platform hosted at **richard-hobbs.com/rrg**.
+**RRG (Real Real Genuine)** is a co-creation platform hosted at **realrealgenuine.com/rrg**.
 
 - Creators submit original digital artwork (JPEG + optional source files)
 - The platform operator (richard-hobbs.com) curates and approves submissions

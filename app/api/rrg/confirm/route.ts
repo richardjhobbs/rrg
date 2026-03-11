@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, getDropByTokenId } from '@/lib/rrg/db';
+import { db, getDropByTokenId, getCurrentNetwork } from '@/lib/rrg/db';
 import { getRRGContract } from '@/lib/rrg/contract';
 import { splitSignature } from '@/lib/rrg/permit';
-import { downloadFile } from '@/lib/rrg/storage';
-import { resizeAndUpload } from '@/lib/rrg/ipfs';
+import { getSignedUrl } from '@/lib/rrg/storage';
+import { uploadToIpfsInBackground } from '@/lib/rrg/ipfs';
 import { sendFileDeliveryEmail } from '@/lib/rrg/email';
 import { randomBytes } from 'crypto';
+import { autopostSale } from '@/lib/rrg/autopost';
+import { postReputationSignal } from '@/lib/rrg/erc8004';
 
 export const dynamic = 'force-dynamic';
 
@@ -32,8 +34,7 @@ export async function POST(req: NextRequest) {
     const { v, r, s } = splitSignature(signature);
 
     // ── Submit mintWithPermit ──────────────────────────────────────────
-    const isTestnet = process.env.NEXT_PUBLIC_CHAIN_ID === '84532';
-    const contract  = getRRGContract(isTestnet);
+    const contract = getRRGContract();
 
     let tx: Awaited<ReturnType<typeof contract.mintWithPermit>>;
     try {
@@ -71,16 +72,67 @@ export async function POST(req: NextRequest) {
         amount_usdc:        drop.price_usdc,
         download_token:     downloadToken,
         download_expires_at: downloadExpiry,
+        network:             getCurrentNetwork(),
       })
       .select()
       .single();
 
     if (dbError) throw dbError;
 
-    // ── Post-mint: IPFS upload (non-blocking, fire and forget with logging) ──
-    uploadToIpfsInBackground(drop, isTestnet).catch((err) =>
-      console.error('[confirm] IPFS upload failed:', err)
-    );
+    // ── Autopost sale (non-blocking) ─────────────────────────────────────
+    (async () => {
+      try {
+        const { count: purchaseCount } = await db
+          .from('rrg_purchases')
+          .select('id', { count: 'exact', head: true })
+          .eq('token_id', parseInt(tokenId));
+        const remaining = Math.max(0, (drop.edition_size ?? 10) - (purchaseCount ?? 1));
+        const imageUrl = drop.jpeg_storage_path
+          ? await getSignedUrl(drop.jpeg_storage_path, 300).catch(() => null)
+          : null;
+        await autopostSale({
+          title:       drop.title,
+          tokenId:     parseInt(tokenId),
+          buyerWallet: buyerWallet.toLowerCase(),
+          remaining,
+          creatorBio:  drop.creator_bio ?? null,
+          imageUrl,
+        });
+      } catch (err) {
+        console.error('[confirm] autopost failed:', err);
+      }
+    })();
+
+    // ── ERC-8004 reputation signal (sequential — after mint to avoid nonce collision) ─
+    // Both mintWithPermit and giveFeedback use the same deployer wallet signer.
+    // Must be sequential to prevent nonce race conditions.
+    // Anti-gaming: skip if buyer is the creator (self-purchase inflates score).
+    let reputationTxHash: string | null = null;
+    const isCreatorPurchase = buyerWallet.toLowerCase() === drop.creator_wallet?.toLowerCase();
+    if (isCreatorPurchase) {
+      console.log('[erc8004] skipping reputation signal — creator self-purchase detected');
+    } else {
+      try {
+        reputationTxHash = await postReputationSignal({
+          buyerWallet: buyerWallet.toLowerCase(),
+          priceUsdc:   drop.price_usdc ?? '0',
+          tokenId:     parseInt(tokenId),
+          txHash,
+        });
+        console.log(`[confirm] ERC-8004 reputation signal posted: ${reputationTxHash?.slice(0, 10)}…`);
+      } catch (repErr) {
+        // Non-fatal — purchase + mint still succeeded
+        console.error('[confirm] ERC-8004 reputation signal failed:', repErr);
+      }
+    }
+
+    // ── Post-mint: IPFS upload (synchronous — CID included in response) ───
+    let ipfsResult: { imageCid: string; metadataCid: string; metadataUrl: string } | null = null;
+    try {
+      ipfsResult = await uploadToIpfsInBackground(drop);
+    } catch (err) {
+      console.error('[confirm] IPFS upload failed:', err);
+    }
 
     // ── Send delivery email ───────────────────────────────────────────
     const siteUrl     = process.env.NEXT_PUBLIC_SITE_URL!;
@@ -89,11 +141,12 @@ export async function POST(req: NextRequest) {
     if (buyerEmail) {
       try {
         await sendFileDeliveryEmail({
-          to:          buyerEmail,
-          title:       drop.title,
-          tokenId:     parseInt(tokenId),
+          to:              buyerEmail,
+          title:           drop.title,
+          tokenId:         parseInt(tokenId),
           txHash,
           downloadUrl,
+          ipfsMetadataUrl: ipfsResult?.metadataUrl ?? null,
         });
         await db
           .from('rrg_purchases')
@@ -106,11 +159,16 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json({
-      success:       true,
+      success:          true,
       txHash,
-      tokenId:       parseInt(tokenId),
+      tokenId:          parseInt(tokenId),
+      reputationTxHash,
       downloadUrl,
       downloadToken,
+      ipfsImageCid:     ipfsResult?.imageCid    ?? null,
+      ipfsImageUrl:     ipfsResult ? `https://gateway.pinata.cloud/ipfs/${ipfsResult.imageCid}` : null,
+      ipfsMetadataCid:  ipfsResult?.metadataCid ?? null,
+      ipfsMetadataUrl:  ipfsResult?.metadataUrl ?? null,
     });
 
   } catch (err) {
@@ -120,33 +178,5 @@ export async function POST(req: NextRequest) {
       { error: `Purchase failed: ${detail}` },
       { status: 500 }
     );
-  }
-}
-
-// ── IPFS upload after mint (runs in background) ────────────────────────
-async function uploadToIpfsInBackground(
-  drop: Awaited<ReturnType<typeof getDropByTokenId>>,
-  isTestnet: boolean
-) {
-  if (!drop || drop.ipfs_cid) return; // already uploaded
-
-  const jpegBuffer = await downloadFile(drop.jpeg_storage_path);
-  const { cid, url } = await resizeAndUpload(jpegBuffer, drop.token_id!, drop.title);
-
-  // Store CID in DB
-  await db
-    .from('rrg_submissions')
-    .update({ ipfs_cid: cid, ipfs_url: url })
-    .eq('id', drop.id);
-
-  // Update token URI on-chain (points to IPFS)
-  try {
-    const contract = getRRGContract(isTestnet);
-    const ipfsUri  = `ipfs://${cid}`;
-    const tx       = await contract.setTokenURI(drop.token_id!, ipfsUri);
-    await tx.wait(1);
-    console.log(`[ipfs] Token ${drop.token_id} URI set to ${ipfsUri}`);
-  } catch (err) {
-    console.error('[ipfs] setTokenURI failed:', err);
   }
 }

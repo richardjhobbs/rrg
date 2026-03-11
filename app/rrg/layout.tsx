@@ -23,20 +23,12 @@ export default function RRGLayout({ children }: { children: React.ReactNode }) {
           <Link href="/rrg/submit" className="hover:text-white transition-colors">
             Submit
           </Link>
-          <a
-            href="https://richard-hobbs.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="hover:text-white transition-colors"
-          >
-            richard-hobbs.com ↗
-          </a>
         </nav>
       </header>
       <main>{children}</main>
       <footer className="border-t border-white/10 px-6 py-8 mt-24 text-xs text-white/20 font-mono flex justify-between">
         <span>RRG — Real Real Genuine</span>
-        <span>Powered by Base · richard-hobbs.com</span>
+        <span>Powered by Base · realrealgenuine.com</span>
       </footer>
     </div>
   );

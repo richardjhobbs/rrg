@@ -3,7 +3,7 @@ pragma solidity ^0.8.27;
 
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuardTransient.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @dev Minimal USDC interface with EIP-2612 permit support
@@ -25,7 +25,7 @@ interface IUSDC is IERC20 {
  *         Buyers pay USDC via EIP-2612 permit. Revenue splits 70/30
  *         between creator and platform in a single atomic transaction.
  */
-contract RRG is ERC1155, Ownable, ReentrancyGuard {
+contract RRG is ERC1155, Ownable, ReentrancyGuardTransient {
 
     // ── Types ─────────────────────────────────────────────────────────
 
@@ -41,6 +41,9 @@ contract RRG is ERC1155, Ownable, ReentrancyGuard {
 
     IUSDC   public immutable usdc;
     address public immutable platformWallet;
+
+    string  public name = "RRG - Real Real Genuine";
+    string  private _contractURI;
 
     mapping(uint256 => Drop) private _drops;
     mapping(uint256 => string) private _tokenURIs;
@@ -64,6 +67,12 @@ contract RRG is ERC1155, Ownable, ReentrancyGuard {
     event DropPaused(uint256 indexed tokenId);
     event DropUnpaused(uint256 indexed tokenId);
     event TokenURISet(uint256 indexed tokenId, string uri);
+
+    /// @notice Emitted when the platform mints after verifying an off-chain payment
+    event OperatorMinted(uint256 indexed tokenId, address indexed buyer);
+
+    /// @notice ERC-7572: emitted when collection-level metadata changes
+    event ContractURIUpdated();
 
     // ── Constructor ───────────────────────────────────────────────────
 
@@ -190,6 +199,31 @@ contract RRG is ERC1155, Ownable, ReentrancyGuard {
         emit Minted(tokenId, buyer, creatorShare, platformShare);
     }
 
+    // ── Operator mint (off-chain payment verified) ─────────────────────
+
+    /**
+     * @notice Mint a token to a buyer after the platform has verified a direct
+     *         USDC payment off-chain (e.g. from an AI agent buyer).
+     *         Payment handling is NOT done here — it was received and verified
+     *         by the platform server before calling this function.
+     *
+     * @param tokenId The drop to mint
+     * @param buyer   Address that will receive the ERC-1155 token
+     */
+    function operatorMint(uint256 tokenId, address buyer) external onlyOwner nonReentrant {
+        Drop storage drop = _drops[tokenId];
+
+        require(drop.creator != address(0), "RRG: drop not found");
+        require(drop.active,                "RRG: drop not active");
+        require(drop.minted < drop.maxSupply, "RRG: sold out");
+        require(buyer != address(0),        "RRG: zero buyer");
+
+        drop.minted += 1;
+        _mint(buyer, tokenId, 1, "");
+
+        emit OperatorMinted(tokenId, buyer);
+    }
+
     // ── Views ──────────────────────────────────────────────────────────
 
     function getDrop(uint256 tokenId) external view returns (Drop memory) {
@@ -205,5 +239,16 @@ contract RRG is ERC1155, Ownable, ReentrancyGuard {
             return tokenUri;
         }
         return super.uri(tokenId);
+    }
+
+    /// @notice ERC-7572: collection-level metadata for marketplaces
+    function contractURI() external view returns (string memory) {
+        return _contractURI;
+    }
+
+    /// @notice Set collection-level metadata URI (owner only)
+    function setContractURI(string calldata newURI) external onlyOwner {
+        _contractURI = newURI;
+        emit ContractURIUpdated();
     }
 }

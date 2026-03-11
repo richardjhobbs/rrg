@@ -22,6 +22,7 @@ export default function SubmitPage() {
     creator_email: '',
     suggested_edition: '',
     suggested_price_usdc: '',
+    creator_bio: '',
   });
   const [jpeg, setJpeg] = useState<File | null>(null);
   const [additionalFiles, setAdditionalFiles] = useState<FileList | null>(null);
@@ -47,6 +48,7 @@ export default function SubmitPage() {
     fd.append('creator_email', form.creator_email);
     if (form.suggested_edition)    fd.append('suggested_edition', form.suggested_edition);
     if (form.suggested_price_usdc) fd.append('suggested_price_usdc', form.suggested_price_usdc);
+    if (form.creator_bio)          fd.append('creator_bio', form.creator_bio);
     fd.append('jpeg', jpeg);
     if (additionalFiles) {
       for (let i = 0; i < additionalFiles.length; i++) {
@@ -135,7 +137,31 @@ export default function SubmitPage() {
           />
         </div>
 
-        {/* Edition + Price suggestions — shown in admin approval, not stored as separate columns */}
+        {/* Creator Bio */}
+        <div>
+          <label className="block text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-2">
+            Creator Bio
+          </label>
+          <textarea
+            rows={4}
+            maxLength={2000}
+            value={form.creator_bio}
+            onChange={(e) => setForm({ ...form, creator_bio: e.target.value })}
+            className="w-full bg-transparent border border-white/20 px-4 py-3 text-sm
+                       focus:border-white outline-none transition-colors resize-none placeholder:text-white/20"
+            placeholder="Tell collectors about yourself — your practice and where to find you online. Tip: [My Portfolio](https://…) creates a clickable link."
+          />
+          <p className="mt-1.5 text-xs text-white/20 flex justify-between">
+            <span>
+              Shown on your drop page. URLs become clickable links — or use{' '}
+              <span className="font-mono text-white/30">[My Site](https://…)</span>
+              {' '}for custom link text.
+            </span>
+            <span className="tabular-nums ml-4 shrink-0">{form.creator_bio.length}/2000</span>
+          </p>
+        </div>
+
+        {/* Edition + Price suggestions */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-2">
@@ -172,14 +198,14 @@ export default function SubmitPage() {
           Optional suggestions for the reviewer. Final edition size and price are set on approval.
         </p>
 
-        {/* Main JPEG */}
+        {/* Main Image */}
         <div>
           <label className="block text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-2">
-            Main Image (JPEG) *
+            Main Image (JPEG or PNG) *
           </label>
           <input
             type="file"
-            accept="image/jpeg,image/jpg"
+            accept="image/jpeg,image/jpg,image/png"
             required
             onChange={(e) => setJpeg(e.target.files?.[0] || null)}
             className="w-full border border-white/20 px-4 py-3 text-sm text-white/50
@@ -188,7 +214,7 @@ export default function SubmitPage() {
                        file:hover:bg-white/90 transition-all"
           />
           <p className="mt-1.5 text-xs text-white/20">
-            JPEG only · max 20 MB · high-resolution preferred
+            JPEG or PNG · max 5 MB · high-resolution preferred
           </p>
         </div>
 

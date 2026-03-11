@@ -26,7 +26,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Drop price not set' }, { status: 400 });
     }
 
-    const isTestnet    = process.env.NEXT_PUBLIC_CHAIN_ID === '84532';
     const priceUsdc    = parseFloat(drop.price_usdc);
     const priceUsdc6dp = toUsdc6dp(priceUsdc);
 
@@ -34,7 +33,6 @@ export async function POST(req: NextRequest) {
       buyerWallet,
       parseInt(tokenId),
       priceUsdc6dp,
-      isTestnet
     );
 
     return NextResponse.json({

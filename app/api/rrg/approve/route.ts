@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, claimNextTokenId, getSubmissionById } from '@/lib/rrg/db';
+import { db, claimNextTokenId, getSubmissionById, getCurrentBrief, getCurrentNetwork } from '@/lib/rrg/db';
 import { isAdminFromCookies, adminUnauthorized } from '@/lib/rrg/auth';
 import { getRRGContract, toUsdc6dp } from '@/lib/rrg/contract';
 import { sendApprovalNotification } from '@/lib/rrg/email';
+import { getSignedUrl } from '@/lib/rrg/storage';
+import { autopostApproval } from '@/lib/rrg/autopost';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,8 +42,7 @@ export async function POST(req: NextRequest) {
     const tokenId = await claimNextTokenId();
 
     // ── Register drop on-chain ────────────────────────────────────────
-    const isTestnet = process.env.NEXT_PUBLIC_CHAIN_ID === '84532';
-    const contract  = getRRGContract(isTestnet);
+    const contract  = getRRGContract();
     const price6dp  = toUsdc6dp(priceUsdc);
 
     const tx = await contract.registerDrop(
@@ -61,6 +62,7 @@ export async function POST(req: NextRequest) {
         edition_size: editionSize,
         price_usdc:   priceUsdc.toFixed(2),
         approved_at:  new Date().toISOString(),
+        network:      getCurrentNetwork(),
       })
       .eq('id', submissionId);
 
@@ -86,6 +88,23 @@ export async function POST(req: NextRequest) {
         console.error('[approve] Email notification failed:', emailErr);
       }
     }
+
+    // ── Autopost new listing (non-blocking) ─────────────────────────────
+    getCurrentBrief().then(async (brief) => {
+      const imageUrl = submission.jpeg_storage_path
+        ? await getSignedUrl(submission.jpeg_storage_path, 300).catch(() => null)
+        : null;
+      return autopostApproval({
+        title:       submission.title,
+        tokenId,
+        editionSize,
+        priceUsdc:   priceUsdc.toFixed(2),
+        description: submission.description ?? null,
+        creatorBio:  submission.creator_bio ?? null,
+        briefTitle:  brief?.title ?? null,
+        imageUrl,
+      });
+    }).catch((err) => console.error('[approve] autopost failed:', err));
 
     return NextResponse.json({
       success:          true,

@@ -16,7 +16,7 @@ async function main() {
     : '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913'; // Base Mainnet USDC (verified)
 
   const PLATFORM_WALLET = '0xe653804032A2d51Cc031795afC601B9b1fd2c375';
-  const BASE_URI        = 'https://richard-hobbs.com/api/rrg/drops/';
+  const BASE_URI        = 'https://realrealgenuine.com/api/rrg/drops/';
 
   console.log('USDC:', USDC_ADDRESS);
   console.log('Platform wallet:', PLATFORM_WALLET);

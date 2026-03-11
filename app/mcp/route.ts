@@ -5,7 +5,7 @@
  * Exposes RRG tools: list_drops, get_current_brief, submit_design,
  * initiate_purchase, get_download_links.
  *
- * Connect with: POST https://richard-hobbs.com/mcp
+ * Connect with: POST https://realrealgenuine.com/mcp
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
@@ -37,13 +37,12 @@ function createDrHobbsServer() {
       const drops = await getApprovedDrops();
 
       // Enrich with on-chain minted count where possible
-      const isTestnet = process.env.NEXT_PUBLIC_CHAIN_ID === '84532';
       const enriched = await Promise.all(
         drops.map(async (drop) => {
           let remaining: number | null = null;
           if (drop.token_id) {
             try {
-              const contract = getRRGReadOnly(isTestnet);
+              const contract = getRRGReadOnly();
               const data = await contract.getDrop(drop.token_id);
               remaining = Number(data.maxSupply) - Number(data.minted);
               if (!data.active) return null; // skip inactive
@@ -229,7 +228,7 @@ function createDrHobbsServer() {
             submissionId: data.id,
             message:
               'Design submitted successfully. Submissions are reviewed manually. ' +
-              'If approved, your design will be listed as an NFT drop at https://richard-hobbs.com/rrg. ' +
+              'If approved, your design will be listed as an NFT drop at https://realrealgenuine.com/rrg. ' +
               (creator_email ? 'You will be notified by email on approval.' : ''),
           }, null, 2),
         }],
@@ -244,7 +243,7 @@ function createDrHobbsServer() {
       'Start a purchase flow for an RRG NFT drop. Returns a permit payload for the buyer to sign with EIP-712.',
       'After signing, call confirm_purchase with the signature.',
       'The permit expires in 10 minutes — complete steps without delay.',
-      'The buyer needs USDC on Base (or Base Sepolia for testnet). No ETH required — purchase is gasless.',
+      'The buyer needs USDC on Base. No ETH required — purchase is gasless.',
     ].join('\n'),
     {
       tokenId: z.number().int().positive().describe('Token ID of the drop to purchase'),
@@ -259,7 +258,6 @@ function createDrHobbsServer() {
         return { isError: true, content: [{ type: 'text', text: 'Drop price not set' }] };
       }
 
-      const isTestnet    = process.env.NEXT_PUBLIC_CHAIN_ID === '84532';
       const priceUsdc    = parseFloat(drop.price_usdc);
       const priceUsdc6dp = toUsdc6dp(priceUsdc);
 
@@ -267,7 +265,6 @@ function createDrHobbsServer() {
         buyerWallet,
         tokenId,
         priceUsdc6dp,
-        isTestnet
       );
 
       return {
@@ -312,8 +309,7 @@ function createDrHobbsServer() {
       }
 
       const { v, r, s } = splitSignature(signature);
-      const isTestnet   = process.env.NEXT_PUBLIC_CHAIN_ID === '84532';
-      const contract    = getRRGContract(isTestnet);
+      const contract    = getRRGContract();
 
       let txHash: string;
       try {

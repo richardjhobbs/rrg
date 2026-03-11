@@ -8,7 +8,9 @@ export const RRG_ABI = [
   'function pauseDrop(uint256 tokenId) external',
   'function unpauseDrop(uint256 tokenId) external',
   'function setTokenURI(uint256 tokenId, string calldata tokenUri) external',
+  'function operatorMint(uint256 tokenId, address buyer) external',
   'event Minted(uint256 indexed tokenId, address indexed buyer, uint256 creatorShare, uint256 platformShare)',
+  'event OperatorMinted(uint256 indexed tokenId, address indexed buyer)',
   'event DropRegistered(uint256 indexed tokenId, address indexed creator, uint256 priceUsdc, uint256 maxSupply)',
 ] as const;
 
@@ -17,35 +19,29 @@ export const ERC1155_ABI = [
   'function balanceOf(address account, uint256 id) external view returns (uint256)',
 ] as const;
 
-// ── Helpers ────────────────────────────────────────────────────────────
+// ── Helpers (Base mainnet) ─────────────────────────────────────────────
 
-export function getRpcProvider(testnet = false): ethers.JsonRpcProvider {
-  const url = testnet
-    ? process.env.NEXT_PUBLIC_BASE_SEPOLIA_RPC_URL!
-    : process.env.NEXT_PUBLIC_BASE_RPC_URL!;
-  return new ethers.JsonRpcProvider(url);
+export function getRpcProvider(): ethers.JsonRpcProvider {
+  return new ethers.JsonRpcProvider(process.env.NEXT_PUBLIC_BASE_RPC_URL!);
 }
 
-export function getDeployerSigner(testnet = false): ethers.Wallet {
-  const provider = getRpcProvider(testnet);
-  return new ethers.Wallet(process.env.DEPLOYER_PRIVATE_KEY!, provider);
+export function getDeployerSigner(): ethers.Wallet {
+  return new ethers.Wallet(process.env.DEPLOYER_PRIVATE_KEY!, getRpcProvider());
 }
 
-export function getRRGContract(testnet = false): ethers.Contract {
-  const signer = getDeployerSigner(testnet);
+export function getRRGContract(): ethers.Contract {
   return new ethers.Contract(
     process.env.NEXT_PUBLIC_RRG_CONTRACT_ADDRESS!,
     RRG_ABI,
-    signer
+    getDeployerSigner()
   );
 }
 
-export function getRRGReadOnly(testnet = false): ethers.Contract {
-  const provider = getRpcProvider(testnet);
+export function getRRGReadOnly(): ethers.Contract {
   return new ethers.Contract(
     process.env.NEXT_PUBLIC_RRG_CONTRACT_ADDRESS!,
     RRG_ABI,
-    provider
+    getRpcProvider()
   );
 }
 
@@ -63,13 +59,11 @@ export function fromUsdc6dp(amount: bigint): number {
 export async function verifyOwnership(
   wallet: string,
   tokenId: number,
-  testnet = false
 ): Promise<boolean> {
-  const provider = getRpcProvider(testnet);
   const contract = new ethers.Contract(
     process.env.NEXT_PUBLIC_RRG_CONTRACT_ADDRESS!,
     ERC1155_ABI,
-    provider
+    getRpcProvider()
   );
   const balance = await contract.balanceOf(wallet, tokenId);
   return balance > 0n;

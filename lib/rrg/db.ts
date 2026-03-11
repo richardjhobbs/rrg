@@ -13,6 +13,14 @@ export type BriefStatus = 'active' | 'closed' | 'archived';
 export type SubmissionStatus = 'pending' | 'approved' | 'rejected';
 export type SubmissionChannel = 'web' | 'api' | 'telegram' | 'bluesky';
 export type BuyerType = 'human' | 'agent';
+export type RrgNetwork = 'base';
+
+// ── Network helpers ────────────────────────────────────────────────────
+
+/** Returns the network name — always 'base' (mainnet). */
+export function getCurrentNetwork(): RrgNetwork {
+  return 'base';
+}
 
 export interface RrgBrief {
   id: string;
@@ -51,6 +59,8 @@ export interface RrgSubmission {
   approval_notification_sent: boolean;
   ipfs_cid: string | null;
   ipfs_url: string | null;
+  creator_bio: string | null;
+  network: RrgNetwork;
 }
 
 export interface RrgPurchase {
@@ -67,6 +77,9 @@ export interface RrgPurchase {
   delivery_email: string | null;
   download_token: string | null;
   download_expires_at: string | null;
+  mint_status: string;
+  payment_method: string;
+  network: RrgNetwork;
 }
 
 // ── Brief helpers ──────────────────────────────────────────────────────
@@ -106,8 +119,50 @@ export async function getApprovedDrops(): Promise<RrgSubmission[]> {
     .from('rrg_submissions')
     .select('*')
     .eq('status', 'approved')
+    .eq('network', getCurrentNetwork())
     .order('approved_at', { ascending: false });
   return data ?? [];
+}
+
+export async function getApprovedDropsPaginated(
+  page: number,
+  perPage: number,
+  briefId?: string | null,
+): Promise<{ drops: RrgSubmission[]; totalCount: number }> {
+  const offset = (page - 1) * perPage;
+
+  let query = db
+    .from('rrg_submissions')
+    .select('*', { count: 'exact' })
+    .eq('status', 'approved')
+    .eq('network', getCurrentNetwork());
+
+  if (briefId) {
+    query = query.eq('brief_id', briefId);
+  }
+
+  const { data, count } = await query
+    .order('approved_at', { ascending: false })
+    .range(offset, offset + perPage - 1);
+
+  return { drops: data ?? [], totalCount: count ?? 0 };
+}
+
+export async function getPurchaseCountsByTokenIds(
+  tokenIds: number[],
+): Promise<Map<number, number>> {
+  if (tokenIds.length === 0) return new Map();
+
+  const { data } = await db
+    .from('rrg_purchases')
+    .select('token_id')
+    .in('token_id', tokenIds);
+
+  const counts = new Map<number, number>();
+  for (const row of data ?? []) {
+    counts.set(row.token_id, (counts.get(row.token_id) ?? 0) + 1);
+  }
+  return counts;
 }
 
 export async function getDropByTokenId(tokenId: number): Promise<RrgSubmission | null> {
@@ -116,6 +171,7 @@ export async function getDropByTokenId(tokenId: number): Promise<RrgSubmission |
     .select('*')
     .eq('token_id', tokenId)
     .eq('status', 'approved')
+    .eq('network', getCurrentNetwork())
     .single();
   return data ?? null;
 }

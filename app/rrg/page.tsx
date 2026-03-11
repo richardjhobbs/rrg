@@ -1,14 +1,51 @@
-import { getApprovedDrops, getCurrentBrief } from '@/lib/rrg/db';
+import { getApprovedDropsPaginated, getPurchaseCountsByTokenIds, getCurrentBrief, getRecentBriefs } from '@/lib/rrg/db';
 import { getSignedUrl } from '@/lib/rrg/storage';
 import Link from 'next/link';
+import AgentTrustBadge from '@/components/rrg/AgentTrustBadge';
+import BriefFilter from '@/components/rrg/BriefFilter';
 
 export const dynamic = 'force-dynamic';
 
-export default async function RRGGallery() {
-  const [drops, brief] = await Promise.all([
-    getApprovedDrops(),
+const DROPS_PER_PAGE = 18;
+
+// Strip markdown links and bare URLs, return clean plain-text excerpt for gallery cards.
+function bioExcerpt(bio: string, maxLen = 90): string {
+  const clean = bio
+    .replace(/\[([^\]]+)\]\(https?:\/\/[^)]+\)/g, '$1')  // [text](url) → text
+    .replace(/https?:\/\/\S+/g, '')                        // bare URLs removed
+    .trim()
+    .replace(/\s+/g, ' ');
+  return clean.length > maxLen ? clean.slice(0, maxLen - 2).trimEnd() + '…' : clean;
+}
+
+export default async function RRGGallery({
+  searchParams,
+}: {
+  searchParams: Promise<{ page?: string; brief?: string }>;
+}) {
+  const params    = await searchParams;
+  const page      = Math.max(1, parseInt(params.page ?? '1', 10) || 1);
+  const briefParam = params.brief ?? 'all';
+
+  const [brief, allBriefs] = await Promise.all([
     getCurrentBrief(),
+    getRecentBriefs(20),
   ]);
+
+  // Resolve briefId filter: 'all' → undefined, 'current' → current brief id, else UUID
+  const resolvedBriefId = briefParam === 'all'
+    ? undefined
+    : briefParam === 'current'
+    ? brief?.id ?? undefined
+    : briefParam;
+
+  const { drops, totalCount } = await getApprovedDropsPaginated(page, DROPS_PER_PAGE, resolvedBriefId);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / DROPS_PER_PAGE));
+
+  // Get purchase counts for sold-out detection
+  const tokenIds       = drops.map(d => d.token_id).filter((id): id is number => id != null);
+  const purchaseCounts = await getPurchaseCountsByTokenIds(tokenIds);
 
   // Generate signed preview URLs (1-hour expiry for display)
   const dropsWithUrls = await Promise.all(
@@ -19,7 +56,10 @@ export default async function RRGGallery() {
           imageUrl = await getSignedUrl(drop.jpeg_storage_path, 3600);
         }
       } catch { /* non-fatal */ }
-      return { ...drop, imageUrl };
+      const soldOut = drop.token_id != null
+        ? (purchaseCounts.get(drop.token_id) ?? 0) >= drop.edition_size
+        : false;
+      return { ...drop, imageUrl, soldOut };
     })
   );
 
@@ -79,18 +119,28 @@ export default async function RRGGallery() {
       </div>
 
       {/* ── Gallery Header ───────────────────────────────────────────── */}
-      <div className="flex justify-between items-baseline mb-8">
-        <h1 className="text-xs font-mono uppercase tracking-[0.3em] text-white/40">
-          Drops ({drops.length})
-        </h1>
-        {!brief && (
-          <Link
-            href="/rrg/submit"
-            className="text-sm border border-white/30 px-4 py-1.5 hover:border-white transition-all"
-          >
-            Submit →
-          </Link>
-        )}
+      <div className="flex justify-between items-center mb-8">
+        <div className="flex items-center gap-4">
+          <h1 className="text-xs font-mono uppercase tracking-[0.3em] text-white/40">
+            Drops ({totalCount})
+          </h1>
+          <BriefFilter
+            briefs={allBriefs.map(b => ({ id: b.id, title: b.title }))}
+            currentBriefId={brief?.id ?? null}
+            selected={briefParam}
+          />
+        </div>
+        <div className="flex items-center gap-3">
+          <AgentTrustBadge />
+          {!brief && (
+            <Link
+              href="/rrg/submit"
+              className="text-sm border border-white/30 px-4 py-1.5 hover:border-white transition-all"
+            >
+              Submit →
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* ── Drop Grid ────────────────────────────────────────────────── */}
@@ -110,7 +160,7 @@ export default async function RRGGallery() {
               className="group block"
             >
               {/* Image */}
-              <div className="aspect-square bg-white/5 border border-white/10
+              <div className="relative aspect-square bg-white/5 border border-white/10
                               group-hover:border-white/30 transition-colors overflow-hidden mb-4">
                 {drop.imageUrl ? (
                   <img
@@ -123,6 +173,12 @@ export default async function RRGGallery() {
                     #{drop.token_id}
                   </div>
                 )}
+                {drop.soldOut && (
+                  <span className="absolute top-2 right-2 px-2 py-0.5 bg-red-600 text-white
+                                   text-[10px] font-mono uppercase tracking-wider leading-tight">
+                    Sold Out
+                  </span>
+                )}
               </div>
 
               {/* Info */}
@@ -133,10 +189,47 @@ export default async function RRGGallery() {
                 <span>${parseFloat(drop.price_usdc || '0').toFixed(2)} USDC</span>
                 <span>{drop.edition_size} ed.</span>
               </div>
+              {drop.creator_bio && bioExcerpt(drop.creator_bio) && (
+                <p className="mt-2 text-xs text-white/20 leading-snug line-clamp-2">
+                  {bioExcerpt(drop.creator_bio)}
+                </p>
+              )}
             </Link>
           ))}
         </div>
       )}
+
+      {/* ── Pagination ───────────────────────────────────────────────── */}
+      {totalPages > 1 && (() => {
+        const briefQs = briefParam !== 'all' ? `brief=${briefParam}&` : '';
+        return (
+          <div className="flex justify-end items-center gap-4 mt-10 text-sm font-mono">
+            {page > 1 ? (
+              <Link
+                href={page === 2 ? (briefQs ? `/rrg?${briefQs.slice(0,-1)}` : '/rrg') : `/rrg?${briefQs}page=${page - 1}`}
+                className="text-white/50 hover:text-white transition-colors"
+              >
+                &larr; Prev
+              </Link>
+            ) : (
+              <span className="text-white/15">&larr; Prev</span>
+            )}
+            <span className="text-white/30 tabular-nums">
+              {page} / {totalPages}
+            </span>
+            {page < totalPages ? (
+              <Link
+                href={`/rrg?${briefQs}page=${page + 1}`}
+                className="text-white/50 hover:text-white transition-colors"
+              >
+                Next &rarr;
+              </Link>
+            ) : (
+              <span className="text-white/15">Next &rarr;</span>
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── The Process ──────────────────────────────────────────────── */}
       <div className="mt-20 p-8 border border-white/10">
@@ -194,7 +287,7 @@ export default async function RRGGallery() {
             </a>
             {' '}and{' '}
             <a
-              href="https://t.me/+NqhvQQ-afOw0ZTk1"
+              href="https://t.me/realrealgenuine"
               target="_blank"
               rel="noopener noreferrer"
               className="text-white/80 underline underline-offset-2 hover:text-white transition-colors"

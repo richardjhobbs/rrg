@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/rrg/db';
+import { db, getCurrentBrief } from '@/lib/rrg/db';
 import { uploadSubmissionFile, jpegStoragePath, additionalFileStoragePath } from '@/lib/rrg/storage';
 import { randomUUID } from 'crypto';
 
@@ -21,17 +21,19 @@ export async function POST(req: NextRequest) {
     if (!creator_wallet || !/^0x[0-9a-f]{40}$/i.test(creator_wallet)) {
       return NextResponse.json({ error: 'Valid EVM wallet address required' }, { status: 400 });
     }
-    if (!jpeg || jpeg.type !== 'image/jpeg') {
-      return NextResponse.json({ error: 'JPEG file required' }, { status: 400 });
+    const ACCEPTED_IMAGE_TYPES = ['image/jpeg', 'image/jpg', 'image/png'];
+    if (!jpeg || !ACCEPTED_IMAGE_TYPES.includes(jpeg.type)) {
+      return NextResponse.json({ error: 'JPEG or PNG file required' }, { status: 400 });
     }
     if (jpeg.size > 5 * 1024 * 1024) {
-      return NextResponse.json({ error: 'JPEG must be under 5 MB' }, { status: 400 });
+      return NextResponse.json({ error: 'Image must be under 5 MB' }, { status: 400 });
     }
 
     // ── Optional fields ──────────────────────────────────────────────
     const rawDescription    = (formData.get('description') as string)?.trim().slice(0, 280) || '';
     const creator_email     = (formData.get('creator_email') as string)?.trim() || null;
     const creator_handle    = (formData.get('creator_handle') as string)?.trim() || null;
+    const creator_bio       = (formData.get('creator_bio') as string)?.trim().slice(0, 2000) || null;
     const brief_id          = (formData.get('brief_id') as string) || null;
     const submission_channel: string = (formData.get('channel') as string) || 'web';
 
@@ -59,13 +61,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Additional files must total under 5 MB' }, { status: 400 });
     }
 
+    // ── Auto-populate brief_id from current brief if not provided ────
+    let resolvedBriefId = brief_id;
+    if (!resolvedBriefId) {
+      const currentBrief = await getCurrentBrief();
+      resolvedBriefId = currentBrief?.id ?? null;
+    }
+
     // ── Generate submission ID ────────────────────────────────────────
     const submissionId = randomUUID();
 
-    // ── Upload JPEG ───────────────────────────────────────────────────
+    // ── Upload image (JPEG or PNG) ────────────────────────────────────
     const jpegBuffer = Buffer.from(await jpeg.arrayBuffer());
     const jpegPath   = jpegStoragePath(submissionId, jpeg.name);
-    await uploadSubmissionFile(jpegPath, jpegBuffer, 'image/jpeg');
+    await uploadSubmissionFile(jpegPath, jpegBuffer, jpeg.type);
 
     // ── Upload additional files ────────────────────────────────────────
     let additionalPath: string | null = null;
@@ -83,10 +92,11 @@ export async function POST(req: NextRequest) {
       .from('rrg_submissions')
       .insert({
         id:                  submissionId,
-        brief_id:            brief_id || null,
+        brief_id:            resolvedBriefId || null,
         creator_wallet,
         creator_email,
         creator_handle,
+        creator_bio,
         title,
         description,
         submission_channel,

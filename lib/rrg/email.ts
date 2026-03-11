@@ -7,8 +7,8 @@
  */
 
 const RESEND_URL = 'https://api.resend.com/emails';
-const FROM       = process.env.FROM_EMAIL ?? 'deliver@richard-hobbs.com';
-const SITE_URL   = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://richard-hobbs.com';
+const FROM       = process.env.FROM_EMAIL ?? 'deliver@realrealgenuine.com';
+const SITE_URL   = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://realrealgenuine.com';
 
 async function sendEmail(payload: {
   to: string;
@@ -60,9 +60,9 @@ export async function sendApprovalNotification({
   .body { padding: 28px; }
   .body p { margin: 0 0 16px; line-height: 1.6; color: #ccc; font-size: 14px; }
   .meta { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 16px; margin: 20px 0; }
-  .meta-row { display: flex; justify-content: space-between; padding: 6px 0; font-size: 13px; border-bottom: 1px solid #222; }
+  .meta-row { display: flex; justify-content: space-between; gap: 16px; padding: 6px 0; font-size: 13px; border-bottom: 1px solid #222; }
   .meta-row:last-child { border-bottom: none; }
-  .meta-label { color: #888; }
+  .meta-label { color: #888; min-width: 110px; }
   .meta-value { color: #e5e5e5; font-weight: 500; }
   .btn { display: inline-block; background: #d4ff22; color: #0a0a0a; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 14px; margin-top: 8px; }
   .footer { padding: 20px 28px; border-top: 1px solid #1a1a1a; font-size: 12px; color: #555; }
@@ -70,27 +70,27 @@ export async function sendApprovalNotification({
 </style></head>
 <body>
 <div class="card">
-  <div class="header"><h1>Your design is live on RRG 🎨</h1></div>
+  <div class="header"><h1>Your creation is live on RRG</h1></div>
   <div class="body">
     <p>Your submission <strong style="color:#e5e5e5">"${escHtml(title)}"</strong> has been approved and is now live.</p>
     <div class="meta">
-      <div class="meta-row"><span class="meta-label">Price</span><span class="meta-value">${priceUsdc.toFixed(2)} USDC</span></div>
-      <div class="meta-row"><span class="meta-label">Edition</span><span class="meta-value">${editionSize} pieces</span></div>
-      <div class="meta-row"><span class="meta-label">Your share</span><span class="meta-value">70% per sale</span></div>
-      <div class="meta-row"><span class="meta-label">Revenue wallet</span><span class="wallet">${creatorWallet}</span></div>
+      <div class="meta-row"><span class="meta-label">Price:</span><span class="meta-value">${priceUsdc.toFixed(2)} USDC</span></div>
+      <div class="meta-row"><span class="meta-label">Edition:</span><span class="meta-value">${editionSize} pieces</span></div>
+      <div class="meta-row"><span class="meta-label">Your share:</span><span class="meta-value">70% per sale</span></div>
+      <div class="meta-row"><span class="meta-label">Revenue wallet:</span><span class="wallet">${creatorWallet}</span></div>
     </div>
     <p>Sales revenue (70%) is sent automatically to your wallet with no further steps from you.</p>
     <p>Share the link below — every sale goes straight to your wallet.</p>
     <a class="btn" href="${dropUrl}">View your drop →</a>
   </div>
-  <div class="footer">richard-hobbs.com / RRG &nbsp;·&nbsp; <a href="${SITE_URL}/rrg" style="color:#7c3aed; text-decoration:none">Browse all drops</a></div>
+  <div class="footer"><a href="${SITE_URL}/rrg" style="color:#e5e5e5; text-decoration:none">Browse all drops</a></div>
 </div>
 </body>
 </html>`;
 
   await sendEmail({
     to,
-    subject: `Your design is live on RRG — "${title}"`,
+    subject: `Your creation is live on RRG — "${title}"`,
     html,
   });
 }
@@ -103,15 +103,16 @@ export async function sendFileDeliveryEmail({
   tokenId,
   txHash,
   downloadUrl,
+  ipfsMetadataUrl,
 }: {
   to: string;
   title: string;
   tokenId: number;
   txHash: string;
   downloadUrl: string;
+  ipfsMetadataUrl?: string | null;
 }): Promise<void> {
-  const isTestnet   = process.env.NEXT_PUBLIC_CHAIN_ID === '84532';
-  const scanBase    = isTestnet ? 'https://sepolia.basescan.org' : 'https://basescan.org';
+  const scanBase    = 'https://basescan.org';
   const dropUrl     = `${SITE_URL}/rrg/drop/${tokenId}`;
   const basescanUrl = `${scanBase}/tx/${txHash}`;
   const shortTx     = txHash; // full hash so the link is unambiguous
@@ -133,15 +134,16 @@ export async function sendFileDeliveryEmail({
 </style></head>
 <body>
 <div class="card">
-  <div class="header"><h1>Your RRG drop is ready ✉</h1></div>
+  <div class="header"><h1>Your RRG drop is ready</h1></div>
   <div class="body">
     <p>Thanks for purchasing <strong style="color:#e5e5e5">"${escHtml(title)}"</strong>. Your files are ready to download.</p>
     <p><a class="btn" href="${downloadUrl}">Download your files →</a></p>
     <p class="note">⚠️ This link expires in 24 hours. Download and save your files now.</p>
     <p>On-chain receipt: <a href="${basescanUrl}" class="tx">${shortTx}</a></p>
     <p><a href="${dropUrl}" style="color:#7c3aed; text-decoration:none; font-size:13px">View drop page →</a></p>
+    ${ipfsMetadataUrl ? `<p><a href="${ipfsMetadataUrl}" style="color:#7c3aed; text-decoration:none; font-size:13px">View metadata on IPFS →</a></p>` : ''}
   </div>
-  <div class="footer">richard-hobbs.com / RRG</div>
+  <div class="footer"><a href="${SITE_URL}/rrg" style="color:#e5e5e5; text-decoration:none">Browse all drops</a></div>
 </div>
 </body>
 </html>`;

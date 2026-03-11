@@ -17,7 +17,6 @@ interface Props {
   priceUsdc: number;
   soldOut:   boolean;
   active:    boolean;
-  isTestnet: boolean;
 }
 
 type Step = 'idle' | 'connect' | 'email' | 'signing' | 'confirming' | 'success' | 'error';
@@ -27,7 +26,7 @@ interface PurchaseResult {
   downloadUrl: string;
 }
 
-export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isTestnet }: Props) {
+export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active }: Props) {
   const { address, isConnected } = useAccount();
   const { connect }              = useConnect();
   const connectors               = useConnectors();
@@ -44,9 +43,7 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isTe
 
   useEffect(() => { setMounted(true); }, []);
 
-  const scanBase = isTestnet
-    ? 'https://sepolia.basescan.org'
-    : 'https://basescan.org';
+  const scanBase = 'https://basescan.org';
 
   // ── Guards ──────────────────────────────────────────────────────────
   if (!active) {
@@ -280,7 +277,7 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isTe
       try {
         await switchChainAsync({ chainId: targetChainId });
       } catch {
-        setError(`Please switch to ${isTestnet ? 'Base Sepolia' : 'Base'} in your wallet.`);
+        setError('Please switch to Base in your wallet.');
         return;
       }
     }
@@ -300,7 +297,7 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isTe
         await switchChainAsync({ chainId: targetChainId });
       } catch {
         throw new Error(
-          `Please switch to ${isTestnet ? 'Base Sepolia' : 'Base'} in your wallet.`
+          'Please switch to Base in your wallet.'
         );
       }
 

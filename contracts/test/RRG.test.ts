@@ -51,7 +51,7 @@ describe('RRG', () => {
     rrg = await RRGFactory.deploy(
       mockUsdcAddress,
       platform.address,
-      'https://richard-hobbs.com/api/rrg/drops/'
+      'https://realrealgenuine.com/api/rrg/drops/'
     );
   });
 
@@ -205,7 +205,7 @@ describe('RRG', () => {
       await rrg.registerDrop(TOKEN_ID, creator.address, PRICE_6DP, MAX_SUPPLY);
       // OZ ERC1155 base uri returns the template; per-token override not set
       const u = await rrg.uri(TOKEN_ID);
-      expect(u).to.include('richard-hobbs.com');
+      expect(u).to.include('realrealgenuine.com');
     });
 
     it('returns per-token URI when set', async () => {
