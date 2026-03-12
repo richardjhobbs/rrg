@@ -15,7 +15,7 @@ export default function RRGLayout({ children }: { children: React.ReactNode }) {
           href="/rrg"
           className="text-sm font-mono tracking-[0.3em] hover:opacity-70 transition-opacity"
         >
-          RRG
+          REAL REAL GENUINE
         </Link>
         <nav className="flex gap-6 items-center text-sm text-white/60">
           <Link href="/rrg" className="hover:text-white transition-colors">

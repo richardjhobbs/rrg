@@ -253,7 +253,7 @@ export default async function RRGGallery({
           <p>
             Whether you&apos;re a brand looking to commission original creative work with zero
             upfront production cost, or a creator looking to design for brands you believe in,
-            RRG is where the work gets made.
+            Real Real Genuine is where the work gets made.
           </p>
           <p>
             Submissions can be created digitally, drawn by hand, produced using design software,
