@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import CreatorTermsModal from '@/components/rrg/CreatorTermsModal';
+import { CREATOR_TC_VERSION } from '@/lib/rrg/terms';
 
 interface Brief {
   title: string;
@@ -32,6 +34,8 @@ export default function SubmitForm({ brandId, brandSlug, brandName }: SubmitForm
   });
   const [jpeg, setJpeg] = useState<File | null>(null);
   const [additionalFiles, setAdditionalFiles] = useState<FileList | null>(null);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [tcModalOpen, setTcModalOpen] = useState(false);
 
   useEffect(() => {
     fetch(`/api/rrg/brief?brandId=${brandId}`)
@@ -56,6 +60,8 @@ export default function SubmitForm({ brandId, brandSlug, brandName }: SubmitForm
     if (form.suggested_edition)    fd.append('suggested_edition', form.suggested_edition);
     if (form.suggested_price_usdc) fd.append('suggested_price_usdc', form.suggested_price_usdc);
     if (form.creator_bio)          fd.append('creator_bio', form.creator_bio);
+    fd.append('tc_accepted', '1');
+    fd.append('tc_version', CREATOR_TC_VERSION);
     fd.append('jpeg', jpeg);
     if (additionalFiles) {
       for (let i = 0; i < additionalFiles.length; i++) {
@@ -291,11 +297,46 @@ export default function SubmitForm({ brandId, brandSlug, brandName }: SubmitForm
           </p>
         )}
 
+        {/* ── Creator Terms & Conditions ──────────────────── */}
+        {termsAccepted ? (
+          <div className="p-4 border border-green-400/20 bg-green-400/5 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-mono text-green-400/80">
+                Creator Terms & Conditions accepted (v{CREATOR_TC_VERSION})
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setTcModalOpen(true)}
+              className="text-xs text-white/30 hover:text-white/60 transition-colors underline"
+            >
+              Review Terms
+            </button>
+          </div>
+        ) : (
+          <div className="p-5 border border-amber-400/40 bg-amber-400/5 space-y-3">
+            <p className="text-xs font-mono uppercase tracking-widest text-amber-400">
+              Action Required
+            </p>
+            <p className="text-sm text-white/70">
+              You must accept the Creator Terms & Conditions before submitting.
+            </p>
+            <button
+              type="button"
+              onClick={() => setTcModalOpen(true)}
+              className="px-5 py-2 border border-amber-400/60 text-amber-400 text-sm font-medium
+                         hover:bg-amber-400/10 transition-all"
+            >
+              Review & Accept Terms
+            </button>
+          </div>
+        )}
+
         {/* Submit */}
         <div className="flex items-center gap-5 pt-2">
           <button
             type="submit"
-            disabled={status === 'submitting'}
+            disabled={status === 'submitting' || !termsAccepted}
             className="px-8 py-3 bg-white text-black text-sm font-medium
                        hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
@@ -305,13 +346,22 @@ export default function SubmitForm({ brandId, brandSlug, brandName }: SubmitForm
             Cancel
           </Link>
         </div>
-
-        <p className="text-xs text-white/20 pt-2 leading-relaxed">
-          By submitting you confirm this is original work and you hold the rights to it.
-          If approved, an edition of 1–50 copies will be listed as an ERC-1155 token on Base.
-          Creators receive 70% of each sale in USDC.
-        </p>
+        {!termsAccepted && (
+          <p className="text-xs text-amber-400/60 -mt-4">
+            Accept the Terms & Conditions above to enable submission.
+          </p>
+        )}
       </form>
+
+      {/* Creator Terms Modal */}
+      <CreatorTermsModal
+        open={tcModalOpen}
+        onClose={() => setTcModalOpen(false)}
+        onAccept={() => {
+          setTermsAccepted(true);
+          setTcModalOpen(false);
+        }}
+      />
     </div>
   );
 }

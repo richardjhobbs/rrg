@@ -91,6 +91,12 @@ export async function PATCH(
       }
     }
 
+    // Handle T&C acceptance — set server-side timestamp, don't trust client
+    if (textFields['tc_version']) {
+      updates['tc_version'] = textFields['tc_version'];
+      updates['tc_accepted_at'] = new Date().toISOString();
+    }
+
     // Handle logo upload
     if (logoFile) {
       if (logoFile.size > MAX_LOGO_SIZE) {

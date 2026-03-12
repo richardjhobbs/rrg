@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
+import LoginButton from '@/components/rrg/LoginButton';
 
 export const metadata: Metadata = {
   title: 'RRG — Real Real Genuine',
@@ -16,13 +17,14 @@ export default function RRGLayout({ children }: { children: React.ReactNode }) {
         >
           RRG
         </Link>
-        <nav className="flex gap-6 text-sm text-white/60">
+        <nav className="flex gap-6 items-center text-sm text-white/60">
           <Link href="/rrg" className="hover:text-white transition-colors">
             Gallery
           </Link>
           <Link href="/brand/rrg/submit" className="hover:text-white transition-colors">
             Submit
           </Link>
+          <LoginButton />
         </nav>
       </header>
       <main>{children}</main>

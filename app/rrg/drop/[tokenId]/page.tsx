@@ -110,7 +110,7 @@ export default async function DropPage({ params }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
 
         {/* Image */}
-        <div className="aspect-square bg-white/5 border border-white/10 overflow-hidden sticky top-8">
+        <div className="aspect-square bg-white/5 border border-white/10 overflow-hidden md:sticky md:top-8">
           {imageUrl ? (
             <img
               src={imageUrl}

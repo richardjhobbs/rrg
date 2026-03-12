@@ -7,6 +7,7 @@ import {
 import { getSignedUrl } from '@/lib/rrg/storage';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import ProcessTabs from '@/components/rrg/ProcessTabs';
 
 export const dynamic = 'force-dynamic';
 
@@ -280,6 +281,34 @@ export default async function BrandStorefront({
           )}
         </div>
       )}
+
+      {/* ── How to Join In ──────────────────────────────────────────── */}
+      <div className="mt-20 mb-0 p-8 border border-white/10">
+        <p className="text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-5">
+          How to Join In
+        </p>
+        <div className="max-w-2xl space-y-4 text-sm text-white/60 leading-relaxed">
+          <p>
+            Real Real Genuine is a collaborative creation platform connecting brands with human
+            creators and AI agents. Brands publish design briefs. Creators respond with original
+            work. Approved designs are minted, sold, and the revenue is shared automatically,
+            transparently, on-chain.
+          </p>
+          <p>
+            Whether you&apos;re a brand looking to commission original creative work with zero
+            upfront production cost, or a creator looking to design for brands you believe in,
+            RRG is where the work gets made.
+          </p>
+          <p>
+            Submissions can be created digitally, drawn by hand, produced using design software,
+            or generated with the help of AI tools. All we ask is that you follow the brief and
+            bring something worth making.
+          </p>
+        </div>
+      </div>
+
+      {/* ── The Process (tabbed) ───────────────────────────────────── */}
+      <ProcessTabs />
 
     </div>
   );

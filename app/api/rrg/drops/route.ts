@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getApprovedDrops, getDropByTokenId, getCurrentBrief } from '@/lib/rrg/db';
+import { getApprovedDrops, getDropByTokenId, getCurrentBrief, getAllActiveBrands } from '@/lib/rrg/db';
 import { getRRGReadOnly } from '@/lib/rrg/contract';
 
 export const dynamic = 'force-dynamic';
@@ -41,11 +41,15 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ drop: { ...drop, onChain } });
     }
 
-    // All drops
-    const [drops, brief] = await Promise.all([
+    // All drops + brands for enrichment
+    const [drops, brief, brands] = await Promise.all([
       getApprovedDrops(),
       getCurrentBrief(),
+      getAllActiveBrands(),
     ]);
+
+    // Brand lookup map
+    const brandMap = new Map(brands.map(b => [b.id, { name: b.name, slug: b.slug }]));
 
     // Optionally enrich with on-chain minted counts
     let enriched = drops;
@@ -54,11 +58,13 @@ export async function GET(req: NextRequest) {
 
       enriched = await Promise.all(
         drops.map(async (drop) => {
-          if (!drop.token_id) return { ...drop, onChain: null };
+          const brand = drop.brand_id ? brandMap.get(drop.brand_id) : null;
+          const base = { ...drop, brand_name: brand?.name ?? null, brand_slug: brand?.slug ?? null };
+          if (!drop.token_id) return { ...base, onChain: null };
           try {
             const data = await contract.getDrop(drop.token_id);
             return {
-              ...drop,
+              ...base,
               onChain: {
                 minted:    Number(data.minted),
                 maxSupply: Number(data.maxSupply),
@@ -67,15 +73,22 @@ export async function GET(req: NextRequest) {
               },
             };
           } catch {
-            return { ...drop, onChain: null };
+            return { ...base, onChain: null };
           }
         })
       );
     } catch {
-      // Non-fatal
+      // Non-fatal — still add brand info even without on-chain data
+      enriched = drops.map(drop => {
+        const brand = drop.brand_id ? brandMap.get(drop.brand_id) : null;
+        return { ...drop, brand_name: brand?.name ?? null, brand_slug: brand?.slug ?? null, onChain: null };
+      });
     }
 
-    return NextResponse.json({ drops: enriched, currentBrief: brief });
+    // Include brand list for agent discovery
+    const brandList = brands.map(b => ({ name: b.name, slug: b.slug, description: b.description, headline: b.headline }));
+
+    return NextResponse.json({ drops: enriched, currentBrief: brief, brands: brandList });
   } catch (err) {
     console.error('[/api/rrg/drops]', err);
     return NextResponse.json({ error: 'Failed to fetch drops' }, { status: 500 });

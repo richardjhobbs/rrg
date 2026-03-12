@@ -37,6 +37,12 @@ export async function POST(req: NextRequest) {
     const brief_id          = (formData.get('brief_id') as string) || null;
     const submission_channel: string = (formData.get('channel') as string) || 'web';
 
+    // ── T&C acceptance (required for web submissions) ────────────────
+    const tc_accepted       = formData.get('tc_accepted') as string;
+    if (submission_channel === 'web' && tc_accepted !== '1') {
+      return NextResponse.json({ error: 'You must accept the Creator Terms & Conditions' }, { status: 400 });
+    }
+
     // ── Submitter suggestions (shown in admin, appended to description) ─
     const suggestedEdition  = (formData.get('suggested_edition') as string)?.trim() || '';
     const suggestedPrice    = (formData.get('suggested_price_usdc') as string)?.trim() || '';

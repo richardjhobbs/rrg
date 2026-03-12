@@ -3,11 +3,19 @@ import { getSignedUrl } from '@/lib/rrg/storage';
 import Link from 'next/link';
 import AgentTrustBadge from '@/components/rrg/AgentTrustBadge';
 import BriefFilter from '@/components/rrg/BriefFilter';
-import BrandChips from '@/components/rrg/BrandChips';
+import BrandDirectory from '@/components/rrg/BrandDirectory';
+import ProcessTabs from '@/components/rrg/ProcessTabs';
 
 export const dynamic = 'force-dynamic';
 
 const DROPS_PER_PAGE = 18;
+
+// Social platform display names
+const SOCIAL_LABELS: Record<string, string> = {
+  twitter: 'X / Twitter', x: 'X', instagram: 'Instagram', bluesky: 'BlueSky',
+  telegram: 'Telegram', discord: 'Discord', youtube: 'YouTube', tiktok: 'TikTok',
+  linkedin: 'LinkedIn', github: 'GitHub', facebook: 'Facebook',
+};
 
 // Strip markdown links and bare URLs, return clean plain-text excerpt for gallery cards.
 function bioExcerpt(bio: string, maxLen = 90): string {
@@ -29,14 +37,37 @@ export default async function RRGGallery({
   const briefParam = params.brief ?? 'all';
   const brandParam = params.brand ?? 'all';
 
-  // Fetch all active brands for the chips bar
+  // Fetch all active brands for the directory bar
   const brands = await getAllActiveBrands();
+
+  // Generate signed logo URLs for all brands (for directory cards)
+  const brandsWithLogos = await Promise.all(
+    brands.map(async (b) => {
+      let logoUrl: string | null = null;
+      if (b.logo_path) {
+        try { logoUrl = await getSignedUrl(b.logo_path, 3600); } catch { /* non-fatal */ }
+      }
+      return { slug: b.slug, name: b.name, headline: b.headline, logoUrl };
+    }),
+  );
 
   // Resolve selected brand
   const selectedBrand = brandParam !== 'all'
     ? brands.find(b => b.slug === brandParam) ?? null
     : null;
   const selectedBrandId = selectedBrand?.id ?? undefined;
+
+  // Signed URLs for selected brand images
+  let brandLogoUrl: string | null = null;
+  let brandBannerUrl: string | null = null;
+  if (selectedBrand) {
+    try {
+      if (selectedBrand.logo_path) brandLogoUrl = await getSignedUrl(selectedBrand.logo_path, 3600);
+    } catch { /* non-fatal */ }
+    try {
+      if (selectedBrand.banner_path) brandBannerUrl = await getSignedUrl(selectedBrand.banner_path, 3600);
+    } catch { /* non-fatal */ }
+  }
 
   // Fetch brief + past briefs scoped to selected brand (or all if 'all')
   const [brief, allBriefs] = await Promise.all([
@@ -99,8 +130,82 @@ export default async function RRGGallery({
   // Determine the submit link: brand-specific or default RRG
   const submitSlug = selectedBrand?.slug ?? 'rrg';
 
+  // Parse social links for selected brand
+  const brandSocialEntries = selectedBrand?.social_links
+    ? Object.entries(selectedBrand.social_links).filter(([, url]) => url)
+    : [];
+
   return (
     <div className="px-6 py-12 max-w-6xl mx-auto">
+
+      {/* ── Brand Profile (when a specific brand is selected) ──────── */}
+      {selectedBrand && (
+        <div className="mb-12">
+          {/* Banner */}
+          {brandBannerUrl && (
+            <div className="w-full h-48 sm:h-64 mb-6 border border-white/10 overflow-hidden">
+              <img
+                src={brandBannerUrl}
+                alt={`${selectedBrand.name} banner`}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+
+          <div className="flex items-start gap-6">
+            {/* Logo */}
+            {brandLogoUrl && (
+              <div className="shrink-0 w-20 h-20 border border-white/15 overflow-hidden bg-white/5">
+                <img
+                  src={brandLogoUrl}
+                  alt={`${selectedBrand.name} logo`}
+                  className="w-full h-full object-contain"
+                />
+              </div>
+            )}
+
+            {/* Text */}
+            <div className="flex-1 min-w-0">
+              <h2 className="text-2xl font-light mb-1 leading-snug">{selectedBrand.name}</h2>
+              {selectedBrand.headline && (
+                <p className="text-sm text-white/50 mb-2">{selectedBrand.headline}</p>
+              )}
+              {selectedBrand.description && (
+                <p className="text-white/60 leading-relaxed text-sm max-w-2xl">
+                  {selectedBrand.description}
+                </p>
+              )}
+
+              {/* Links row */}
+              {(selectedBrand.website_url || brandSocialEntries.length > 0) && (
+                <div className="flex flex-wrap items-center gap-4 mt-4">
+                  {selectedBrand.website_url && (
+                    <a
+                      href={selectedBrand.website_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-white/40 hover:text-white/70 transition-colors font-mono"
+                    >
+                      {selectedBrand.website_url.replace(/^https?:\/\//, '').replace(/\/$/, '')} {'\u2197'}
+                    </a>
+                  )}
+                  {brandSocialEntries.map(([platform, url]) => (
+                    <a
+                      key={platform}
+                      href={url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-white/30 hover:text-white/60 transition-colors font-mono"
+                    >
+                      {SOCIAL_LABELS[platform.toLowerCase()] ?? platform} {'\u2197'}
+                    </a>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Brief Banner ────────────────────────────────────────────── */}
       {brief && (
@@ -139,33 +244,37 @@ export default async function RRGGallery({
           How to Join In
         </p>
         <div className="max-w-2xl space-y-4 text-sm text-white/60 leading-relaxed">
-          <p>Real Real Genuine is built as an open design collaboration.</p>
           <p>
-            Creative people and their AI agents can both take part in the process. Anyone who wants
-            to contribute can respond to the current design brief and submit work for consideration.
+            Real Real Genuine is a collaborative creation platform connecting brands with human
+            creators and AI agents. Brands publish design briefs. Creators respond with original
+            work. Approved designs are minted, sold, and the revenue is shared automatically,
+            transparently, on-chain.
           </p>
           <p>
-            Each brief sets the theme, concept, or direction for the next series of designs.
+            Whether you&apos;re a brand looking to commission original creative work with zero
+            upfront production cost, or a creator looking to design for brands you believe in,
+            RRG is where the work gets made.
+          </p>
+          <p>
             Submissions can be created digitally, drawn by hand, produced using design software,
-            or generated with the help of AI tools. The only requirement is that the work follows
-            the brief and reflects the spirit of the project.
+            or generated with the help of AI tools. All we ask is that you follow the brief and
+            bring something worth making.
           </p>
-          <p className="font-medium text-white/80">Check the brief. Create. Submit!</p>
         </div>
       </div>
 
       {/* ── Brand Chips ─────────────────────────────────────────────── */}
       <div className="mb-6">
-        <BrandChips
-          brands={brands.map(b => ({ slug: b.slug, name: b.name }))}
+        <BrandDirectory
+          brands={brandsWithLogos}
           selected={brandParam}
         />
       </div>
 
       {/* ── Gallery Header ───────────────────────────────────────────── */}
-      <div className="flex justify-between items-center mb-8">
-        <div className="flex items-center gap-4">
-          <h1 className="text-xs font-mono uppercase tracking-[0.3em] text-white/40">
+      <div className="flex flex-wrap justify-between items-center gap-y-3 mb-8">
+        <div className="flex items-center gap-4 min-w-0">
+          <h1 className="text-xs font-mono uppercase tracking-[0.3em] text-white/40 shrink-0">
             Drops ({totalCount})
           </h1>
           <BriefFilter
@@ -179,7 +288,7 @@ export default async function RRGGallery({
           {!brief && (
             <Link
               href={`/brand/${submitSlug}/submit`}
-              className="text-sm border border-white/30 px-4 py-1.5 hover:border-white transition-all"
+              className="text-sm border border-white/30 px-4 py-1.5 hover:border-white transition-all whitespace-nowrap"
             >
               Submit &rarr;
             </Link>
@@ -277,74 +386,8 @@ export default async function RRGGallery({
         </div>
       )}
 
-      {/* ── The Process ──────────────────────────────────────────────── */}
-      <div className="mt-20 p-8 border border-white/10">
-        <p className="text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-5">
-          The Process
-        </p>
-        <div className="max-w-2xl space-y-4 text-sm text-white/60 leading-relaxed">
-          <p>
-            Submissions are reviewed to ensure a basic level of quality and relevance. Approved
-            designs are then made available for purchase through the platform. Give your submission
-            a great title, a detailed description (so agent buyers can pick it up!), and you can
-            add other assets to accompany the main image. Max 5mb for the lead jpg and another
-            5mb for the rest: other views, tech files, pdfs, etc.
-          </p>
-          <p>
-            When someone buys a design, the product is minted at that moment and the transaction
-            is processed using USDC on the Base blockchain. Because the sale happens on-chain,
-            the payment is automatically divided between the creator and the platform. Buyers also
-            get a download link for the design assets while core ownership is tokenised and lives
-            on-chain.
-          </p>
-          <p>This means creators are rewarded immediately when their work is purchased.</p>
-          <p>
-            The system is designed to work for both people and AI agents. Individuals can browse
-            and buy directly, while agents acting on behalf of collectors can discover, evaluate,
-            and purchase designs automatically.
-          </p>
-          <p>
-            RRG therefore becomes an ongoing collaboration between creators, collectors, and
-            intelligent agents. Designers contribute ideas, buyers collect the work they like,
-            and creators receive a direct share of every sale.
-          </p>
-          <p>
-            For anyone with ideas and the ability to respond to a brief, it is an opportunity to
-            participate in a global design project and earn from the results.
-          </p>
-          <p>
-            In this early stage design approval is manual to ensure adherence to the brief and
-            quality control. Going forward the plan is for the community, people and agents,
-            to decide what gets produced.
-          </p>
-          <p>
-            We ask for your help to build the community by sharing your creations and helping
-            people discover both yours and others&apos; work.
-          </p>
-          <p>
-            We will be auto-posting on{' '}
-            <a
-              href="https://bsky.app/profile/realrealgenuine.bsky.social"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-white/80 underline underline-offset-2 hover:text-white transition-colors"
-            >
-              BlueSky
-            </a>
-            {' '}and{' '}
-            <a
-              href="https://t.me/realrealgenuine"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-white/80 underline underline-offset-2 hover:text-white transition-colors"
-            >
-              Telegram
-            </a>
-            {' '}and occasionally on other social channels. Any help to get followers on those
-            will be helpful for all of us!
-          </p>
-        </div>
-      </div>
+      {/* ── The Process (tabbed) ───────────────────────────────────── */}
+      <ProcessTabs />
 
     </div>
   );

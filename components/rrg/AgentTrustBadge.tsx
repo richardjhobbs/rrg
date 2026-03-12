@@ -68,7 +68,7 @@ export default function AgentTrustBadge() {
           <div className="fixed inset-0 z-10" onClick={() => setTip(false)} />
 
           {/* Panel */}
-          <div className="absolute right-0 top-full mt-2 z-20 w-72 border border-white/20 bg-black/95 p-4 text-xs font-mono shadow-xl">
+          <div className="fixed sm:absolute right-4 sm:right-0 left-4 sm:left-auto top-auto sm:top-full mt-2 z-20 sm:w-72 border border-white/20 bg-black/95 p-4 text-xs font-mono shadow-xl">
             <div className="flex items-center justify-between mb-3">
               <span className="text-white/40 uppercase tracking-widest text-[9px]">ERC-8004 Trustless Agent</span>
               <button onClick={() => setTip(false)} className="text-white/30 hover:text-white">✕</button>

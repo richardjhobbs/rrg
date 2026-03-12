@@ -172,6 +172,7 @@ export async function getAllBrands(): Promise<RrgBrand[]> {
 export async function getBrandSalesStats(brandId: string): Promise<{
   totalSales: number;
   totalRevenue: number;
+  brandRevenue: number;
   pendingDistributions: number;
 }> {
   // Count purchases for this brand
@@ -183,19 +184,22 @@ export async function getBrandSalesStats(brandId: string): Promise<{
   // Sum revenue from distributions
   const { data: distData } = await db
     .from('rrg_distributions')
-    .select('total_usdc, status')
+    .select('total_usdc, brand_usdc, status')
     .eq('brand_id', brandId);
 
   let totalRevenue = 0;
+  let brandRevenue = 0;
   let pendingDistributions = 0;
   for (const d of distData ?? []) {
-    totalRevenue += parseFloat(d.total_usdc);
+    totalRevenue += parseFloat(d.total_usdc ?? '0');
+    brandRevenue += parseFloat(d.brand_usdc ?? '0');
     if (d.status === 'pending') pendingDistributions++;
   }
 
   return {
     totalSales: totalSales ?? 0,
     totalRevenue,
+    brandRevenue,
     pendingDistributions,
   };
 }
@@ -250,12 +254,31 @@ export async function getOpenBriefs(brandId?: string): Promise<RrgBrief[]> {
 // ── Submission helpers ─────────────────────────────────────────────────
 
 export async function getPendingSubmissions(brandId?: string): Promise<RrgSubmission[]> {
+  if (!brandId) {
+    // Super-admin: all pending
+    const { data } = await db
+      .from('rrg_submissions')
+      .select('*')
+      .eq('status', 'pending')
+      .order('created_at', { ascending: true });
+    return data ?? [];
+  }
+
+  // Brand admin: match by brand_id OR by brief belonging to this brand
+  const { data: brandBriefIds } = await db
+    .from('rrg_briefs')
+    .select('id')
+    .eq('brand_id', brandId);
+  const briefIds = (brandBriefIds ?? []).map((b) => b.id);
+
   let query = db
     .from('rrg_submissions')
     .select('*')
     .eq('status', 'pending');
 
-  if (brandId) {
+  if (briefIds.length > 0) {
+    query = query.or(`brand_id.eq.${brandId},brief_id.in.(${briefIds.join(',')})`);
+  } else {
     query = query.eq('brand_id', brandId);
   }
 
@@ -382,6 +405,63 @@ export async function getPurchaseByDownloadToken(token: string): Promise<RrgPurc
     .eq('download_token', token)
     .single();
   return data ?? null;
+}
+
+// ── Contributor helpers ───────────────────────────────────────────────
+
+export interface RrgContributor {
+  wallet_address: string;
+  creator_type: CreatorType;
+  display_name: string | null;
+  email: string | null;
+  bio: string | null;
+  registered_at: string;
+  last_active_at: string | null;
+  total_submissions: number;
+  total_approved: number;
+  total_rejected: number;
+  total_revenue_usdc: number;
+  brands_contributed: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export async function getAllContributors(): Promise<RrgContributor[]> {
+  const { data } = await db
+    .from('rrg_contributors')
+    .select('*')
+    .order('total_submissions', { ascending: false });
+  return data ?? [];
+}
+
+export async function getContributorByWallet(wallet: string): Promise<RrgContributor | null> {
+  const { data } = await db
+    .from('rrg_contributors')
+    .select('*')
+    .eq('wallet_address', wallet.toLowerCase())
+    .single();
+  return data ?? null;
+}
+
+export async function getContributorStats(): Promise<{
+  total: number;
+  humans: number;
+  agents: number;
+  totalRevenue: number;
+}> {
+  const { data } = await db
+    .from('rrg_contributors')
+    .select('creator_type, total_revenue_usdc');
+
+  let humans = 0;
+  let agents = 0;
+  let totalRevenue = 0;
+  for (const c of data ?? []) {
+    if (c.creator_type === 'agent') agents++;
+    else humans++;
+    totalRevenue += parseFloat(c.total_revenue_usdc ?? '0');
+  }
+  return { total: humans + agents, humans, agents, totalRevenue };
 }
 
 // ── Distribution helpers ──────────────────────────────────────────────

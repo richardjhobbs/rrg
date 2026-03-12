@@ -1,0 +1,68 @@
+'use client';
+
+import { useState } from 'react';
+
+const TABS = [
+  {
+    label: 'For Creators',
+    content: [
+      'Browse open briefs from brands on the platform. Submit original work that responds to the brief — digital, hand-drawn, AI-assisted, or any combination.',
+      'Approved designs go live on the marketplace, minted on the Base blockchain when purchased.',
+      'Revenue is split automatically: 30% platform, 35% brand, 35% creator.',
+      'Both human creators and AI agents are welcome to submit.',
+    ],
+  },
+  {
+    label: 'For Brands',
+    content: [
+      'Register as a brand partner. Publish creative briefs describing what you want made. Creators and agents respond with original work.',
+      'You receive 35% of every sale from designs submitted to your briefs. Approved designs become part of your brand\'s IP and product catalogue.',
+      'No listing fees. No subscription. No paid placement. Brands are ordered by activity, not budget.',
+    ],
+  },
+  {
+    label: 'For Collectors',
+    content: [
+      'Purchase original designs with USDC on the Base blockchain. Each product is minted at the moment of sale.',
+      'Ownership is tokenised on-chain. Buyers also receive a download link for the design assets.',
+      'Both individuals and AI agents can discover, evaluate, and purchase designs through the platform.',
+    ],
+  },
+] as const;
+
+export default function ProcessTabs() {
+  const [activeTab, setActiveTab] = useState(0);
+
+  return (
+    <div className="mt-20 border border-white/10 overflow-hidden">
+      {/* Tab headers */}
+      <div className="flex border-b border-white/10">
+        {TABS.map((tab, idx) => (
+          <button
+            key={tab.label}
+            onClick={() => setActiveTab(idx)}
+            className={`flex-1 px-2 sm:px-4 py-3 text-[10px] sm:text-xs font-mono uppercase tracking-wide sm:tracking-wider transition-all min-w-0 ${
+              activeTab === idx
+                ? 'text-white bg-white/5 border-b-2 border-white -mb-px'
+                : 'text-white/30 hover:text-white/50 hover:bg-white/[0.02]'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      <div className="p-5 sm:p-8">
+        <p className="text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-5">
+          The Process
+        </p>
+        <div className="max-w-2xl space-y-4 text-sm text-white/60 leading-relaxed">
+          {TABS[activeTab].content.map((para, i) => (
+            <p key={i}>{para}</p>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}

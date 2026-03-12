@@ -2,8 +2,25 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useBrandContext } from './layout';
+import BrandTermsModal from '@/components/rrg/BrandTermsModal';
+import { BRAND_TC_VERSION } from '@/lib/rrg/terms';
 
 // ── Types ──────────────────────────────────────────────────────────
+interface Submission {
+  id: string;
+  title: string;
+  description?: string | null;
+  creator_wallet: string;
+  creator_email?: string | null;
+  creator_bio?: string | null;
+  status: string;
+  created_at: string;
+  previewUrl?: string | null;
+  brief_id?: string | null;
+  suggestedEdition?: string;
+  suggestedPrice?: string;
+}
+
 interface Drop {
   id: string;
   title: string;
@@ -11,6 +28,8 @@ interface Drop {
   price_usdc: string;
   edition_size: number;
   approved_at: string;
+  additional_files_path?: string | null;
+  additional_files_size_bytes?: number | null;
 }
 
 interface Distribution {
@@ -44,6 +63,8 @@ interface BrandSettings {
   banner_path?: string | null;
   max_self_listings: number;
   self_listings_used: number;
+  tc_accepted_at?: string | null;
+  tc_version?: string | null;
 }
 
 const SOCIAL_PLATFORMS = [
@@ -70,11 +91,11 @@ interface Brief {
   response_count: number;
 }
 
-type Tab = 'products' | 'briefs' | 'sales' | 'settings';
+type Tab = 'submissions' | 'products' | 'briefs' | 'sales' | 'settings';
 
 export default function BrandAdminPage() {
   const ctx = useBrandContext();
-  const [tab, setTab] = useState<Tab>('products');
+  const [tab, setTab] = useState<Tab>('submissions');
 
   if (!ctx) return null;
 
@@ -82,7 +103,7 @@ export default function BrandAdminPage() {
     <>
       {/* Tabs */}
       <div className="border-b border-white/10 px-6 flex gap-6">
-        {(['products', 'briefs', 'sales', 'settings'] as Tab[]).map((t) => (
+        {(['submissions', 'products', 'briefs', 'sales', 'settings'] as Tab[]).map((t) => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -99,12 +120,274 @@ export default function BrandAdminPage() {
 
       {/* Tab content */}
       <div className="px-6 py-8 max-w-5xl">
-        {tab === 'products' && <ProductsTab brandId={ctx.brandId} />}
-        {tab === 'briefs'   && <BriefsTab brandId={ctx.brandId} />}
-        {tab === 'sales'    && <SalesTab brandId={ctx.brandId} />}
-        {tab === 'settings' && <SettingsTab brandId={ctx.brandId} />}
+        {tab === 'submissions' && <SubmissionsTab brandId={ctx.brandId} />}
+        {tab === 'products'    && <ProductsTab brandId={ctx.brandId} />}
+        {tab === 'briefs'      && <BriefsTab brandId={ctx.brandId} />}
+        {tab === 'sales'       && <SalesTab brandId={ctx.brandId} />}
+        {tab === 'settings'    && <SettingsTab brandId={ctx.brandId} />}
       </div>
     </>
+  );
+}
+
+// ── Submissions Tab ───────────────────────────────────────────────
+function SubmissionsTab({ brandId }: { brandId: string }) {
+  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [acting,      setActing]      = useState<string | null>(null);
+  const [approveForm, setApproveForm] = useState<{ id: string; edition_size: string; price_usdc: string } | null>(null);
+  const [rejectForm,  setRejectForm]  = useState<{ id: string; reason: string } | null>(null);
+  const [msg,         setMsg]         = useState('');
+  const [lightbox,    setLightbox]    = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    const res  = await fetch(`/api/brand/${brandId}/submissions`);
+    const data = await res.json();
+    const parsed = (data.submissions || []).map((s: Submission) => {
+      const match = (s.description || '').match(/\[Suggested: (\S+) ed · \$([0-9.]+) USDC\]/);
+      return {
+        ...s,
+        suggestedEdition: match?.[1] ?? '',
+        suggestedPrice:   match?.[2] ?? '',
+        description:      s.description?.replace(/\n?\[Suggested:[^\]]+\]/, '').trim() || null,
+      };
+    });
+    setSubmissions(parsed);
+    setLoading(false);
+  }, [brandId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  const handleApprove = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!approveForm) return;
+    setActing(approveForm.id);
+    setMsg('');
+    const res = await fetch(`/api/brand/${brandId}/approve`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        submissionId: approveForm.id,
+        edition_size: approveForm.edition_size,
+        price_usdc:   approveForm.price_usdc,
+      }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setMsg(`Approved ✓ Token #${data.tokenId} — tx: ${data.txHash?.slice(0, 10)}…`);
+      setApproveForm(null);
+      load();
+    } else {
+      setMsg(`Error: ${data.error}`);
+    }
+    setActing(null);
+  };
+
+  const handleReject = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!rejectForm) return;
+    setActing(rejectForm.id);
+    setMsg('');
+    const res = await fetch(`/api/brand/${brandId}/reject`, {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({
+        submissionId: rejectForm.id,
+        reason:       rejectForm.reason,
+      }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setMsg('Rejected ✓');
+      setRejectForm(null);
+      load();
+    } else {
+      setMsg(`Error: ${data.error}`);
+    }
+    setActing(null);
+  };
+
+  return (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xs font-mono uppercase tracking-widest text-white/40">
+          Pending Submissions
+        </h2>
+        <button
+          onClick={load}
+          className="text-xs text-white/30 hover:text-white transition-colors font-mono"
+        >
+          ↻ Refresh
+        </button>
+      </div>
+
+      {msg && (
+        <div className={`mb-4 p-3 border text-xs font-mono ${
+          msg.startsWith('Error') ? 'border-red-400/30 text-red-400' : 'border-white/20 text-green-400'
+        }`}>
+          {msg}
+        </div>
+      )}
+
+      {loading ? (
+        <p className="text-white/20 text-xs font-mono">Loading…</p>
+      ) : submissions.length === 0 ? (
+        <p className="text-white/20 text-xs font-mono">No pending submissions.</p>
+      ) : (
+        <div className="space-y-6">
+          {submissions.map((s) => (
+            <div key={s.id} className="border border-white/10 overflow-hidden">
+              {/* Header */}
+              <div className="flex gap-4 p-5">
+                {/* Preview image */}
+                {s.previewUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setLightbox(s.previewUrl!)}
+                    className="w-24 h-24 flex-shrink-0 bg-white/5 overflow-hidden cursor-zoom-in"
+                  >
+                    <img
+                      src={s.previewUrl}
+                      alt={s.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-start mb-1">
+                    <h3 className="text-sm font-medium truncate pr-2">{s.title}</h3>
+                    <span className="text-xs font-mono text-white/30 flex-shrink-0">
+                      {new Date(s.created_at).toLocaleDateString()}
+                    </span>
+                  </div>
+                  {s.description && (
+                    <p className="text-xs text-white/40 leading-relaxed mb-2 line-clamp-2">
+                      {s.description}
+                    </p>
+                  )}
+                  <div className="flex gap-4 text-xs text-white/20 font-mono flex-wrap">
+                    <span title={s.creator_wallet}>
+                      Wallet: {s.creator_wallet.slice(0, 6)}…{s.creator_wallet.slice(-4)}
+                    </span>
+                    {s.creator_email && <span>{s.creator_email}</span>}
+                  </div>
+                  {(s.suggestedEdition || s.suggestedPrice) && (
+                    <div className="mt-2 text-xs font-mono text-amber-400/60">
+                      Suggested: {s.suggestedEdition ? `${s.suggestedEdition} ed` : ''}
+                      {s.suggestedEdition && s.suggestedPrice ? ' · ' : ''}
+                      {s.suggestedPrice ? `$${s.suggestedPrice} USDC` : ''}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Actions */}
+              {approveForm?.id === s.id ? (
+                <form onSubmit={handleApprove} className="border-t border-white/10 p-4 flex gap-3 items-end flex-wrap">
+                  <div>
+                    <label className="text-xs font-mono text-white/40 block mb-1">Edition size (1–50)</label>
+                    <input
+                      type="number" required min={1} max={50}
+                      value={approveForm.edition_size}
+                      onChange={(e) => setApproveForm({ ...approveForm, edition_size: e.target.value })}
+                      className="w-24 bg-transparent border border-white/20 px-3 py-1.5 text-sm focus:border-white outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs font-mono text-white/40 block mb-1">Price USDC</label>
+                    <input
+                      type="number" required min={0.5} max={50} step={0.5}
+                      value={approveForm.price_usdc}
+                      onChange={(e) => setApproveForm({ ...approveForm, price_usdc: e.target.value })}
+                      className="w-24 bg-transparent border border-white/20 px-3 py-1.5 text-sm focus:border-white outline-none"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={acting === s.id}
+                    className="px-5 py-1.5 bg-white text-black text-sm font-medium
+                               hover:bg-white/90 disabled:opacity-40 transition-all"
+                  >
+                    {acting === s.id ? 'Approving…' : 'Confirm Approve'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setApproveForm(null)}
+                    className="text-xs text-white/30 hover:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </form>
+              ) : rejectForm?.id === s.id ? (
+                <form onSubmit={handleReject} className="border-t border-white/10 p-4 flex gap-3 items-end flex-wrap">
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="text-xs font-mono text-white/40 block mb-1">Reason (optional)</label>
+                    <input
+                      type="text" maxLength={500}
+                      placeholder="Reason for rejection…"
+                      value={rejectForm.reason}
+                      onChange={(e) => setRejectForm({ ...rejectForm, reason: e.target.value })}
+                      className="w-full bg-transparent border border-white/20 px-3 py-1.5 text-sm focus:border-white outline-none"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={acting === s.id}
+                    className="px-5 py-1.5 border border-red-400/40 text-red-400 text-sm font-medium
+                               hover:bg-red-400/10 disabled:opacity-40 transition-all"
+                  >
+                    {acting === s.id ? 'Rejecting…' : 'Confirm Reject'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRejectForm(null)}
+                    className="text-xs text-white/30 hover:text-white transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </form>
+              ) : (
+                <div className="border-t border-white/10 p-4 flex gap-3">
+                  <button
+                    onClick={() => setApproveForm({
+                      id: s.id,
+                      edition_size: s.suggestedEdition || '10',
+                      price_usdc:   s.suggestedPrice || '5',
+                    })}
+                    className="px-4 py-1.5 bg-white/10 text-white text-xs font-medium
+                               hover:bg-white/20 transition-all"
+                  >
+                    Approve
+                  </button>
+                  <button
+                    onClick={() => setRejectForm({ id: s.id, reason: '' })}
+                    className="px-4 py-1.5 border border-white/15 text-white/50 text-xs font-medium
+                               hover:border-white/30 hover:text-white/80 transition-all"
+                  >
+                    Reject
+                  </button>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* Lightbox */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center cursor-zoom-out"
+          onClick={() => setLightbox(null)}
+        >
+          <img
+            src={lightbox}
+            alt="Full preview"
+            className="max-w-[90vw] max-h-[90vh] object-contain"
+          />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -300,24 +583,53 @@ function ProductsTab({ brandId }: { brandId: string }) {
       ) : (
         <div className="space-y-3">
           {drops.map((d) => (
-            <div key={d.id} className="p-4 border border-white/10 flex justify-between items-center">
-              <div>
-                <p className="text-sm font-medium">{d.title}</p>
-                <div className="flex gap-4 mt-1 text-xs text-white/30 font-mono">
-                  <span>Token #{d.token_id}</span>
-                  <span>${parseFloat(d.price_usdc).toFixed(2)} USDC</span>
-                  <span>{d.edition_size} ed.</span>
-                  <span>{new Date(d.approved_at).toLocaleDateString()}</span>
+            <div key={d.id} className="p-4 border border-white/10">
+              <div className="flex justify-between items-center">
+                <div>
+                  <p className="text-sm font-medium">{d.title}</p>
+                  <div className="flex gap-4 mt-1 text-xs text-white/30 font-mono">
+                    <span>Token #{d.token_id}</span>
+                    <span>${parseFloat(d.price_usdc).toFixed(2)} USDC</span>
+                    <span>{d.edition_size} ed.</span>
+                    <span>{new Date(d.approved_at).toLocaleDateString()}</span>
+                  </div>
                 </div>
+                <a
+                  href={`/rrg/drop/${d.token_id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-white/30 hover:text-white transition-colors"
+                >
+                  View ↗
+                </a>
               </div>
-              <a
-                href={`/rrg/drop/${d.token_id}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-white/30 hover:text-white transition-colors"
-              >
-                View ↗
-              </a>
+              {d.additional_files_path && (
+                <div className="mt-3 pt-3 border-t border-white/5 flex items-center justify-between">
+                  <span className="text-xs font-mono text-white/30">
+                    Additional files attached
+                    {d.additional_files_size_bytes
+                      ? ` (${(d.additional_files_size_bytes / 1024 / 1024).toFixed(1)} MB)`
+                      : ''}
+                  </span>
+                  <button
+                    onClick={async () => {
+                      if (!confirm('Remove additional files from this product? This cannot be undone.')) return;
+                      setMsg('');
+                      const res = await fetch(`/api/brand/${brandId}/products/${d.id}/files`, { method: 'DELETE' });
+                      if (res.ok) {
+                        setMsg('Additional files removed ✓');
+                        load();
+                      } else {
+                        const data = await res.json();
+                        setMsg(`Error: ${data.error}`);
+                      }
+                    }}
+                    className="text-xs text-red-400/60 hover:text-red-400 transition-colors font-mono"
+                  >
+                    Remove files ×
+                  </button>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -677,6 +989,8 @@ function SettingsTab({ brandId }: { brandId: string }) {
   const [bannerFile, setBannerFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview]     = useState<string | null>(null);
   const [bannerPreview, setBannerPreview] = useState<string | null>(null);
+  const [tcModalOpen, setTcModalOpen]     = useState(false);
+  const [tcSaving, setTcSaving]           = useState(false);
 
   useEffect(() => {
     fetch(`/api/brand/${brandId}/settings`)
@@ -906,6 +1220,46 @@ function SettingsTab({ brandId }: { brandId: string }) {
           ))}
         </div>
 
+        {/* ── Terms & Conditions ─────────────────────────── */}
+        {brand.tc_accepted_at ? (
+          <div className="p-5 border border-green-400/20 bg-green-400/5 space-y-2">
+            <p className="text-xs font-mono uppercase tracking-widest text-green-400/60">
+              Terms & Conditions Accepted
+            </p>
+            <p className="text-xs text-white/50">
+              Accepted on{' '}
+              {new Date(brand.tc_accepted_at).toLocaleDateString('en-GB', {
+                day: 'numeric', month: 'long', year: 'numeric',
+              })}{' '}
+              (v{brand.tc_version})
+            </p>
+            <button
+              type="button"
+              onClick={() => setTcModalOpen(true)}
+              className="text-xs text-white/30 hover:text-white/60 transition-colors underline"
+            >
+              Review Terms
+            </button>
+          </div>
+        ) : (
+          <div className="p-5 border border-amber-400/40 bg-amber-400/5 space-y-3">
+            <p className="text-xs font-mono uppercase tracking-widest text-amber-400">
+              Action Required
+            </p>
+            <p className="text-sm text-white/70">
+              You must accept the Brand Partner Terms & Conditions before using this platform.
+            </p>
+            <button
+              type="button"
+              onClick={() => setTcModalOpen(true)}
+              className="px-5 py-2 border border-amber-400/60 text-amber-400 text-sm font-medium
+                         hover:bg-amber-400/10 transition-all"
+            >
+              Review & Accept Terms
+            </button>
+          </div>
+        )}
+
         {msg && (
           <p className={`text-xs font-mono ${msg.startsWith('Error') ? 'text-red-400' : 'text-green-400'}`}>
             {msg}
@@ -913,13 +1267,42 @@ function SettingsTab({ brandId }: { brandId: string }) {
         )}
         <button
           type="submit"
-          disabled={saving}
+          disabled={saving || !brand.tc_accepted_at}
           className="px-6 py-2 bg-white text-black text-sm font-medium hover:bg-white/90
-                     disabled:opacity-40 transition-all"
+                     disabled:opacity-40 disabled:cursor-not-allowed transition-all"
         >
           {saving ? 'Saving…' : 'Save Settings →'}
         </button>
+        {!brand.tc_accepted_at && (
+          <p className="text-xs text-amber-400/60 -mt-3">
+            Accept the Terms & Conditions above to enable saving.
+          </p>
+        )}
       </form>
+
+      {/* Brand Terms Modal */}
+      <BrandTermsModal
+        open={tcModalOpen}
+        saving={tcSaving}
+        onClose={() => setTcModalOpen(false)}
+        onAccept={async () => {
+          setTcSaving(true);
+          const res = await fetch(`/api/brand/${brandId}/settings`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ tc_version: BRAND_TC_VERSION }),
+          });
+          const data = await res.json();
+          setTcSaving(false);
+          if (res.ok) {
+            setBrand(data.brand);
+            setTcModalOpen(false);
+            setMsg('Terms accepted ✓');
+          } else {
+            setMsg(`Error: ${data.error}`);
+          }
+        }}
+      />
     </div>
   );
 }

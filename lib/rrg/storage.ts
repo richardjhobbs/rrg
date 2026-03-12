@@ -48,6 +48,16 @@ export async function downloadFile(path: string): Promise<Buffer> {
   return Buffer.from(arrayBuffer);
 }
 
+// ── Delete a file from storage ────────────────────────────────────────
+
+export async function deleteFile(path: string): Promise<void> {
+  const { error } = await db.storage
+    .from(BUCKET)
+    .remove([path]);
+
+  if (error) throw new Error(`Storage delete failed: ${error.message}`);
+}
+
 // ── Build storage paths ────────────────────────────────────────────────
 
 export function jpegStoragePath(submissionId: string, filename: string): string {

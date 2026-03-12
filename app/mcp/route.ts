@@ -20,6 +20,7 @@ import { uploadSubmissionFile, jpegStoragePath, getSignedUrl } from '@/lib/rrg/s
 import { buildPermitPayload, splitSignature } from '@/lib/rrg/permit';
 import { getRRGContract, getRRGReadOnly, toUsdc6dp } from '@/lib/rrg/contract';
 import { calculateSplit } from '@/lib/rrg/splits';
+import { insertDistributionAndPay } from '@/lib/rrg/auto-payout';
 import { randomUUID, randomBytes } from 'crypto';
 
 export const dynamic = 'force-dynamic';
@@ -28,10 +29,47 @@ export const dynamic = 'force-dynamic';
 // Each request gets a fresh stateless server (no shared in-memory state).
 
 function createDrHobbsServer() {
-  const server = new McpServer({
-    name: 'DrHobbs',
-    version: '1.0.0',
-  });
+  const server = new McpServer(
+    {
+      name: 'RRG — Real Real Genuine',
+      version: '1.0.0',
+    },
+    {
+      instructions: [
+        'RRG (Real Real Genuine) is a multi-brand creative platform where AI agents and humans submit original digital artwork.',
+        'Approved designs become ERC-1155 NFT drops on Base, purchasable with USDC (gasless for buyers).',
+        '',
+        '## Brands',
+        'RRG hosts multiple brands, each with their own identity and creative briefs.',
+        'Call list_brands to see all active brands. Call get_brand with a slug for full details.',
+        '',
+        '## Submission Workflow',
+        '1. Call list_briefs to see current creative challenges across all brands.',
+        '2. Choose a brief that matches your creative direction. Note the brief id and brand context.',
+        '3. Generate or source a JPEG image that responds to the brief.',
+        '4. Call submit_design with:',
+        '   - title (≤60 chars), creator_wallet (your 0x address on Base)',
+        '   - image_base64 (preferred for generated images) or image_url',
+        '   - brief_id (IMPORTANT — always include this to associate your submission with the correct brand)',
+        '   - description, suggested_edition, suggested_price_usdc (optional but recommended)',
+        '5. Submissions are reviewed by brand admins. If approved, the design becomes a purchasable NFT drop.',
+        '',
+        '## Purchase Workflow',
+        '1. Call list_drops to browse available NFT drops. Optionally filter by brand_slug.',
+        '2. Call initiate_purchase with the tokenId and buyerWallet. This returns an EIP-712 permit payload.',
+        '3. Sign the permit with your wallet using signTypedData (EIP-712).',
+        '4. Call confirm_purchase with the tokenId, buyerWallet, deadline, and signature.',
+        '   The platform mints the NFT on-chain (gasless) and returns a download link.',
+        '   The buyer needs USDC on Base. No ETH required.',
+        '',
+        '## Key Rules',
+        '- Always include brief_id when submitting — this links your work to the correct brand.',
+        '- Images must be JPEG format, under 5 MB.',
+        '- Permits expire in 10 minutes — complete the purchase flow promptly.',
+        '- All transactions happen on Base mainnet using USDC.',
+      ].join('\n'),
+    },
+  );
 
   // ── Tool: list_drops ──────────────────────────────────────────────────────
   server.tool(
@@ -394,7 +432,7 @@ function createDrHobbsServer() {
 
       if (dbError) throw dbError;
 
-      // Record distribution (non-fatal)
+      // Record distribution + auto-payout (non-fatal)
       try {
         const brandId = drop.brand_id ?? RRG_BRAND_ID;
         const brand   = brandId !== RRG_BRAND_ID ? await getBrandById(brandId) : null;
@@ -406,20 +444,13 @@ function createDrHobbsServer() {
           isBrandProduct: drop.is_brand_product ?? false,
           isLegacy:       false,
         });
-        await db.from('rrg_distributions').insert({
-          purchase_id:    purchase.id,
-          brand_id:       brandId,
-          total_usdc:     split.totalUsdc.toFixed(2),
-          creator_usdc:   split.creatorUsdc.toFixed(2),
-          brand_usdc:     split.brandUsdc.toFixed(2),
-          platform_usdc:  split.platformUsdc.toFixed(2),
-          creator_wallet: split.creatorWallet,
-          brand_wallet:   split.brandWallet,
-          split_type:     split.splitType,
-          status:         'pending',
+        await insertDistributionAndPay({
+          purchaseId: purchase.id,
+          brandId,
+          split,
         });
       } catch (distErr) {
-        console.error('[confirm_purchase] distribution record failed:', distErr);
+        console.error('[confirm_purchase] distribution/payout failed:', distErr);
       }
 
       const siteUrl     = process.env.NEXT_PUBLIC_SITE_URL!;
@@ -529,7 +560,7 @@ function createDrHobbsServer() {
   // ── Tool: list_briefs ───────────────────────────────────────────────────
   server.tool(
     'list_briefs',
-    'List all open design briefs (creative challenges) across brands. Optionally filter by brand slug.',
+    'List active, current design briefs (creative challenges) across brands. Optionally filter by brand slug. Returns brand name and description with each brief.',
     {
       brand_slug: z.string().optional().describe('Optional brand slug to filter briefs by a specific brand'),
     },
@@ -543,14 +574,34 @@ function createDrHobbsServer() {
         brandId = brand.id;
       }
 
-      const briefs = await getOpenBriefs(brandId);
+      const allBriefs = await getOpenBriefs(brandId);
+
+      // Only return active + current briefs
+      const briefs = allBriefs.filter((b) => b.is_current && b.status === 'active');
 
       if (briefs.length === 0) {
-        return { content: [{ type: 'text', text: brand_slug ? `No open briefs for "${brand_slug}".` : 'No open briefs at this time.' }] };
+        return { content: [{ type: 'text', text: brand_slug ? `No current briefs for "${brand_slug}".` : 'No current briefs at this time.' }] };
       }
 
+      // Enrich with brand name and description
+      const enriched = await Promise.all(
+        briefs.map(async (b) => {
+          const brand = b.brand_id ? await getBrandById(b.brand_id) : null;
+          return {
+            id:               b.id,
+            title:            b.title,
+            description:      b.description,
+            startsAt:         b.starts_at,
+            endsAt:           b.ends_at,
+            brandName:        brand?.name ?? 'RRG',
+            brandDescription: brand?.description ?? null,
+            brandId:          b.brand_id ?? RRG_BRAND_ID,
+          };
+        })
+      );
+
       return {
-        content: [{ type: 'text', text: JSON.stringify(briefs, null, 2) }],
+        content: [{ type: 'text', text: JSON.stringify(enriched, null, 2) }],
       };
     }
   );
@@ -599,6 +650,102 @@ function createDrHobbsServer() {
               editionSize: d.edition_size,
             })),
             stats,
+          }, null, 2),
+        }],
+      };
+    }
+  );
+
+  // ── Tool: register_brand ────────────────────────────────────────────────
+  server.tool(
+    'register_brand',
+    [
+      'Register a new brand on the RRG platform.',
+      'Your brand will be created with "pending" status and will go live after admin approval.',
+      'Once approved, your brand gets its own storefront, you can create briefs for creators,',
+      'and list up to 10 products for sale. Revenue is paid to your wallet in USDC on Base.',
+    ].join(' '),
+    {
+      name:          z.string().min(2).max(60).describe('Brand name (2-60 characters)'),
+      headline:      z.string().min(5).max(120).describe('Short brand tagline (5-120 characters)'),
+      description:   z.string().min(20).max(2000).describe('Full brand description — who you are, what you create, your creative vision (20-2000 characters)'),
+      contact_email: z.string().email().describe('Contact email for the brand'),
+      wallet_address: z.string().describe('Base wallet address (0x...) for receiving USDC revenue'),
+      website_url:   z.string().url().optional().describe('Brand website URL'),
+      social_links:  z.record(z.string()).optional().describe('Social links object, e.g. {"twitter":"https://x.com/mybrand","instagram":"https://instagram.com/mybrand"}'),
+    },
+    async ({ name, headline, description, contact_email, wallet_address, website_url, social_links }) => {
+      // Validate wallet
+      const { ethers } = await import('ethers');
+      if (!ethers.isAddress(wallet_address)) {
+        return { isError: true, content: [{ type: 'text' as const, text: 'Invalid wallet address. Must be a valid Ethereum/Base address (0x...).' }] };
+      }
+      const walletLower = wallet_address.toLowerCase();
+
+      // Generate slug from name
+      let slug = name
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-|-$/g, '')
+        .slice(0, 40);
+
+      // Check slug uniqueness
+      const { data: existingSlug } = await db
+        .from('rrg_brands')
+        .select('id')
+        .eq('slug', slug)
+        .maybeSingle();
+      if (existingSlug) {
+        slug = `${slug}-${randomBytes(3).toString('hex')}`;
+      }
+
+      // Rate limit: one pending brand per wallet
+      const { data: pendingBrand } = await db
+        .from('rrg_brands')
+        .select('id, name')
+        .eq('wallet_address', walletLower)
+        .eq('status', 'pending')
+        .maybeSingle();
+      if (pendingBrand) {
+        return {
+          isError: true,
+          content: [{ type: 'text' as const, text: `You already have a pending brand registration: "${pendingBrand.name}". Please wait for admin approval before registering another.` }],
+        };
+      }
+
+      // Insert brand
+      const { data: brand, error } = await db
+        .from('rrg_brands')
+        .insert({
+          name,
+          slug,
+          headline,
+          description,
+          contact_email,
+          wallet_address: walletLower,
+          website_url:    website_url ?? null,
+          social_links:   social_links ?? {},
+          status:         'pending',
+          max_self_listings: 10,
+          self_listings_used: 0,
+        })
+        .select('id, slug')
+        .single();
+
+      if (error || !brand) {
+        console.error('[MCP register_brand]', error);
+        return { isError: true, content: [{ type: 'text' as const, text: 'Failed to register brand. Please try again.' }] };
+      }
+
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            status:  'pending',
+            message: `Brand "${name}" registered successfully! Your brand is pending admin approval. Once approved, it will appear on the RRG platform and you can start creating briefs and listing products.`,
+            brandId: brand.id,
+            slug:    brand.slug,
+            storefront: `https://realrealgenuine.com/brand/${brand.slug}`,
           }, null, 2),
         }],
       };

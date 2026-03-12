@@ -9,6 +9,7 @@ import { randomBytes } from 'crypto';
 import { autopostSale } from '@/lib/rrg/autopost';
 import { postReputationSignal } from '@/lib/rrg/erc8004';
 import { calculateSplit } from '@/lib/rrg/splits';
+import { insertDistributionAndPay } from '@/lib/rrg/auto-payout';
 
 export const dynamic = 'force-dynamic';
 
@@ -81,11 +82,10 @@ export async function POST(req: NextRequest) {
 
     if (dbError) throw dbError;
 
-    // ── Record revenue distribution ──────────────────────────────────
+    // ── Record revenue distribution + auto-payout ────────────────────
     try {
       const brandId = drop.brand_id ?? RRG_BRAND_ID;
       const brand   = brandId !== RRG_BRAND_ID ? await getBrandById(brandId) : null;
-      // Legacy = pre-multi-brand RRG drops where on-chain creator != platformWallet
       const isLegacy = brandId === RRG_BRAND_ID && !drop.is_brand_product;
 
       const split = calculateSplit({
@@ -97,20 +97,13 @@ export async function POST(req: NextRequest) {
         isLegacy,
       });
 
-      await db.from('rrg_distributions').insert({
-        purchase_id:    purchase.id,
-        brand_id:       brandId,
-        total_usdc:     split.totalUsdc,
-        creator_usdc:   split.creatorUsdc,
-        brand_usdc:     split.brandUsdc,
-        platform_usdc:  split.platformUsdc,
-        creator_wallet: split.creatorWallet,
-        brand_wallet:   split.brandWallet,
-        split_type:     split.splitType,
-        status:         'pending',
+      await insertDistributionAndPay({
+        purchaseId: purchase.id,
+        brandId,
+        split,
       });
     } catch (distErr) {
-      console.error('[confirm] Distribution record failed:', distErr);
+      console.error('[confirm] Distribution/payout failed:', distErr);
       // Non-fatal — purchase still succeeded
     }
 

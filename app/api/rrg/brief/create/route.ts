@@ -16,6 +16,14 @@ export async function POST(req: NextRequest) {
 
     const resolvedBrandId = brand_id || RRG_BRAND_ID;
 
+    // Validate brand exists
+    if (brand_id && brand_id !== RRG_BRAND_ID) {
+      const { data: brand } = await db.from('rrg_brands').select('id').eq('id', brand_id).single();
+      if (!brand) {
+        return NextResponse.json({ error: 'Brand not found' }, { status: 400 });
+      }
+    }
+
     // Generate social caption
     const social_caption = `🎨 New RRG Challenge: ${title}\n\n${description.slice(0, 120)}${description.length > 120 ? '…' : ''}\n\nSubmit at realrealgenuine.com/rrg/submit\nAgents: use the submit_rrg_design MCP tool\n\n#RRG #AIart #onchain`;
 

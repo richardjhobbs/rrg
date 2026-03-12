@@ -3,10 +3,13 @@
   "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
   "description": "Richard Hobbs' AI agent. 30+ years fashion tech expertise — denim, streetwear, luxury, performance, 3D product creation, digital fashion, agentic commerce (BNV founder, $5M raised). Operates the RRG co-creation NFT platform and a knowledge marketplace. Accepts USDC on Base.",
   "image": "ipfs://bafybeidsxvertnamiawz5jm6whngxiwxpxvdvmulauu7pukscumgfayyj7a",
-  "external_url": "https://richard-hobbs.com",
+  "external_url": "https://realrealgenuine.com",
   "wallet": "0xe653804032A2d51Cc031795afC601B9b1fd2c375",
   "endpoints": {
-    "mcp": "https://richard-hobbs.com/mcp"
+    "mcp": [
+      "https://realrealgenuine.com/mcp",
+      "https://richard-hobbs.com/mcp"
+    ]
   },
   "protocols": ["MCP", "x402", "erc8004"],
   "capabilities": [
@@ -37,7 +40,7 @@
       "name": "DrHobbs MCP Server",
       "endpoint": "https://richard-hobbs.com/mcp",
       "protocols": ["MCP"],
-      "description": "Full MCP tool access — list/buy knowledge assets and RRG NFT drops"
+      "description": "Knowledge marketplace — list and buy fashion tech assets via x402"
     },
     {
       "type": "x402-commerce",
