@@ -110,7 +110,7 @@ export default async function RRGGallery({
       const brand = drop.brand_id ? brandMap.get(drop.brand_id) : null;
       const brandName = brand && brand.id !== RRG_BRAND_ID ? brand.name : null;
       const brandSlug = brand && brand.id !== RRG_BRAND_ID ? brand.slug : null;
-      return { ...drop, imageUrl, soldOut, brandName, brandSlug };
+      return { ...drop, imageUrl, soldOut, brandName, brandSlug, isPhysicalProduct: drop.is_physical_product };
     })
   );
 
@@ -127,8 +127,8 @@ export default async function RRGGallery({
     return str ? `/rrg?${str}` : '/rrg';
   };
 
-  // Determine the submit link: brand-specific or default RRG
-  const submitSlug = selectedBrand?.slug ?? 'rrg';
+  // Submit always goes to the brief selection page
+  const submitHref = '/rrg/submit';
 
   // Parse social links for selected brand
   const brandSocialEntries = selectedBrand?.social_links
@@ -220,7 +220,7 @@ export default async function RRGGallery({
           </p>
           <div className="flex items-center gap-6">
             <Link
-              href={`/brand/${submitSlug}/submit`}
+              href={`${submitHref}`}
               className="inline-flex items-center gap-2 px-6 py-2.5 border border-white text-sm
                          hover:bg-white hover:text-black transition-all font-medium"
             >
@@ -287,7 +287,7 @@ export default async function RRGGallery({
           <AgentTrustBadge />
           {!brief && (
             <Link
-              href={`/brand/${submitSlug}/submit`}
+              href={`${submitHref}`}
               className="text-sm border border-white/30 px-4 py-1.5 hover:border-white transition-all whitespace-nowrap"
             >
               Submit &rarr;
@@ -300,7 +300,7 @@ export default async function RRGGallery({
       {dropsWithUrls.length === 0 ? (
         <div className="text-center py-32 text-white/20 font-mono text-sm">
           <p>No drops yet.</p>
-          <Link href={`/brand/${submitSlug}/submit`} className="mt-4 inline-block text-white/40 hover:text-white transition-colors">
+          <Link href={`${submitHref}`} className="mt-4 inline-block text-white/40 hover:text-white transition-colors">
             Be the first to submit &rarr;
           </Link>
         </div>
@@ -325,6 +325,12 @@ export default async function RRGGallery({
                   <div className="w-full h-full flex items-center justify-center text-white/10 font-mono text-xs">
                     #{drop.token_id}
                   </div>
+                )}
+                {drop.isPhysicalProduct && (
+                  <span className="absolute top-2 left-2 px-2 py-0.5 bg-lime-500 text-black
+                                   text-[10px] font-mono uppercase tracking-wider leading-tight">
+                    Includes Real Real Product
+                  </span>
                 )}
                 {drop.soldOut && (
                   <span className="absolute top-2 right-2 px-2 py-0.5 bg-red-600 text-white

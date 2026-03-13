@@ -17,9 +17,10 @@ interface SubmitFormProps {
   brandId: string;
   brandSlug: string;
   brandName: string;
+  briefId?: string;
 }
 
-export default function SubmitForm({ brandId, brandSlug, brandName }: SubmitFormProps) {
+export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: SubmitFormProps) {
   const [brief, setBrief] = useState<Brief | null>(null);
   const [status, setStatus] = useState<Status>('idle');
   const [error, setError] = useState('');
@@ -38,11 +39,14 @@ export default function SubmitForm({ brandId, brandSlug, brandName }: SubmitForm
   const [tcModalOpen, setTcModalOpen] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/rrg/brief?brandId=${brandId}`)
+    const url = briefId
+      ? `/api/rrg/brief?briefId=${briefId}`
+      : `/api/rrg/brief?brandId=${brandId}`;
+    fetch(url)
       .then((r) => r.json())
       .then((d) => setBrief(d.brief))
       .catch(() => {});
-  }, [brandId]);
+  }, [brandId, briefId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

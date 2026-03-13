@@ -65,6 +65,8 @@ export interface RrgBrief {
   brand_id: string | null;
 }
 
+export type ShippingType = 'included' | 'quote_after_payment';
+
 export interface RrgSubmission {
   id: string;
   created_at: string;
@@ -94,6 +96,18 @@ export interface RrgSubmission {
   brand_id: string | null;
   creator_type: CreatorType;
   is_brand_product: boolean;
+  // Physical product fields
+  is_physical_product: boolean;
+  physical_description: string | null;
+  physical_images_paths: string[] | null;
+  price_includes_tax: boolean;
+  price_includes_packing: boolean;
+  ecommerce_url: string | null;
+  shipping_type: ShippingType | null;
+  shipping_included_regions: string[] | null;
+  refund_commitment: boolean;
+  collection_in_person: string | null;
+  trust_behavior_accepted: boolean;
 }
 
 export interface RrgPurchase {
@@ -114,6 +128,16 @@ export interface RrgPurchase {
   payment_method: string;
   network: RrgNetwork;
   brand_id: string | null;
+  // Shipping fields (physical products)
+  shipping_name: string | null;
+  shipping_address_line1: string | null;
+  shipping_address_line2: string | null;
+  shipping_city: string | null;
+  shipping_state: string | null;
+  shipping_postal_code: string | null;
+  shipping_country: string | null;
+  shipping_phone: string | null;
+  physical_terms_accepted: boolean;
 }
 
 export interface RrgDistribution {
@@ -206,6 +230,15 @@ export async function getBrandSalesStats(brandId: string): Promise<{
 
 // ── Brief helpers ──────────────────────────────────────────────────────
 
+export async function getBriefById(briefId: string): Promise<RrgBrief | null> {
+  const { data } = await db
+    .from('rrg_briefs')
+    .select('*')
+    .eq('id', briefId)
+    .single();
+  return data ?? null;
+}
+
 export async function getCurrentBrief(brandId?: string): Promise<RrgBrief | null> {
   let query = db
     .from('rrg_briefs')
@@ -249,6 +282,26 @@ export async function getOpenBriefs(brandId?: string): Promise<RrgBrief[]> {
   const { data } = await query
     .order('created_at', { ascending: false });
   return data ?? [];
+}
+
+/** All active briefs that haven't expired — current ones first, then others.
+ *  Optionally filter to a single brand. */
+export async function getSubmittableBriefs(brandId?: string): Promise<RrgBrief[]> {
+  let query = db
+    .from('rrg_briefs')
+    .select('*')
+    .eq('status', 'active');
+
+  if (brandId) query = query.eq('brand_id', brandId);
+
+  const { data } = await query
+    .order('is_current', { ascending: false })
+    .order('created_at', { ascending: false });
+
+  if (!data) return [];
+  // Filter out expired briefs (ends_at in the past)
+  const now = new Date();
+  return data.filter(b => !b.ends_at || new Date(b.ends_at) > now);
 }
 
 // ── Submission helpers ─────────────────────────────────────────────────

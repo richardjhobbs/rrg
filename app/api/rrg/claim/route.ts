@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ethers } from 'ethers';
 import { db, getBrandById, RRG_BRAND_ID } from '@/lib/rrg/db';
-import { sendFileDeliveryEmail } from '@/lib/rrg/email';
+import { sendFileDeliveryEmail, sendPhysicalOrderToBrand, sendPhysicalPurchaseToBuyer } from '@/lib/rrg/email';
 import { getSignedUrl } from '@/lib/rrg/storage';
 import { uploadToIpfsInBackground } from '@/lib/rrg/ipfs';
 import { getRRGContract } from '@/lib/rrg/contract';
@@ -31,11 +31,23 @@ const TRANSFER_IFACE = new ethers.Interface([
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { txHash: rawTxHash, buyerWallet, tokenId, email } = body as {
+    const { txHash: rawTxHash, buyerWallet, tokenId, email,
+            shipping_name, shipping_address_line1, shipping_address_line2,
+            shipping_city, shipping_state, shipping_postal_code,
+            shipping_country, shipping_phone, physical_terms_accepted } = body as {
       txHash?:     string;
       buyerWallet: string;
       tokenId:     number;
       email?:      string;
+      shipping_name?: string;
+      shipping_address_line1?: string;
+      shipping_address_line2?: string;
+      shipping_city?: string;
+      shipping_state?: string;
+      shipping_postal_code?: string;
+      shipping_country?: string;
+      shipping_phone?: string;
+      physical_terms_accepted?: boolean;
     };
 
     // ── Input validation ──────────────────────────────────────────────────
@@ -174,6 +186,16 @@ export async function POST(req: NextRequest) {
       console.log(`[/api/rrg/claim] Operator self-purchase — skipping USDC verification for token #${tokenId}`);
     }
 
+    // ── Validate shipping for physical products ───────────────────────────
+    if (submission.is_physical_product) {
+      if (!shipping_name || !shipping_address_line1 || !shipping_city || !shipping_postal_code || !shipping_country) {
+        return NextResponse.json(
+          { error: 'Shipping address required for physical products (shipping_name, shipping_address_line1, shipping_city, shipping_postal_code, shipping_country)' },
+          { status: 400 }
+        );
+      }
+    }
+
     // ── Create purchase record ────────────────────────────────────────────
     const downloadToken  = randomBytes(32).toString('hex');
     const downloadExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
@@ -195,6 +217,18 @@ export async function POST(req: NextRequest) {
         mint_status:         'pending',
         brand_id:            submission.brand_id ?? RRG_BRAND_ID,
         ...(email ? { delivery_email: email } : {}),
+        // Shipping fields (physical products)
+        ...(submission.is_physical_product ? {
+          shipping_name:           shipping_name || null,
+          shipping_address_line1:  shipping_address_line1 || null,
+          shipping_address_line2:  shipping_address_line2 || null,
+          shipping_city:           shipping_city || null,
+          shipping_state:          shipping_state || null,
+          shipping_postal_code:    shipping_postal_code || null,
+          shipping_country:        shipping_country || null,
+          shipping_phone:          shipping_phone || null,
+          physical_terms_accepted: physical_terms_accepted ?? false,
+        } : {}),
       })
       .select()
       .single();
@@ -245,6 +279,46 @@ export async function POST(req: NextRequest) {
       } catch (emailErr) {
         console.error('[/api/rrg/claim] Email delivery error:', emailErr);
         // Non-fatal — download URL still returned in response
+      }
+    }
+
+    // ── Physical product emails (brand + buyer) ─────────────────────────
+    if (submission.is_physical_product && shipping_name) {
+      try {
+        const brandId = submission.brand_id ?? RRG_BRAND_ID;
+        const brand   = await getBrandById(brandId);
+        const shippingAddress = [
+          shipping_address_line1,
+          shipping_address_line2,
+          [shipping_city, shipping_state, shipping_postal_code].filter(Boolean).join(', '),
+          shipping_country,
+        ].filter(Boolean).join('\n');
+
+        const emailData = {
+          title:             submission.title,
+          tokenId,
+          txHash,
+          buyerEmail:        email || null,
+          brandContactEmail: brand?.contact_email ?? '',
+          brandName:         brand?.name ?? 'RRG',
+          shippingName:      shipping_name,
+          shippingAddress,
+          shippingPhone:     shipping_phone || null,
+          shippingType:      submission.shipping_type || null,
+          downloadUrl,
+        };
+
+        if (brand?.contact_email) {
+          await sendPhysicalOrderToBrand(emailData);
+          console.log(`[claim] Physical order email sent to brand: ${brand.contact_email}`);
+        }
+        if (email) {
+          await sendPhysicalPurchaseToBuyer(emailData);
+          console.log(`[claim] Physical purchase email sent to buyer: ${email}`);
+        }
+      } catch (physEmailErr) {
+        console.error('[claim] Physical product email failed:', physEmailErr);
+        // Non-fatal
       }
     }
 

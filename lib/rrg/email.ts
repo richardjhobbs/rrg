@@ -208,6 +208,146 @@ export async function sendRejectionNotification({
   });
 }
 
+// ── 4. Physical product purchase notifications ──────────────────────────
+
+interface PhysicalPurchaseEmailData {
+  title: string;
+  tokenId: number;
+  txHash: string;
+  buyerEmail: string | null;
+  brandContactEmail: string;
+  brandName: string;
+  shippingName: string;
+  shippingAddress: string;   // pre-formatted multi-line
+  shippingPhone: string | null;
+  shippingType: string | null;
+  downloadUrl: string;
+  ipfsMetadataUrl?: string | null;
+}
+
+/** Send to brand: new physical product order with buyer shipping address */
+export async function sendPhysicalOrderToBrand(data: PhysicalPurchaseEmailData): Promise<void> {
+  const scanBase = 'https://basescan.org';
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #e5e5e5; margin: 0; padding: 40px 20px; }
+  .card { max-width: 520px; margin: 0 auto; background: #111; border: 1px solid #222; border-radius: 12px; overflow: hidden; }
+  .header { background: #65a30d; padding: 24px 28px; }
+  .header h1 { margin: 0; font-size: 20px; color: #fff; font-weight: 700; }
+  .body { padding: 28px; }
+  .body p { margin: 0 0 16px; line-height: 1.6; color: #ccc; font-size: 14px; }
+  .meta { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 16px; margin: 20px 0; }
+  .meta-row { padding: 6px 0; font-size: 13px; border-bottom: 1px solid #222; }
+  .meta-row:last-child { border-bottom: none; }
+  .meta-label { color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .meta-value { color: #e5e5e5; font-weight: 500; margin-top: 4px; }
+  .address { white-space: pre-line; font-family: monospace; font-size: 13px; color: #e5e5e5; }
+  .footer { padding: 20px 28px; border-top: 1px solid #1a1a1a; font-size: 12px; color: #555; }
+</style></head>
+<body>
+<div class="card">
+  <div class="header"><h1>New physical product order</h1></div>
+  <div class="body">
+    <p>A buyer has purchased <strong style="color:#e5e5e5">"${escHtml(data.title)}"</strong> (Token #${data.tokenId}).</p>
+    <p>This product includes a physical item. Please arrange shipping.</p>
+    <div class="meta">
+      <div class="meta-row">
+        <div class="meta-label">Ship To</div>
+        <div class="meta-value address">${escHtml(data.shippingName)}
+${escHtml(data.shippingAddress)}</div>
+      </div>
+      ${data.shippingPhone ? `<div class="meta-row"><div class="meta-label">Phone</div><div class="meta-value">${escHtml(data.shippingPhone)}</div></div>` : ''}
+      ${data.buyerEmail ? `<div class="meta-row"><div class="meta-label">Buyer Email</div><div class="meta-value">${escHtml(data.buyerEmail)}</div></div>` : ''}
+      <div class="meta-row">
+        <div class="meta-label">Transaction</div>
+        <div class="meta-value"><a href="${scanBase}/tx/${data.txHash}" style="color:#65a30d; font-family:monospace; font-size:12px">${data.txHash.slice(0, 20)}…</a></div>
+      </div>
+    </div>
+    ${data.shippingType === 'quote_after_payment' ? '<p style="color:#fbbf24"><strong>Action required:</strong> Contact the buyer with a shipping quote.</p>' : '<p>Shipping is included in the purchase price. Please arrange delivery.</p>'}
+  </div>
+  <div class="footer">RRG — Real Real Genuine</div>
+</div>
+</body>
+</html>`;
+
+  await sendEmail({
+    to: data.brandContactEmail,
+    subject: `New physical product order — "${data.title}"`,
+    html,
+  });
+}
+
+/** Send to buyer: purchase confirmation with shipping address + physical product info */
+export async function sendPhysicalPurchaseToBuyer(data: PhysicalPurchaseEmailData): Promise<void> {
+  const scanBase = 'https://basescan.org';
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #e5e5e5; margin: 0; padding: 40px 20px; }
+  .card { max-width: 520px; margin: 0 auto; background: #111; border: 1px solid #222; border-radius: 12px; overflow: hidden; }
+  .header { background: #7c3aed; padding: 24px 28px; }
+  .header h1 { margin: 0; font-size: 20px; color: #fff; font-weight: 700; }
+  .body { padding: 28px; }
+  .body p { margin: 0 0 16px; line-height: 1.6; color: #ccc; font-size: 14px; }
+  .btn { display: inline-block; background: #d4ff22; color: #0a0a0a; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 15px; margin: 8px 0; }
+  .meta { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 16px; margin: 20px 0; }
+  .meta-row { padding: 6px 0; font-size: 13px; border-bottom: 1px solid #222; }
+  .meta-row:last-child { border-bottom: none; }
+  .meta-label { color: #888; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .meta-value { color: #e5e5e5; font-weight: 500; margin-top: 4px; }
+  .address { white-space: pre-line; font-family: monospace; font-size: 13px; color: #e5e5e5; }
+  .physical { background: #1a2e05; border: 1px solid #65a30d33; border-radius: 8px; padding: 16px; margin: 20px 0; }
+  .physical-title { color: #65a30d; font-size: 12px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 8px; font-weight: 700; }
+  .footer { padding: 20px 28px; border-top: 1px solid #1a1a1a; font-size: 12px; color: #555; }
+</style></head>
+<body>
+<div class="card">
+  <div class="header"><h1>Your RRG drop is ready</h1></div>
+  <div class="body">
+    <p>Thanks for purchasing <strong style="color:#e5e5e5">"${escHtml(data.title)}"</strong>. Your digital files are ready to download.</p>
+    <p><a class="btn" href="${data.downloadUrl}">Download your files →</a></p>
+    <p style="font-size:12px;color:#555">⚠️ This link expires in 24 hours.</p>
+
+    <div class="physical">
+      <div class="physical-title">Physical Product</div>
+      <p style="margin:0 0 8px;font-size:13px;color:#ccc">This purchase includes a physical product from <strong>${escHtml(data.brandName)}</strong>.</p>
+      ${data.shippingType === 'quote_after_payment'
+        ? '<p style="margin:0;font-size:13px;color:#fbbf24">The brand will contact you with a shipping quote.</p>'
+        : '<p style="margin:0;font-size:13px;color:#ccc">Shipping is included in the purchase price.</p>'}
+    </div>
+
+    <div class="meta">
+      <div class="meta-row">
+        <div class="meta-label">Shipping To</div>
+        <div class="meta-value address">${escHtml(data.shippingName)}
+${escHtml(data.shippingAddress)}</div>
+      </div>
+      <div class="meta-row">
+        <div class="meta-label">Brand Contact</div>
+        <div class="meta-value"><a href="mailto:${escHtml(data.brandContactEmail)}" style="color:#7c3aed">${escHtml(data.brandContactEmail)}</a></div>
+      </div>
+    </div>
+
+    <p style="font-size:13px">On-chain receipt: <a href="${scanBase}/tx/${data.txHash}" style="color:#7c3aed; font-family:monospace; font-size:12px">${data.txHash.slice(0, 20)}…</a></p>
+    ${data.ipfsMetadataUrl ? `<p><a href="${data.ipfsMetadataUrl}" style="color:#7c3aed; text-decoration:none; font-size:13px">View metadata on IPFS →</a></p>` : ''}
+  </div>
+  <div class="footer"><a href="${SITE_URL}/rrg" style="color:#e5e5e5; text-decoration:none">Browse all drops</a></div>
+</div>
+</body>
+</html>`;
+
+  if (!data.buyerEmail) return; // can't send without email
+
+  await sendEmail({
+    to: data.buyerEmail,
+    subject: `Your RRG drop is ready — "${data.title}" (includes physical product)`,
+    html,
+  });
+}
+
 // ── HTML escape helper ─────────────────────────────────────────────────
 function escHtml(str: string): string {
   return str

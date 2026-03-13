@@ -17,16 +17,41 @@ interface Props {
   priceUsdc: number;
   soldOut:   boolean;
   active:    boolean;
+  isPhysicalProduct?: boolean;
+  shippingType?: string | null;
 }
 
-type Step = 'idle' | 'connect' | 'email' | 'signing' | 'confirming' | 'success' | 'error';
+type Step = 'idle' | 'connect' | 'email' | 'shipping' | 'signing' | 'confirming' | 'success' | 'error';
+
+interface ShippingAddress {
+  name: string;
+  addressLine1: string;
+  addressLine2: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  phone: string;
+  termsAccepted: boolean;
+}
+
+const COUNTRIES = [
+  'United States', 'United Kingdom', 'Canada', 'Australia', 'Germany', 'France',
+  'Netherlands', 'Japan', 'South Korea', 'Singapore', 'Hong Kong', 'India',
+  'Brazil', 'Mexico', 'South Africa', 'United Arab Emirates', 'New Zealand',
+  'Sweden', 'Norway', 'Denmark', 'Finland', 'Ireland', 'Belgium', 'Switzerland',
+  'Austria', 'Italy', 'Spain', 'Portugal', 'Poland', 'Czech Republic',
+  'Thailand', 'Indonesia', 'Philippines', 'Malaysia', 'Vietnam', 'Taiwan',
+  'Israel', 'Turkey', 'Saudi Arabia', 'Nigeria', 'Kenya', 'Egypt',
+  'Argentina', 'Chile', 'Colombia', 'Peru', 'Other',
+];
 
 interface PurchaseResult {
   txHash:      string;
   downloadUrl: string;
 }
 
-export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active }: Props) {
+export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isPhysicalProduct, shippingType }: Props) {
   const { address, isConnected } = useAccount();
   const { connect }              = useConnect();
   const connectors               = useConnectors();
@@ -40,6 +65,10 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active }: Pr
   const [error,   setError]   = useState('');
   const [result,  setResult]  = useState<PurchaseResult | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [shipping, setShipping] = useState<ShippingAddress>({
+    name: '', addressLine1: '', addressLine2: '', city: '',
+    state: '', postalCode: '', country: '', phone: '', termsAccepted: false,
+  });
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -178,9 +207,152 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active }: Pr
         )}
 
         <button
-          onClick={handlePurchase}
+          onClick={() => {
+            if (isPhysicalProduct) {
+              setStep('shipping');
+            } else {
+              handlePurchase();
+            }
+          }}
           className="w-full py-3.5 bg-white text-black text-sm font-medium
                      hover:bg-white/90 transition-all"
+        >
+          {isPhysicalProduct ? 'Continue to Shipping →' : 'Sign & Purchase →'}
+        </button>
+        <button
+          onClick={() => { setStep('idle'); setError(''); }}
+          className="w-full text-xs text-white/20 hover:text-white/50 transition-colors"
+        >
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  // ── Shipping address (physical products only) ──────────────────────
+  if (step === 'shipping' && isPhysicalProduct) {
+    const shippingValid = shipping.name && shipping.addressLine1 && shipping.city
+      && shipping.postalCode && shipping.country && shipping.termsAccepted;
+
+    return (
+      <div className="border border-white/20 p-6 space-y-4">
+        <div className="flex justify-between items-center">
+          <p className="text-sm text-white/70 font-medium">Shipping Address</p>
+          <button
+            onClick={() => setStep('email')}
+            className="text-xs text-white/30 hover:text-white/60 transition-colors"
+          >
+            ← Back
+          </button>
+        </div>
+
+        {shippingType === 'quote_after_payment' && (
+          <div className="border border-amber-400/30 bg-amber-400/5 px-3 py-2">
+            <p className="text-xs text-amber-400/80">
+              Shipping cost is not included in the price. The brand will contact
+              you after purchase with a shipping quote.
+            </p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2">
+            <label className="text-xs font-mono text-white/30 block mb-1">Full Name *</label>
+            <input
+              type="text" required value={shipping.name}
+              onChange={(e) => setShipping({ ...shipping, name: e.target.value })}
+              className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none placeholder:text-white/15"
+              placeholder="Jane Smith"
+            />
+          </div>
+          <div className="col-span-2">
+            <label className="text-xs font-mono text-white/30 block mb-1">Address Line 1 *</label>
+            <input
+              type="text" required value={shipping.addressLine1}
+              onChange={(e) => setShipping({ ...shipping, addressLine1: e.target.value })}
+              className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none placeholder:text-white/15"
+              placeholder="123 Main Street"
+            />
+          </div>
+          <div className="col-span-2">
+            <label className="text-xs font-mono text-white/30 block mb-1">Address Line 2</label>
+            <input
+              type="text" value={shipping.addressLine2}
+              onChange={(e) => setShipping({ ...shipping, addressLine2: e.target.value })}
+              className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none placeholder:text-white/15"
+              placeholder="Apt 4B"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-mono text-white/30 block mb-1">City *</label>
+            <input
+              type="text" required value={shipping.city}
+              onChange={(e) => setShipping({ ...shipping, city: e.target.value })}
+              className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-mono text-white/30 block mb-1">State / Province</label>
+            <input
+              type="text" value={shipping.state}
+              onChange={(e) => setShipping({ ...shipping, state: e.target.value })}
+              className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-mono text-white/30 block mb-1">Postal Code *</label>
+            <input
+              type="text" required value={shipping.postalCode}
+              onChange={(e) => setShipping({ ...shipping, postalCode: e.target.value })}
+              className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-mono text-white/30 block mb-1">Country *</label>
+            <select
+              value={shipping.country}
+              onChange={(e) => setShipping({ ...shipping, country: e.target.value })}
+              className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
+            >
+              <option value="">Select…</option>
+              {COUNTRIES.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <div className="col-span-2">
+            <label className="text-xs font-mono text-white/30 block mb-1">Phone <span className="text-white/15">(optional)</span></label>
+            <input
+              type="tel" value={shipping.phone}
+              onChange={(e) => setShipping({ ...shipping, phone: e.target.value })}
+              className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none placeholder:text-white/15"
+              placeholder="+1 555 123 4567"
+            />
+          </div>
+        </div>
+
+        <label className="flex items-start gap-2.5 cursor-pointer pt-1">
+          <input
+            type="checkbox"
+            checked={shipping.termsAccepted}
+            onChange={(e) => setShipping({ ...shipping, termsAccepted: e.target.checked })}
+            className="accent-white w-3.5 h-3.5 mt-0.5"
+          />
+          <span className="text-xs text-white/50 leading-relaxed">
+            I understand this purchase includes a physical product. Shipping is arranged
+            directly between the brand and me. I accept the terms for physical delivery. *
+          </span>
+        </label>
+
+        {error && (
+          <p className="text-red-400 text-xs font-mono border border-red-400/20 bg-red-400/5 px-3 py-2">
+            {error}
+          </p>
+        )}
+
+        <button
+          onClick={handlePurchase}
+          disabled={!shippingValid}
+          className="w-full py-3.5 bg-white text-black text-sm font-medium
+                     hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
         >
           Sign &amp; Purchase →
         </button>
@@ -322,16 +494,29 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active }: Pr
 
       // 3 — Confirm + mint
       setStep('confirming');
+      const confirmBody: Record<string, unknown> = {
+        tokenId,
+        buyerWallet: address,
+        buyerEmail:  email || null,
+        deadline:    value.deadline,
+        signature,
+      };
+      // Include shipping data for physical products
+      if (isPhysicalProduct) {
+        confirmBody.shipping_name          = shipping.name;
+        confirmBody.shipping_address_line1 = shipping.addressLine1;
+        confirmBody.shipping_address_line2 = shipping.addressLine2 || null;
+        confirmBody.shipping_city          = shipping.city;
+        confirmBody.shipping_state         = shipping.state || null;
+        confirmBody.shipping_postal_code   = shipping.postalCode;
+        confirmBody.shipping_country       = shipping.country;
+        confirmBody.shipping_phone         = shipping.phone || null;
+        confirmBody.physical_terms_accepted = shipping.termsAccepted;
+      }
       const confirmRes = await fetch('/api/rrg/confirm', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({
-          tokenId,
-          buyerWallet: address,
-          buyerEmail:  email || null,
-          deadline:    value.deadline,
-          signature,
-        }),
+        body:    JSON.stringify(confirmBody),
       });
       const confirmData = await confirmRes.json();
       if (!confirmRes.ok) throw new Error(confirmData.error || 'Mint failed');

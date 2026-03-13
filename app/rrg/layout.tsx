@@ -21,7 +21,7 @@ export default function RRGLayout({ children }: { children: React.ReactNode }) {
           <Link href="/rrg" className="hover:text-white transition-colors">
             Gallery
           </Link>
-          <Link href="/brand/rrg/submit" className="hover:text-white transition-colors">
+          <Link href="/rrg/submit" className="hover:text-white transition-colors">
             Submit
           </Link>
           <LoginButton />

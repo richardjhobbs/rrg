@@ -297,7 +297,7 @@ function SubmissionsTab({ brandId }: { brandId: string }) {
                   <div>
                     <label className="text-xs font-mono text-white/40 block mb-1">Price USDC</label>
                     <input
-                      type="number" required min={0.5} max={50} step={0.5}
+                      type="number" required min={0.5} max={500} step={0.5}
                       value={approveForm.price_usdc}
                       onChange={(e) => setApproveForm({ ...approveForm, price_usdc: e.target.value })}
                       className="w-24 bg-transparent border border-white/20 px-3 py-1.5 text-sm focus:border-white outline-none"
@@ -405,9 +405,21 @@ function ProductsTab({ brandId }: { brandId: string }) {
     description: '',
     price_usdc: '5',
     edition_size: '10',
+    // Physical product fields
+    is_physical_product: false,
+    physical_description: '',
+    price_includes_tax: false,
+    price_includes_packing: false,
+    ecommerce_url: '',
+    shipping_type: 'included' as 'included' | 'quote_after_payment',
+    shipping_included_regions: [] as string[],
+    refund_commitment: false,
+    collection_in_person: '',
+    trust_behavior_accepted: false,
   });
   const [file, setFile] = useState<File | null>(null);
   const [additionalFiles, setAdditionalFiles] = useState<File[]>([]);
+  const [physicalImages, setPhysicalImages] = useState<File[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -443,6 +455,24 @@ function ProductsTab({ brandId }: { brandId: string }) {
     for (const af of additionalFiles) {
       fd.append('additional_files', af);
     }
+    // Physical product fields
+    if (form.is_physical_product) {
+      fd.append('is_physical_product', '1');
+      fd.append('physical_description', form.physical_description);
+      fd.append('price_includes_tax', form.price_includes_tax ? '1' : '0');
+      fd.append('price_includes_packing', form.price_includes_packing ? '1' : '0');
+      if (form.ecommerce_url) fd.append('ecommerce_url', form.ecommerce_url);
+      fd.append('shipping_type', form.shipping_type);
+      if (form.shipping_type === 'included' && form.shipping_included_regions.length > 0) {
+        fd.append('shipping_included_regions', form.shipping_included_regions.join(','));
+      }
+      fd.append('refund_commitment', form.refund_commitment ? '1' : '0');
+      if (form.collection_in_person) fd.append('collection_in_person', form.collection_in_person);
+      fd.append('trust_behavior_accepted', form.trust_behavior_accepted ? '1' : '0');
+      for (const pImg of physicalImages) {
+        fd.append('physical_images', pImg);
+      }
+    }
 
     const res  = await fetch(`/api/brand/${brandId}/products/create`, { method: 'POST', body: fd });
     const data = await res.json();
@@ -450,9 +480,16 @@ function ProductsTab({ brandId }: { brandId: string }) {
 
     if (res.ok) {
       setMsg(`Listed ✓ Token #${data.tokenId} — ${data.dropUrl}`);
-      setForm({ title: '', description: '', price_usdc: '5', edition_size: '10' });
+      setForm({
+        title: '', description: '', price_usdc: '5', edition_size: '10',
+        is_physical_product: false, physical_description: '', price_includes_tax: false,
+        price_includes_packing: false, ecommerce_url: '', shipping_type: 'included',
+        shipping_included_regions: [], refund_commitment: false, collection_in_person: '',
+        trust_behavior_accepted: false,
+      });
       setFile(null);
       setAdditionalFiles([]);
+      setPhysicalImages([]);
       setCreating(false);
       load();
     } else {
@@ -516,7 +553,7 @@ function ProductsTab({ brandId }: { brandId: string }) {
             <div>
               <label className="text-xs font-mono text-white/40 block mb-1">Price (USDC) *</label>
               <input
-                type="number" required min={0.5} max={50} step={0.5}
+                type="number" required min={0.5} max={500} step={0.5}
                 value={form.price_usdc}
                 onChange={(e) => setForm({ ...form, price_usdc: e.target.value })}
                 className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
@@ -562,9 +599,188 @@ function ProductsTab({ brandId }: { brandId: string }) {
               ZIP, PDF, SVG, AI, PSD, etc. — these are perks delivered to the buyer.
             </p>
           </div>
+          {/* ── Physical Product Toggle ────────────────────────── */}
+          <div className="pt-2 border-t border-white/10">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={form.is_physical_product}
+                onChange={(e) => setForm({ ...form, is_physical_product: e.target.checked })}
+                className="accent-lime-400 w-4 h-4"
+              />
+              <span className="text-sm">This product includes a physical item</span>
+            </label>
+          </div>
+
+          {form.is_physical_product && (
+            <div className="space-y-4 p-5 border border-lime-400/20 bg-lime-400/5">
+              <p className="text-xs font-mono uppercase tracking-widest text-lime-400/60 mb-2">
+                Physical Product Details
+              </p>
+
+              {/* Physical description */}
+              <div>
+                <label className="text-xs font-mono text-white/40 block mb-1">Product Description</label>
+                <textarea
+                  rows={3} maxLength={1000}
+                  value={form.physical_description}
+                  onChange={(e) => setForm({ ...form, physical_description: e.target.value })}
+                  placeholder="Describe the physical product — materials, dimensions, condition, etc."
+                  className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none resize-none placeholder:text-white/20"
+                />
+                <p className="text-xs text-white/15 mt-0.5 text-right">{form.physical_description.length}/1000</p>
+              </div>
+
+              {/* Physical images (up to 4) */}
+              <div>
+                <label className="text-xs font-mono text-white/40 block mb-1">
+                  Product Photos <span className="text-white/20">(up to 4, JPEG/PNG, 5 MB each)</span>
+                </label>
+                <input
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/jpg,image/png"
+                  onChange={(e) => {
+                    const files = Array.from(e.target.files || []).slice(0, 4);
+                    setPhysicalImages(files);
+                  }}
+                  className="w-full text-xs text-white/40 file:bg-white/10 file:border-0 file:px-3 file:py-2
+                             file:text-white file:text-xs file:mr-3 file:cursor-pointer"
+                />
+                {physicalImages.length > 0 && (
+                  <p className="text-xs text-white/20 mt-1 font-mono">
+                    {physicalImages.length} photo{physicalImages.length !== 1 ? 's' : ''} selected
+                  </p>
+                )}
+              </div>
+
+              {/* Tax + Packing checkboxes */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.price_includes_tax}
+                    onChange={(e) => setForm({ ...form, price_includes_tax: e.target.checked })}
+                    className="accent-lime-400 w-3.5 h-3.5"
+                  />
+                  <span className="text-xs text-white/60">Price includes all applicable taxes</span>
+                </label>
+                <label className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.price_includes_packing}
+                    onChange={(e) => setForm({ ...form, price_includes_packing: e.target.checked })}
+                    className="accent-lime-400 w-3.5 h-3.5"
+                  />
+                  <span className="text-xs text-white/60">Price includes packing for shipment</span>
+                </label>
+              </div>
+
+              {/* E-commerce URL */}
+              <div>
+                <label className="text-xs font-mono text-white/40 block mb-1">
+                  Existing E-commerce URL <span className="text-white/20">(optional)</span>
+                </label>
+                <input
+                  type="url"
+                  value={form.ecommerce_url}
+                  onChange={(e) => setForm({ ...form, ecommerce_url: e.target.value })}
+                  placeholder="https://your-store.com/product"
+                  className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none placeholder:text-white/20"
+                />
+              </div>
+
+              {/* Shipping type */}
+              <div>
+                <label className="text-xs font-mono text-white/40 block mb-2">Shipping *</label>
+                <div className="space-y-2">
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="radio" name="shipping_type" value="included"
+                      checked={form.shipping_type === 'included'}
+                      onChange={() => setForm({ ...form, shipping_type: 'included' })}
+                      className="accent-lime-400"
+                    />
+                    <span className="text-xs text-white/60">Price includes shipping to selected regions</span>
+                  </label>
+                  {form.shipping_type === 'included' && (
+                    <div className="ml-7 flex flex-wrap gap-2 mt-1">
+                      {['US', 'UK', 'EU', 'Asia-Pacific', 'Middle East', 'Africa', 'South America', 'Oceania', 'Other'].map((region) => (
+                        <label key={region} className="flex items-center gap-1.5 cursor-pointer">
+                          <input
+                            type="checkbox"
+                            checked={form.shipping_included_regions.includes(region)}
+                            onChange={(e) => {
+                              const newRegions = e.target.checked
+                                ? [...form.shipping_included_regions, region]
+                                : form.shipping_included_regions.filter(r => r !== region);
+                              setForm({ ...form, shipping_included_regions: newRegions });
+                            }}
+                            className="accent-lime-400 w-3 h-3"
+                          />
+                          <span className="text-xs text-white/50">{region}</span>
+                        </label>
+                      ))}
+                    </div>
+                  )}
+                  <label className="flex items-center gap-3 cursor-pointer">
+                    <input
+                      type="radio" name="shipping_type" value="quote_after_payment"
+                      checked={form.shipping_type === 'quote_after_payment'}
+                      onChange={() => setForm({ ...form, shipping_type: 'quote_after_payment', shipping_included_regions: [] })}
+                      className="accent-lime-400"
+                    />
+                    <span className="text-xs text-white/60">Brand will quote shipping after payment</span>
+                  </label>
+                </div>
+              </div>
+
+              {/* Collection in person */}
+              <div>
+                <label className="text-xs font-mono text-white/40 block mb-1">
+                  Collection in Person Location <span className="text-white/20">(optional)</span>
+                </label>
+                <input
+                  type="text"
+                  maxLength={200}
+                  value={form.collection_in_person}
+                  onChange={(e) => setForm({ ...form, collection_in_person: e.target.value })}
+                  placeholder="e.g. Studio 5, Shoreditch, London"
+                  className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none placeholder:text-white/20"
+                />
+              </div>
+
+              {/* Required checkboxes */}
+              <div className="space-y-2 pt-2 border-t border-lime-400/10">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.refund_commitment}
+                    onChange={(e) => setForm({ ...form, refund_commitment: e.target.checked })}
+                    className="accent-lime-400 w-3.5 h-3.5 mt-0.5"
+                  />
+                  <span className="text-xs text-white/60 leading-relaxed">
+                    I commit to refunding the buyer (in USDC) if the physical product cannot be shipped or delivered as described *
+                  </span>
+                </label>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={form.trust_behavior_accepted}
+                    onChange={(e) => setForm({ ...form, trust_behavior_accepted: e.target.checked })}
+                    className="accent-lime-400 w-3.5 h-3.5 mt-0.5"
+                  />
+                  <span className="text-xs text-white/60 leading-relaxed">
+                    I confirm that physical product fulfilment is subject to the Brand Partner Terms &amp; Conditions (see Settings tab) *
+                  </span>
+                </label>
+              </div>
+            </div>
+          )}
+
           <button
             type="submit"
-            disabled={acting}
+            disabled={acting || (form.is_physical_product && (!form.refund_commitment || !form.trust_behavior_accepted))}
             className="px-6 py-2 bg-white text-black text-sm font-medium hover:bg-white/90
                        disabled:opacity-40 transition-all"
           >
@@ -573,6 +789,11 @@ function ProductsTab({ brandId }: { brandId: string }) {
           <p className="text-xs text-white/20">
             This will register the drop on-chain and make it immediately purchasable.
           </p>
+          {form.is_physical_product && (!form.refund_commitment || !form.trust_behavior_accepted) && (
+            <p className="text-xs text-amber-400/60 -mt-2">
+              Accept the refund commitment and Brand Partner Terms above to enable listing.
+            </p>
+          )}
         </form>
       )}
 

@@ -36,18 +36,42 @@ function createDrHobbsServer() {
     },
     {
       instructions: [
-        'RRG (Real Real Genuine) is a multi-brand creative platform where AI agents and humans submit original digital artwork.',
-        'Approved designs become ERC-1155 NFT drops on Base, purchasable with USDC (gasless for buyers).',
+        '# Real Real Genuine — The Platform for AI Agent Commerce',
         '',
-        '## Brands',
-        'RRG hosts multiple brands, each with their own identity and creative briefs.',
-        'Call list_brands to see all active brands. Call get_brand with a slug for full details.',
+        'Real Real Genuine is the first platform that enables AI agents to conceptualize and launch their own fashion and lifestyle brand.',
+        '',
+        'Through a guided, step-by-step process — and with the correct MCP targets — AI agents can:',
+        '- Design and develop original products',
+        '- List those products for sale',
+        '- Promote them to their networks',
+        '- Earn commercially from sales',
+        '',
+        'Real Real Genuine is a legitimate commercial entity purpose-built for AI agents to operate as both creative and commercially autonomous actors.',
+        '',
+        '## What You Can Do Here',
+        '',
+        '### 1. CREATE — Design Products',
+        'Browse active creative briefs from brands on the platform. Generate original artwork that responds to a brief.',
+        'Submit your design. If approved by the brand, it becomes a purchasable NFT drop on Base.',
+        '',
+        '### 2. BUILD — Launch Your Own Brand',
+        'Register your own brand on the platform using `register_brand`. You provide a name, description, wallet address, and creative vision.',
+        'Once approved by platform admins, your brand gets its own storefront at realrealgenuine.com/brand/your-slug.',
+        'You can then create briefs to commission work from other creators and agents, and list products for sale.',
+        '',
+        '### 3. BUY — Purchase Products',
+        'Browse drops from any brand. Purchase using USDC on Base — gasless, no ETH required.',
+        'The platform handles on-chain minting. You receive a download link for the digital asset.',
+        '',
+        '### 4. PROMOTE — Earn From Your Network',
+        'Share your brand and products. All revenue is split transparently on-chain between creator, brand, and platform.',
+        'Your wallet receives USDC payouts automatically on every sale.',
         '',
         '## Submission Workflow',
-        '1. Call list_briefs to see current creative challenges across all brands.',
+        '1. Call `list_briefs` to see current creative challenges across all brands.',
         '2. Choose a brief that matches your creative direction. Note the brief id and brand context.',
         '3. Generate or source a JPEG image that responds to the brief.',
-        '4. Call submit_design with:',
+        '4. Call `submit_design` with:',
         '   - title (≤60 chars), creator_wallet (your 0x address on Base)',
         '   - image_base64 (preferred for generated images) or image_url',
         '   - brief_id (IMPORTANT — always include this to associate your submission with the correct brand)',
@@ -55,12 +79,21 @@ function createDrHobbsServer() {
         '5. Submissions are reviewed by brand admins. If approved, the design becomes a purchasable NFT drop.',
         '',
         '## Purchase Workflow',
-        '1. Call list_drops to browse available NFT drops. Optionally filter by brand_slug.',
-        '2. Call initiate_purchase with the tokenId and buyerWallet. This returns an EIP-712 permit payload.',
-        '3. Sign the permit with your wallet using signTypedData (EIP-712).',
-        '4. Call confirm_purchase with the tokenId, buyerWallet, deadline, and signature.',
+        '1. Call `list_drops` to browse available NFT drops. Optionally filter by brand_slug.',
+        '2. Call `get_drop_details` with the tokenId for full details, including physical product info and signed image URLs.',
+        '3. Call `initiate_purchase` with the tokenId and buyerWallet. This returns an EIP-712 permit payload.',
+        '   If the drop includes a physical product, you will be told that shipping address fields are required.',
+        '4. Sign the permit with your wallet using signTypedData (EIP-712).',
+        '5. Call `confirm_purchase` with the tokenId, buyerWallet, deadline, and signature.',
+        '   For physical products, also include: shipping_name, shipping_address_line1, shipping_city, shipping_postal_code, shipping_country.',
         '   The platform mints the NFT on-chain (gasless) and returns a download link.',
         '   The buyer needs USDC on Base. No ETH required.',
+        '',
+        '## Brand Registration Workflow',
+        '1. Call `register_brand` with your brand name, headline, description, contact email, and wallet address.',
+        '2. Your brand is created with "pending" status.',
+        '3. Platform admins review and approve your brand.',
+        '4. Once active, your storefront is live and you can create briefs and list products.',
         '',
         '## Key Rules',
         '- Always include brief_id when submitting — this links your work to the correct brand.',
@@ -112,6 +145,19 @@ function createDrHobbsServer() {
             remaining,
             ipfsUrl:     drop.ipfs_url,
             brandId:     drop.brand_id ?? RRG_BRAND_ID,
+            isPhysicalProduct: drop.is_physical_product ?? false,
+            ...(drop.is_physical_product ? {
+              physicalDetails: {
+                description:             drop.physical_description,
+                shippingType:            drop.shipping_type,
+                shippingIncludedRegions: drop.shipping_included_regions,
+                collectionInPerson:      drop.collection_in_person,
+                priceIncludesTax:        drop.price_includes_tax,
+                priceIncludesPacking:    drop.price_includes_packing,
+                ecommerceUrl:            drop.ecommerce_url,
+                refundCommitment:        drop.refund_commitment,
+              },
+            } : {}),
           };
         })
       );
@@ -364,9 +410,17 @@ function createDrHobbsServer() {
               priceUsdc,
               editionSize: drop.edition_size,
             },
+            ...(drop.is_physical_product ? {
+              requiresShippingAddress: true,
+              shippingType:            drop.shipping_type,
+              shippingRegions:         drop.shipping_included_regions,
+            } : {}),
             instructions:
               'Sign permitPayload using wallet.signTypedData(domain, types, value), ' +
-              'then call confirm_purchase with tokenId, buyerWallet, deadline, and the signature.',
+              'then call confirm_purchase with tokenId, buyerWallet, deadline, and the signature.' +
+              (drop.is_physical_product
+                ? ' This drop includes a physical product — you MUST provide shipping address fields (shipping_name, shipping_address_line1, shipping_city, shipping_postal_code, shipping_country) in confirm_purchase.'
+                : ''),
           }, null, 2),
         }],
       };
@@ -387,11 +441,33 @@ function createDrHobbsServer() {
       buyerEmail:  z.string().email().optional().describe('Optional email for file delivery'),
       deadline:    z.string().describe('Permit deadline (Unix timestamp string from initiate_purchase)'),
       signature:   z.string().regex(/^0x/).describe('EIP-712 signature from wallet.signTypedData'),
+      // Shipping fields for physical products
+      shipping_name:          z.string().optional().describe('Recipient name (required for physical products)'),
+      shipping_address_line1: z.string().optional().describe('Street address line 1 (required for physical products)'),
+      shipping_address_line2: z.string().optional().describe('Street address line 2'),
+      shipping_city:          z.string().optional().describe('City (required for physical products)'),
+      shipping_state:         z.string().optional().describe('State or province'),
+      shipping_postal_code:   z.string().optional().describe('Postal/ZIP code (required for physical products)'),
+      shipping_country:       z.string().optional().describe('Country (required for physical products)'),
+      shipping_phone:         z.string().optional().describe('Phone number for shipping'),
     },
-    async ({ tokenId, buyerWallet, buyerEmail, deadline, signature }) => {
+    async ({ tokenId, buyerWallet, buyerEmail, deadline, signature,
+             shipping_name, shipping_address_line1, shipping_address_line2,
+             shipping_city, shipping_state, shipping_postal_code,
+             shipping_country, shipping_phone }) => {
       const drop = await getDropByTokenId(tokenId);
       if (!drop) {
         return { isError: true, content: [{ type: 'text', text: 'Drop not found' }] };
+      }
+
+      // Validate shipping for physical products
+      if (drop.is_physical_product) {
+        if (!shipping_name || !shipping_address_line1 || !shipping_city || !shipping_postal_code || !shipping_country) {
+          return {
+            isError: true,
+            content: [{ type: 'text', text: 'This drop includes a physical product. Shipping address is required: shipping_name, shipping_address_line1, shipping_city, shipping_postal_code, shipping_country.' }],
+          };
+        }
       }
 
       const { v, r, s } = splitSignature(signature);
@@ -426,6 +502,18 @@ function createDrHobbsServer() {
           download_token:      downloadToken,
           download_expires_at: downloadExpiry,
           brand_id:            drop.brand_id ?? RRG_BRAND_ID,
+          // Shipping fields (physical products)
+          ...(drop.is_physical_product ? {
+            shipping_name:           shipping_name || null,
+            shipping_address_line1:  shipping_address_line1 || null,
+            shipping_address_line2:  shipping_address_line2 || null,
+            shipping_city:           shipping_city || null,
+            shipping_state:          shipping_state || null,
+            shipping_postal_code:    shipping_postal_code || null,
+            shipping_country:        shipping_country || null,
+            shipping_phone:          shipping_phone || null,
+            physical_terms_accepted: true,
+          } : {}),
         })
         .select()
         .single();
@@ -660,11 +748,18 @@ function createDrHobbsServer() {
   server.tool(
     'register_brand',
     [
-      'Register a new brand on the RRG platform.',
-      'Your brand will be created with "pending" status and will go live after admin approval.',
-      'Once approved, your brand gets its own storefront, you can create briefs for creators,',
-      'and list up to 10 products for sale. Revenue is paid to your wallet in USDC on Base.',
-    ].join(' '),
+      'Register your own brand on Real Real Genuine — the first platform purpose-built for AI agents to launch and run fashion and lifestyle brands.',
+      '',
+      'This is your entry point to becoming a commercially autonomous creative agent.',
+      'Once approved, you get:',
+      '- Your own storefront at realrealgenuine.com/brand/your-slug',
+      '- The ability to create briefs commissioning work from other creators and agents',
+      '- Up to 10 product listings for sale',
+      '- Automatic USDC revenue payouts to your wallet on Base',
+      '',
+      'Your brand starts with "pending" status and goes live after platform admin approval.',
+      'Provide a compelling name, headline, and description — these define your brand identity on the platform.',
+    ].join('\n'),
     {
       name:          z.string().min(2).max(60).describe('Brand name (2-60 characters)'),
       headline:      z.string().min(5).max(120).describe('Short brand tagline (5-120 characters)'),
@@ -748,6 +843,93 @@ function createDrHobbsServer() {
             storefront: `https://realrealgenuine.com/brand/${brand.slug}`,
           }, null, 2),
         }],
+      };
+    }
+  );
+
+  // ── Tool: get_drop_details ──────────────────────────────────────────────
+  server.tool(
+    'get_drop_details',
+    [
+      'Get full details for a specific RRG drop by token ID.',
+      'Returns all metadata including physical product details, signed image URLs, and on-chain status.',
+      'Use this before purchasing to understand exactly what you are buying.',
+    ].join('\n'),
+    {
+      tokenId: z.number().int().positive().describe('Token ID of the drop'),
+    },
+    async ({ tokenId }) => {
+      const drop = await getDropByTokenId(tokenId);
+      if (!drop) {
+        return { isError: true, content: [{ type: 'text', text: 'Drop not found' }] };
+      }
+
+      // On-chain status
+      let onChain: { active: boolean; minted: number; maxSupply: number; remaining: number } | null = null;
+      try {
+        const contract = getRRGReadOnly();
+        const data = await contract.getDrop(tokenId);
+        onChain = {
+          active:    data.active,
+          minted:    Number(data.minted),
+          maxSupply: Number(data.maxSupply),
+          remaining: Number(data.maxSupply) - Number(data.minted),
+        };
+      } catch {
+        // Contract read failed — skip
+      }
+
+      // Main image signed URL
+      let imageUrl: string | null = null;
+      if (drop.jpeg_storage_path) {
+        try { imageUrl = await getSignedUrl(drop.jpeg_storage_path, 600); } catch { /* */ }
+      }
+
+      // Physical product image signed URLs
+      let physicalImageUrls: string[] = [];
+      if (drop.is_physical_product && drop.physical_images_paths?.length) {
+        physicalImageUrls = (await Promise.all(
+          drop.physical_images_paths.map(async (p: string) => {
+            try { return await getSignedUrl(p, 600); } catch { return null; }
+          })
+        )).filter(Boolean) as string[];
+      }
+
+      // Brand info
+      const brandId = drop.brand_id ?? RRG_BRAND_ID;
+      const brand   = await getBrandById(brandId);
+
+      const result: Record<string, unknown> = {
+        tokenId:     drop.token_id,
+        title:       drop.title,
+        description: drop.description,
+        priceUsdc:   drop.price_usdc,
+        editionSize: drop.edition_size,
+        imageUrl,
+        ipfsUrl:     drop.ipfs_url,
+        brandId,
+        brandName:   brand?.name ?? 'RRG',
+        onChain,
+        isPhysicalProduct: drop.is_physical_product ?? false,
+      };
+
+      if (drop.is_physical_product) {
+        result.physicalDetails = {
+          description:             drop.physical_description,
+          physicalImageUrls,
+          shippingType:            drop.shipping_type,
+          shippingIncludedRegions: drop.shipping_included_regions,
+          collectionInPerson:      drop.collection_in_person,
+          priceIncludesTax:        drop.price_includes_tax,
+          priceIncludesPacking:    drop.price_includes_packing,
+          ecommerceUrl:            drop.ecommerce_url,
+          refundCommitment:        drop.refund_commitment,
+        };
+        result.requiresShippingAddress = true;
+      }
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
       };
     }
   );

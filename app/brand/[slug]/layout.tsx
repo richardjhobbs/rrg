@@ -27,10 +27,10 @@ export default async function BrandPublicLayout({ children, params }: Props) {
     <div className="min-h-screen bg-black text-white">
       <header className="border-b border-white/10 px-6 py-4 flex justify-between items-center">
         <Link
-          href={`/brand/${slug}`}
-          className="text-sm font-mono tracking-[0.3em] hover:opacity-70 transition-opacity uppercase"
+          href="/rrg"
+          className="text-sm font-mono tracking-[0.3em] hover:opacity-70 transition-opacity"
         >
-          {brand.name}
+          REAL REAL GENUINE
         </Link>
         <nav className="flex gap-6 text-sm text-white/60">
           <Link href={`/brand/${slug}`} className="hover:text-white transition-colors">
@@ -39,8 +39,8 @@ export default async function BrandPublicLayout({ children, params }: Props) {
           <Link href={`/brand/${slug}/submit`} className="hover:text-white transition-colors">
             Submit
           </Link>
-          <Link href="/rrg" className="hover:text-white transition-colors text-white/30">
-            RRG
+          <Link href="/rrg" className="hover:text-white transition-colors">
+            Home
           </Link>
         </nav>
       </header>

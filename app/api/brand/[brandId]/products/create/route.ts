@@ -2,11 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireBrandAuth } from '@/lib/rrg/brand-auth';
 import { db, claimNextTokenId, getBrandById, getCurrentNetwork, RRG_BRAND_ID } from '@/lib/rrg/db';
 import { getRRGContract, toUsdc6dp } from '@/lib/rrg/contract';
-import { uploadSubmissionFile, jpegStoragePath, additionalFileStoragePath, additionalFilesPath } from '@/lib/rrg/storage';
+import { uploadSubmissionFile, jpegStoragePath, additionalFileStoragePath, additionalFilesPath, physicalImageStoragePath } from '@/lib/rrg/storage';
 import { calculateSplit } from '@/lib/rrg/splits';
 import { autopostApproval } from '@/lib/rrg/autopost';
 import { getSignedUrl } from '@/lib/rrg/storage';
 import { randomUUID } from 'crypto';
+import { isValidShippingRegion } from '@/lib/rrg/physical-product';
+import type { ShippingType } from '@/lib/rrg/db';
 
 export const dynamic = 'force-dynamic';
 
@@ -59,6 +61,26 @@ export async function POST(
     const contactEmail  = formData.get('contact_email') as string | null;
     const jpeg          = formData.get('jpeg') as File | null;
 
+    // Physical product fields
+    const isPhysicalProduct      = formData.get('is_physical_product') === '1';
+    const physicalDescription    = formData.get('physical_description') as string | null;
+    const priceIncludesTax       = formData.get('price_includes_tax') === '1';
+    const priceIncludesPacking   = formData.get('price_includes_packing') === '1';
+    const ecommerceUrl           = formData.get('ecommerce_url') as string | null;
+    const shippingTypeRaw        = formData.get('shipping_type') as string | null;
+    const shippingRegionsRaw     = formData.get('shipping_included_regions') as string | null;
+    const refundCommitment       = formData.get('refund_commitment') === '1';
+    const collectionInPerson     = formData.get('collection_in_person') as string | null;
+    const trustBehaviorAccepted  = formData.get('trust_behavior_accepted') === '1';
+
+    // Collect physical images (up to 4)
+    const physicalImageFiles: File[] = [];
+    for (const [key, val] of formData.entries()) {
+      if (key === 'physical_images' && val instanceof File && val.size > 0) {
+        physicalImageFiles.push(val);
+      }
+    }
+
     // Collect additional files
     const additionalFiles: File[] = [];
     for (const [key, val] of formData.entries()) {
@@ -85,8 +107,8 @@ export async function POST(
     const priceUsdc   = parseFloat(priceStr);
     const editionSize = parseInt(editionStr, 10);
 
-    if (!priceUsdc || priceUsdc < 0.5 || priceUsdc > 50) {
-      return NextResponse.json({ error: 'price_usdc must be 0.50–50.00' }, { status: 400 });
+    if (!priceUsdc || priceUsdc < 0.5 || priceUsdc > 500) {
+      return NextResponse.json({ error: 'price_usdc must be 0.50–500.00' }, { status: 400 });
     }
     if (!editionSize || editionSize < 1 || editionSize > 50) {
       return NextResponse.json({ error: 'edition_size must be 1–50' }, { status: 400 });
@@ -94,6 +116,40 @@ export async function POST(
 
     if (!jpeg) {
       return NextResponse.json({ error: 'JPEG or PNG image required' }, { status: 400 });
+    }
+
+    // ── Validate physical product fields ────────────────────────────────
+    let shippingType: ShippingType | null = null;
+    let shippingIncludedRegions: string[] | null = null;
+
+    if (isPhysicalProduct) {
+      if (!refundCommitment) {
+        return NextResponse.json({ error: 'Refund commitment is required for physical products' }, { status: 400 });
+      }
+      if (!trustBehaviorAccepted) {
+        return NextResponse.json({ error: 'Trust & behavior acceptance is required for physical products' }, { status: 400 });
+      }
+      if (!shippingTypeRaw || !['included', 'quote_after_payment'].includes(shippingTypeRaw)) {
+        return NextResponse.json({ error: 'Shipping type is required for physical products' }, { status: 400 });
+      }
+      shippingType = shippingTypeRaw as ShippingType;
+
+      if (shippingType === 'included') {
+        const regions = shippingRegionsRaw ? shippingRegionsRaw.split(',').map(r => r.trim()).filter(Boolean) : [];
+        if (regions.length === 0) {
+          return NextResponse.json({ error: 'At least one shipping region is required when shipping is included' }, { status: 400 });
+        }
+        for (const r of regions) {
+          if (!isValidShippingRegion(r)) {
+            return NextResponse.json({ error: `Invalid shipping region: ${r}` }, { status: 400 });
+          }
+        }
+        shippingIncludedRegions = regions;
+      }
+
+      if (physicalImageFiles.length > 4) {
+        return NextResponse.json({ error: 'Maximum 4 physical product images' }, { status: 400 });
+      }
     }
 
     // Read and validate image
@@ -111,6 +167,22 @@ export async function POST(
     const filename     = `brand-${Date.now()}.${format.ext}`;
     const jpegPath     = jpegStoragePath(submissionId, filename);
     await uploadSubmissionFile(jpegPath, imageBuffer, format.mimeType);
+
+    // ── Upload physical product images ────────────────────────────────
+    const physicalImagesPaths: string[] = [];
+    if (isPhysicalProduct && physicalImageFiles.length > 0) {
+      for (let i = 0; i < physicalImageFiles.length; i++) {
+        const pFile = physicalImageFiles[i];
+        const pBuf = Buffer.from(await pFile.arrayBuffer());
+        const pFormat = detectImageFormat(pBuf);
+        if (!pFormat) continue; // skip non-image files silently
+        if (pBuf.length > 5 * 1024 * 1024) continue; // skip oversized
+        const safeName = pFile.name.replace(/[^a-zA-Z0-9._-]/g, '_');
+        const pPath = physicalImageStoragePath(submissionId, i, safeName);
+        await uploadSubmissionFile(pPath, pBuf, pFormat.mimeType);
+        physicalImagesPaths.push(pPath);
+      }
+    }
 
     // ── Upload additional files ────────────────────────────────────────
     let additionalPath: string | null = null;
@@ -176,6 +248,18 @@ export async function POST(
         price_usdc:        priceUsdc.toFixed(2),
         approved_at:       new Date().toISOString(),
         network:           getCurrentNetwork(),
+        // Physical product fields
+        is_physical_product:       isPhysicalProduct,
+        physical_description:      isPhysicalProduct ? physicalDescription?.trim().slice(0, 1000) || null : null,
+        physical_images_paths:     physicalImagesPaths.length > 0 ? physicalImagesPaths : null,
+        price_includes_tax:        isPhysicalProduct ? priceIncludesTax : false,
+        price_includes_packing:    isPhysicalProduct ? priceIncludesPacking : false,
+        ecommerce_url:             isPhysicalProduct ? ecommerceUrl?.trim() || null : null,
+        shipping_type:             shippingType,
+        shipping_included_regions: shippingIncludedRegions,
+        refund_commitment:         isPhysicalProduct ? refundCommitment : false,
+        collection_in_person:      isPhysicalProduct ? collectionInPerson?.trim() || null : null,
+        trust_behavior_accepted:   isPhysicalProduct ? trustBehaviorAccepted : false,
       });
 
     if (insertError) throw insertError;

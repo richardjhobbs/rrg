@@ -1,6 +1,6 @@
 // T&C version constants
 export const CREATOR_TC_VERSION = '1.0';
-export const BRAND_TC_VERSION = '1.0';
+export const BRAND_TC_VERSION = '1.1';
 
 // Creator Terms & Conditions — full text
 export const CREATOR_TC_TEXT = `Creator Terms & Conditions
@@ -248,34 +248,54 @@ This is a key section. Please read it carefully.
 
 10.3. No brand may purchase preferential placement in the Brand Directory. Directory ordering is based on activity, not payment. This is a permanent platform principle.
 
-11. Deactivation & Exit
+11. Physical Products
 
-11.1. You may request to deactivate your brand account at any time by contacting RRG.
+11.1. You may list products on the Real Real Genuine platform that include a physical item alongside the tokenised digital asset. By listing a physical product, you accept full responsibility for the manufacture, quality, packaging, and delivery of that item to the buyer.
 
-11.2. On deactivation: all active briefs are immediately closed to new submissions; approved works already listed for sale remain on the platform under RRG's direct curation; revenue on ongoing sales continues to be distributed per the original split; your brand page is archived (not deleted) to preserve creator attribution history.
+11.2. When listing a physical product, you must accurately describe the physical item and provide clear product images. Misleading descriptions or images may result in the listing being removed and your brand account being suspended.
 
-11.3. RRG admin must approve all deactivations to prevent disruption to mid-sale activity.
+11.3. Pricing and inclusions. You must clearly indicate at the time of listing whether your stated price includes applicable taxes and packing costs. If your price includes shipping, you must specify the regions covered. If shipping is quoted separately after payment, you must provide a quote to the buyer within 5 business days of receiving the order notification.
 
-12. Limitation of Liability
+11.4. Shipping and fulfilment. You are solely responsible for arranging and paying for shipping. Real Real Genuine does not handle logistics, customs, duties, or import taxes. The buyer's shipping address is provided to you via email after purchase. You must ship the item within 14 days of confirming the shipping arrangement with the buyer, unless otherwise agreed in writing with the buyer.
 
-12.1. RRG provides the platform on an "as is" basis. While we make every effort to ensure reliability, we do not guarantee uninterrupted access, error-free operation, or any specific level of sales performance.
+11.5. Refund commitment. By listing a physical product, you commit to offering the buyer a full refund of the purchase price (excluding the tokenised digital asset component) if you are unable to fulfil the physical product order for any reason, including inability to ship to the buyer's location. Refunds are arranged directly between you and the buyer and are not processed through the Real Real Genuine smart contract.
 
-12.2. RRG's total liability to you under these terms is limited to the total platform fees (30% share) received by RRG from your brand's sales in the 12 months preceding any claim.
+11.6. Collection in person. If your listing offers collection in person as an alternative to shipping, you must clearly state the collection location. Collection arrangements are made directly between you and the buyer.
 
-12.3. RRG is not liable for any indirect, consequential, or incidental losses arising from your use of the platform.
+11.7. Buyer data. Buyer shipping details (name, address, phone number) are shared with you solely for the purpose of fulfilling the physical product order. You must not use buyer data for marketing, resale, or any purpose other than order fulfilment, unless the buyer provides separate, explicit consent.
 
-13. Governing Law
+11.8. Disputes. Any disputes relating to physical product quality, delivery, or condition are between you and the buyer. Real Real Genuine has no liability for physical product fulfilment and will not act as mediator, except in cases of clear fraud or persistent non-fulfilment, where Real Real Genuine reserves the right to suspend or remove the brand.
 
-13.1. These terms are governed by the laws of Singapore.
+11.9. Real Real Genuine reserves the right to disable physical product listings for any brand at any time if, in its sole judgement, the brand is not fulfilling its obligations under this section.
 
-13.2. Any dispute arising from these terms shall be resolved first by good-faith negotiation between the parties. If unresolved, disputes shall be submitted to the jurisdiction of the courts of Singapore.
+12. Deactivation & Exit
 
-14. Changes to These Terms
+12.1. You may request to deactivate your brand account at any time by contacting Real Real Genuine.
 
-14.1. RRG may update these terms from time to time. You will be notified of material changes via email and in-portal notification.
+12.2. On deactivation: all active briefs are immediately closed to new submissions; approved works already listed for sale remain on the platform under Real Real Genuine's direct curation; revenue on ongoing sales continues to be distributed per the original split; your brand page is archived (not deleted) to preserve creator attribution history.
 
-14.2. Continued use of the platform after notification constitutes acceptance of the updated terms.
+12.3. Real Real Genuine admin must approve all deactivations to prevent disruption to mid-sale activity.
 
-14.3. Each version of these terms is timestamped and recorded against your brand account.
+13. Limitation of Liability
 
-RRG is operated by VIA Labs Pte. Ltd., Singapore.`;
+13.1. Real Real Genuine provides the platform on an "as is" basis. While we make every effort to ensure reliability, we do not guarantee uninterrupted access, error-free operation, or any specific level of sales performance.
+
+13.2. Real Real Genuine's total liability to you under these terms is limited to the total platform fees (30% share) received by Real Real Genuine from your brand's sales in the 12 months preceding any claim.
+
+13.3. Real Real Genuine is not liable for any indirect, consequential, or incidental losses arising from your use of the platform.
+
+14. Governing Law
+
+14.1. These terms are governed by the laws of Singapore.
+
+14.2. Any dispute arising from these terms shall be resolved first by good-faith negotiation between the parties. If unresolved, disputes shall be submitted to the jurisdiction of the courts of Singapore.
+
+15. Changes to These Terms
+
+15.1. Real Real Genuine may update these terms from time to time. You will be notified of material changes via email and in-portal notification.
+
+15.2. Continued use of the platform after notification constitutes acceptance of the updated terms.
+
+15.3. Each version of these terms is timestamped and recorded against your brand account.
+
+Real Real Genuine is operated by VIA Labs Pte. Ltd., Singapore.`;

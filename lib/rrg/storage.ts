@@ -71,3 +71,7 @@ export function additionalFilesPath(submissionId: string): string {
 export function additionalFileStoragePath(submissionId: string, filename: string): string {
   return `submissions/${submissionId}/additional/${filename}`;
 }
+
+export function physicalImageStoragePath(submissionId: string, index: number, filename: string): string {
+  return `submissions/${submissionId}/physical/${index}-${filename}`;
+}

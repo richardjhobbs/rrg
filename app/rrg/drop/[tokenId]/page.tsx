@@ -4,6 +4,7 @@ import { getSignedUrl } from '@/lib/rrg/storage';
 import { getRRGReadOnly } from '@/lib/rrg/contract';
 import { notFound } from 'next/navigation';
 import PurchaseFlow from './PurchaseFlow';
+import PhysicalProductButton from './PhysicalProductButton';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -74,6 +75,16 @@ export default async function DropPage({ params }: Props) {
     }
   } catch { /* non-fatal */ }
 
+  // Signed URLs for physical product images
+  const physicalImageUrls: string[] = [];
+  if (drop.is_physical_product && drop.physical_images_paths) {
+    for (const path of drop.physical_images_paths) {
+      try {
+        physicalImageUrls.push(await getSignedUrl(path, 3600));
+      } catch { /* non-fatal */ }
+    }
+  }
+
   // On-chain live data
   let onChain = {
     minted:    0,
@@ -110,7 +121,7 @@ export default async function DropPage({ params }: Props) {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">
 
         {/* Image */}
-        <div className="aspect-square bg-white/5 border border-white/10 overflow-hidden md:sticky md:top-8">
+        <div className="aspect-square bg-white/5 border border-white/10 overflow-hidden md:sticky md:top-8 relative">
           {imageUrl ? (
             <img
               src={imageUrl}
@@ -121,6 +132,12 @@ export default async function DropPage({ params }: Props) {
             <div className="w-full h-full flex items-center justify-center text-white/10 font-mono text-xs">
               #{tokenId}
             </div>
+          )}
+          {drop.is_physical_product && (
+            <span className="absolute top-3 left-3 px-2.5 py-1 bg-lime-500 text-black
+                             text-[10px] font-mono uppercase tracking-wider leading-tight">
+              Includes Real Real Product
+            </span>
           )}
         </div>
 
@@ -135,6 +152,23 @@ export default async function DropPage({ params }: Props) {
             <p className="text-white/50 text-sm leading-relaxed mb-8">
               {drop.description.replace(/\n?\[Suggested:[^\]]*\]/g, '').trim()}
             </p>
+          )}
+
+          {/* Physical product details button */}
+          {drop.is_physical_product && (
+            <PhysicalProductButton
+              details={{
+                physicalDescription: drop.physical_description,
+                physicalImageUrls,
+                priceIncludesTax: drop.price_includes_tax,
+                priceIncludesPacking: drop.price_includes_packing,
+                ecommerceUrl: drop.ecommerce_url,
+                shippingType: drop.shipping_type,
+                shippingIncludedRegions: drop.shipping_included_regions,
+                refundCommitment: drop.refund_commitment,
+                collectionInPerson: drop.collection_in_person,
+              }}
+            />
           )}
 
           {/* Stats strip */}
@@ -186,6 +220,8 @@ export default async function DropPage({ params }: Props) {
             priceUsdc={priceUsdc}
             soldOut={onChain.soldOut}
             active={onChain.active}
+            isPhysicalProduct={drop.is_physical_product}
+            shippingType={drop.shipping_type}
           />
 
           {/* What you get */}
@@ -197,6 +233,7 @@ export default async function DropPage({ params }: Props) {
               <li>· ERC-1155 token on Base (proof of ownership)</li>
               <li>· High-resolution JPEG download</li>
               {drop.additional_files_path && <li>· Source files / additional assets</li>}
+              {drop.is_physical_product && <li>· Physical product shipped by the brand</li>}
               <li>· 70% of purchase price goes to the creator</li>
             </ul>
           </div>
