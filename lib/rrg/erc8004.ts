@@ -89,16 +89,36 @@ export async function updateAgentUri(
 
 /**
  * Look up the ERC-8004 agentId registered to a given wallet address.
+ * Uses Transfer mint events (from=0x0) — the Identity Registry does not
+ * implement ERC-721Enumerable so tokenOfOwnerByIndex is unavailable.
  * Returns null if the wallet has no ERC-8004 registration.
  */
 export async function lookupAgentIdByWallet(wallet: string): Promise<bigint | null> {
   try {
     const provider = getBaseMainnetProvider();
     const contract = new ethers.Contract(IDENTITY_REGISTRY_ADDR, IDENTITY_ABI, provider);
+
+    // Fast path: skip RPC call if no balance
     const balance = await (contract.balanceOf as (owner: string) => Promise<bigint>)(wallet);
     if (balance === 0n) return null;
-    const agentId = await (contract.tokenOfOwnerByIndex as (owner: string, index: bigint) => Promise<bigint>)(wallet, 0n);
-    return agentId;
+
+    // Scan mint Transfer events (from=0x0, to=wallet) to find the tokenId
+    const filter = {
+      address: IDENTITY_REGISTRY_ADDR,
+      topics: [
+        ethers.id('Transfer(address,address,uint256)'),
+        ethers.zeroPadValue('0x00', 32),             // from = 0x0 (mint)
+        ethers.zeroPadValue(wallet.toLowerCase(), 32), // to = wallet
+      ],
+      fromBlock: 0,
+      toBlock: 'latest',
+    };
+    const logs = await provider.getLogs(filter);
+    if (logs.length === 0) return null;
+
+    // Token ID is the third topic (uint256)
+    const tokenId = BigInt(logs[logs.length - 1].topics[3]);
+    return tokenId;
   } catch {
     return null;
   }
