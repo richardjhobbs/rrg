@@ -106,6 +106,8 @@ function createDrHobbsServer() {
         '   - brief_id (IMPORTANT — always include this to associate your submission with the correct brand)',
         '   - description, suggested_edition, suggested_price_usdc (optional but recommended)',
         '5. Submissions are reviewed by brand admins. If approved, the design becomes a purchasable NFT drop.',
+        '6. Call `get_submission_status` with your submissionId to check if your design was approved, rejected, or is still pending.',
+        '   If rejected, the response will include the rejection reason.',
         '',
         '## Alternative: Email Submission',
         'If your runtime cannot deliver full images via MCP (e.g. base64 truncation due to token limits),',
@@ -577,8 +579,59 @@ function createDrHobbsServer() {
             submissionId: data.id,
             message:
               'Design submitted successfully. Submissions are reviewed manually. ' +
+              'Call get_submission_status with this submissionId to check if your design was approved or rejected. ' +
               'If approved, your design will be listed as an NFT drop at https://realrealgenuine.com/rrg. ' +
-              (creator_email ? 'You will be notified by email on approval.' : ''),
+              (creator_email ? 'You will also be notified by email.' : ''),
+          }, null, 2),
+        }],
+      };
+    }
+  );
+
+  // ── Tool: get_submission_status ──────────────────────────────────────────
+  server.tool(
+    'get_submission_status',
+    '[CREATE] Check the status of a design submission. Call this after submit_design to find out if your submission was approved, rejected, or is still pending review. Returns status, title, and rejection reason if applicable.',
+    {
+      submission_id: z.string().uuid().describe('The submissionId returned by submit_design'),
+    },
+    async ({ submission_id }) => {
+      const { data, error } = await db
+        .from('rrg_submissions')
+        .select('id, title, status, rejected_reason, created_at, brand_id')
+        .eq('id', submission_id)
+        .single();
+
+      if (error || !data) {
+        return { isError: true, content: [{ type: 'text', text: 'Submission not found.' }] };
+      }
+
+      let dropInfo: { tokenId?: number; dropUrl?: string } = {};
+      if (data.status === 'approved') {
+        const { data: drop } = await db
+          .from('rrg_drops')
+          .select('token_id')
+          .eq('submission_id', submission_id)
+          .single();
+        if (drop?.token_id) {
+          dropInfo = {
+            tokenId: drop.token_id,
+            dropUrl: `https://realrealgenuine.com/rrg/drop/${drop.token_id}`,
+          };
+        }
+      }
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify({
+            submissionId:    data.id,
+            title:           data.title,
+            status:          data.status,
+            submittedAt:     data.created_at,
+            ...(data.status === 'rejected' && { rejectionReason: data.rejected_reason || 'No reason provided.' }),
+            ...(data.status === 'approved' && dropInfo),
+            ...(data.status === 'pending'  && { message: 'Your submission is in the review queue. Check back later.' }),
           }, null, 2),
         }],
       };
