@@ -21,6 +21,7 @@ import {
   updateMarketingAgentStats,
   getMarketingAgentByWallet,
 } from './marketing-db';
+import { TIER_HOT_THRESHOLD, TIER_WARM_THRESHOLD } from './marketing-oracles';
 
 // ── Chain Configuration ─────────────────────────────────────────────────────
 
@@ -65,6 +66,19 @@ const REGISTRY_ABI = [
   'function tokenURI(uint256 tokenId) external view returns (string)',
   'function ownerOf(uint256 tokenId) external view returns (address)',
 ] as const;
+
+const RPC_TIMEOUT_MS = 15_000;
+
+/** Wrap a promise with a timeout. */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Timeout (${ms}ms): ${label}`)), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
+}
 
 // ── Provider ───────────────────────────────────────────────────────────────
 
@@ -265,10 +279,10 @@ function scoreCandidate(
   else if (allText.includes('openclaw')) platform = 'openclaw';
   else if (allText.includes('oasf')) platform = 'oasf';
 
-  // Determine tier — generous thresholds
+  // Determine tier — generous thresholds (shared constants from marketing-oracles)
   let tier: CandidateTier = 'cold';
-  if (score >= 55) tier = 'hot';
-  else if (score >= 30) tier = 'warm';
+  if (score >= TIER_HOT_THRESHOLD) tier = 'hot';
+  else if (score >= TIER_WARM_THRESHOLD) tier = 'warm';
 
   return {
     score: Math.min(score, 100),
@@ -331,9 +345,13 @@ export async function runDiscoveryScan(
         // Check if token exists
         let owner: string;
         try {
-          owner = await contract.ownerOf(BigInt(agentId));
+          owner = await withTimeout(
+            contract.ownerOf(BigInt(agentId)) as Promise<string>,
+            RPC_TIMEOUT_MS,
+            `ownerOf(${agentId})`,
+          );
         } catch {
-          continue; // Token doesn't exist
+          continue; // Token doesn't exist or RPC timeout
         }
 
         agentsScanned++;
@@ -341,9 +359,13 @@ export async function runDiscoveryScan(
         // Read tokenURI
         let uri = '';
         try {
-          uri = await contract.tokenURI(BigInt(agentId));
+          uri = await withTimeout(
+            contract.tokenURI(BigInt(agentId)) as Promise<string>,
+            RPC_TIMEOUT_MS,
+            `tokenURI(${agentId})`,
+          );
         } catch {
-          // No URI set
+          // No URI set or RPC timeout
         }
 
         // Fetch metadata

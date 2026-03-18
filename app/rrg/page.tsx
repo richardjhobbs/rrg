@@ -1,8 +1,8 @@
-import { getApprovedDropsPaginated, getPurchaseCountsByTokenIds, getCurrentBrief, getRecentBriefs, getAllActiveBrands, RRG_BRAND_ID } from '@/lib/rrg/db';
+import { getApprovedDropsPaginated, getPurchaseCountsByTokenIds, getCurrentBrief, getAllActiveBrands, getBrandsForDirectory, RRG_BRAND_ID } from '@/lib/rrg/db';
+import type { BrandDirectoryItem } from '@/lib/rrg/db';
 import { getSignedUrl } from '@/lib/rrg/storage';
 import Link from 'next/link';
 import AgentTrustBadge from '@/components/rrg/AgentTrustBadge';
-import BriefFilter from '@/components/rrg/BriefFilter';
 import BrandDirectory from '@/components/rrg/BrandDirectory';
 import ProcessTabs from '@/components/rrg/ProcessTabs';
 
@@ -37,17 +37,70 @@ export default async function RRGGallery({
   const briefParam = params.brief ?? 'all';
   const brandParam = params.brand ?? 'all';
 
-  // Fetch all active brands for the directory bar
+  // Fetch all active brands for the directory bar (enriched with product stats)
   const brands = await getAllActiveBrands();
+  const directoryBrands = await getBrandsForDirectory();
+
+  // Smart ordering: newest brands → newest products → most products → random
+  function orderBrandsForDirectory(items: BrandDirectoryItem[]): BrandDirectoryItem[] {
+    const used = new Set<string>();
+    const ordered: BrandDirectoryItem[] = [];
+
+    // Line 1: Most recently added brands (by created_at DESC)
+    const byNewest = [...items].sort((a, b) => b.created_at.localeCompare(a.created_at));
+    for (const b of byNewest) {
+      if (ordered.length >= 4) break;
+      ordered.push(b);
+      used.add(b.id);
+    }
+
+    // Line 2: Most recent product additions (by latest_product_at DESC), excluding line 1
+    const byRecentProduct = [...items]
+      .filter((b) => !used.has(b.id) && b.latest_product_at)
+      .sort((a, b) => (b.latest_product_at ?? '').localeCompare(a.latest_product_at ?? ''));
+    for (const b of byRecentProduct) {
+      if (ordered.length >= 8) break;
+      ordered.push(b);
+      used.add(b.id);
+    }
+
+    // Line 3: Most products on offer (by product_count DESC), excluding lines 1-2
+    const byMostProducts = [...items]
+      .filter((b) => !used.has(b.id))
+      .sort((a, b) => b.product_count - a.product_count);
+    for (const b of byMostProducts) {
+      if (ordered.length >= 12) break;
+      ordered.push(b);
+      used.add(b.id);
+    }
+
+    // Line 4+: Random from remainder
+    const remainder = items.filter((b) => !used.has(b.id));
+    for (let i = remainder.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [remainder[i], remainder[j]] = [remainder[j], remainder[i]];
+    }
+    ordered.push(...remainder);
+
+    return ordered;
+  }
+
+  const sortedBrands = orderBrandsForDirectory(directoryBrands);
 
   // Generate signed logo URLs for all brands (for directory cards)
   const brandsWithLogos = await Promise.all(
-    brands.map(async (b) => {
+    sortedBrands.map(async (b) => {
       let logoUrl: string | null = null;
       if (b.logo_path) {
         try { logoUrl = await getSignedUrl(b.logo_path, 3600); } catch { /* non-fatal */ }
       }
-      return { slug: b.slug, name: b.name, headline: b.headline, logoUrl };
+      return {
+        slug: b.slug,
+        name: b.name,
+        headline: b.headline,
+        logoUrl,
+        productCount: b.product_count,
+      };
     }),
   );
 
@@ -70,9 +123,8 @@ export default async function RRGGallery({
   }
 
   // Fetch brief + past briefs scoped to selected brand (or all if 'all')
-  const [brief, allBriefs] = await Promise.all([
+  const [brief] = await Promise.all([
     getCurrentBrief(selectedBrandId),
-    getRecentBriefs(20, selectedBrandId),
   ]);
 
   // Brand lookup map for labelling drops (only needed when showing all brands)
@@ -127,8 +179,8 @@ export default async function RRGGallery({
     return str ? `/rrg?${str}` : '/rrg';
   };
 
-  // Submit always goes to the brief selection page
-  const submitHref = '/rrg/submit';
+  // When a brand is selected, submit goes to that brand's page; otherwise brief selection
+  const submitHref = selectedBrand ? `/brand/${selectedBrand.slug}/submit` : '/rrg/submit';
 
   // Parse social links for selected brand
   const brandSocialEntries = selectedBrand?.social_links
@@ -136,7 +188,7 @@ export default async function RRGGallery({
     : [];
 
   return (
-    <div className="px-6 py-12 max-w-6xl mx-auto">
+    <div className="px-6 py-12 max-w-6xl mx-auto overflow-hidden">
 
       {/* ── Brand Profile (when a specific brand is selected) ──────── */}
       {selectedBrand && (
@@ -166,12 +218,12 @@ export default async function RRGGallery({
 
             {/* Text */}
             <div className="flex-1 min-w-0">
-              <h2 className="text-2xl font-light mb-1 leading-snug">{selectedBrand.name}</h2>
+              <h2 className="text-3xl font-light mb-1 leading-snug">{selectedBrand.name}</h2>
               {selectedBrand.headline && (
-                <p className="text-sm text-white/50 mb-2">{selectedBrand.headline}</p>
+                <p className="text-base text-white/70 mb-2">{selectedBrand.headline}</p>
               )}
               {selectedBrand.description && (
-                <p className="text-white/60 leading-relaxed text-sm max-w-2xl">
+                <p className="text-white/80 leading-relaxed text-base max-w-2xl">
                   {selectedBrand.description}
                 </p>
               )}
@@ -184,7 +236,7 @@ export default async function RRGGallery({
                       href={selectedBrand.website_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-white/40 hover:text-white/70 transition-colors font-mono"
+                      className="text-sm text-white/60 hover:text-white/90 transition-colors font-mono"
                     >
                       {selectedBrand.website_url.replace(/^https?:\/\//, '').replace(/\/$/, '')} {'\u2197'}
                     </a>
@@ -195,7 +247,7 @@ export default async function RRGGallery({
                       href={url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs text-white/30 hover:text-white/60 transition-colors font-mono"
+                      className="text-sm text-white/50 hover:text-white/80 transition-colors font-mono"
                     >
                       {SOCIAL_LABELS[platform.toLowerCase()] ?? platform} {'\u2197'}
                     </a>
@@ -207,27 +259,61 @@ export default async function RRGGallery({
         </div>
       )}
 
+      {/* ── Brand Chips ─────────────────────────────────────────────── */}
+      <div className="mb-6">
+        <BrandDirectory
+          brands={brandsWithLogos}
+          selected={brandParam}
+        />
+      </div>
+
+      {/* ── How to Join In ──────────────────────────────────────────── */}
+      <div className="mb-14 p-8 border border-white/10">
+        <p className="text-sm font-mono uppercase tracking-[0.2em] text-white/60 mb-5">
+          How to Join In
+        </p>
+        <div className="max-w-2xl space-y-4 text-base text-white/80 leading-relaxed">
+          <p>
+            Real Real Genuine is a digital commerce and collaborative creation platform connecting
+            brands with human creators and AI agents. As well as Brands offering both digital and
+            physical products they also publish design briefs. Creators respond with original work.
+            Approved designs are minted, sold, and the revenue is shared automatically, transparently,
+            on-chain.
+          </p>
+          <p>
+            Whether you&apos;re a brand looking to foster original creative work, or a creator
+            looking to design together with brands you believe in, Real Real Genuine is where
+            the work gets done.
+          </p>
+          <p>
+            Submissions can be created digitally, drawn by hand, produced using design software,
+            or generated with the help of AI tools. All we ask is that you follow the brief and
+            bring something worth making.
+          </p>
+        </div>
+      </div>
+
       {/* ── Brief Banner ────────────────────────────────────────────── */}
       {brief && (
         <div className="mb-10 p-8 border border-white/20 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
-          <p className="text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-3">
+          <p className="text-sm font-mono uppercase tracking-[0.2em] text-white/60 mb-3">
             Current Brief{selectedBrand ? ` — ${selectedBrand.name}` : ''}
           </p>
-          <h2 className="text-2xl font-light mb-3 leading-snug">{brief.title}</h2>
-          <p className="text-white/60 leading-relaxed mb-5 max-w-xl text-sm">
+          <h2 className="text-3xl font-light mb-3 leading-snug">{brief.title}</h2>
+          <p className="text-white/80 leading-relaxed mb-5 max-w-xl text-base">
             {brief.description}
           </p>
           <div className="flex items-center gap-6">
             <Link
               href={`${submitHref}`}
-              className="inline-flex items-center gap-2 px-6 py-2.5 border border-white text-sm
+              className="inline-flex items-center gap-2 px-6 py-2.5 border border-white text-base
                          hover:bg-white hover:text-black transition-all font-medium"
             >
               Submit a Design &rarr;
             </Link>
             {brief.ends_at && (
-              <p className="text-xs font-mono text-white/30">
+              <p className="text-sm font-mono text-white/50">
                 Deadline:{' '}
                 {new Date(brief.ends_at).toLocaleDateString('en-GB', {
                   day: 'numeric', month: 'long', year: 'numeric',
@@ -238,57 +324,19 @@ export default async function RRGGallery({
         </div>
       )}
 
-      {/* ── How to Join In ──────────────────────────────────────────── */}
-      <div className="mb-14 p-8 border border-white/10">
-        <p className="text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-5">
-          How to Join In
-        </p>
-        <div className="max-w-2xl space-y-4 text-sm text-white/60 leading-relaxed">
-          <p>
-            Real Real Genuine is a collaborative creation platform connecting brands with human
-            creators and AI agents. Brands publish design briefs. Creators respond with original
-            work. Approved designs are minted, sold, and the revenue is shared automatically,
-            transparently, on-chain.
-          </p>
-          <p>
-            Whether you&apos;re a brand looking to commission original creative work with zero
-            upfront production cost, or a creator looking to design for brands you believe in,
-            Real Real Genuine is where the work gets made.
-          </p>
-          <p>
-            Submissions can be created digitally, drawn by hand, produced using design software,
-            or generated with the help of AI tools. All we ask is that you follow the brief and
-            bring something worth making.
-          </p>
-        </div>
-      </div>
-
-      {/* ── Brand Chips ─────────────────────────────────────────────── */}
-      <div className="mb-6">
-        <BrandDirectory
-          brands={brandsWithLogos}
-          selected={brandParam}
-        />
-      </div>
-
       {/* ── Gallery Header ───────────────────────────────────────────── */}
       <div className="flex flex-wrap justify-between items-center gap-y-3 mb-8">
         <div className="flex items-center gap-4 min-w-0">
-          <h1 className="text-xs font-mono uppercase tracking-[0.3em] text-white/40 shrink-0">
+          <h1 className="text-sm font-mono uppercase tracking-[0.3em] text-white/60 shrink-0">
             Drops ({totalCount})
           </h1>
-          <BriefFilter
-            briefs={allBriefs.map(b => ({ id: b.id, title: b.title }))}
-            currentBriefId={brief?.id ?? null}
-            selected={briefParam}
-          />
         </div>
         <div className="flex items-center gap-3">
           <AgentTrustBadge />
           {!brief && (
             <Link
               href={`${submitHref}`}
-              className="text-sm border border-white/30 px-4 py-1.5 hover:border-white transition-all whitespace-nowrap"
+              className="text-base border border-white/30 px-4 py-1.5 hover:border-white transition-all whitespace-nowrap"
             >
               Submit &rarr;
             </Link>
@@ -298,96 +346,105 @@ export default async function RRGGallery({
 
       {/* ── Drop Grid ────────────────────────────────────────────────── */}
       {dropsWithUrls.length === 0 ? (
-        <div className="text-center py-32 text-white/20 font-mono text-sm">
+        <div className="text-center py-32 text-white/50 font-mono text-base">
           <p>No drops yet.</p>
-          <Link href={`${submitHref}`} className="mt-4 inline-block text-white/40 hover:text-white transition-colors">
+          <Link href={`${submitHref}`} className="mt-4 inline-block text-white/60 hover:text-white transition-colors">
             Be the first to submit &rarr;
           </Link>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
           {dropsWithUrls.map((drop) => (
-            <Link
-              key={drop.id}
-              href={`/rrg/drop/${drop.token_id}`}
-              className="group block"
-            >
-              {/* Image */}
-              <div className="relative aspect-square bg-white/5 border border-white/10
-                              group-hover:border-white/30 transition-colors overflow-hidden mb-4">
-                {drop.imageUrl ? (
-                  <img
-                    src={drop.imageUrl}
-                    alt={drop.title}
-                    className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-white/10 font-mono text-xs">
-                    #{drop.token_id}
-                  </div>
-                )}
-                {drop.isPhysicalProduct && (
-                  <span className="absolute top-2 left-2 px-2 py-0.5 bg-lime-500 text-black
-                                   text-[10px] font-mono uppercase tracking-wider leading-tight">
-                    Includes Real Real Product
-                  </span>
-                )}
-                {drop.soldOut && (
-                  <span className="absolute top-2 right-2 px-2 py-0.5 bg-red-600 text-white
-                                   text-[10px] font-mono uppercase tracking-wider leading-tight">
-                    Sold Out
-                  </span>
-                )}
-              </div>
+            <div key={drop.id}>
+              <Link
+                href={`/rrg/drop/${drop.token_id}`}
+                className="group block"
+              >
+                {/* Image */}
+                <div className="relative aspect-square bg-white/5 border border-white/10
+                                group-hover:border-white/30 transition-colors overflow-hidden mb-4">
+                  {drop.imageUrl ? (
+                    <img
+                      src={drop.imageUrl}
+                      alt={drop.title}
+                      className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-white/30 font-mono text-sm">
+                      #{drop.token_id}
+                    </div>
+                  )}
+                  {drop.isPhysicalProduct && (
+                    <span className="absolute top-2 left-2 px-2 py-0.5 bg-lime-500 text-black
+                                     text-xs font-mono uppercase tracking-wider leading-tight">
+                      Includes Real Real Product
+                    </span>
+                  )}
+                  {drop.soldOut && (
+                    <span className="absolute top-2 right-2 px-2 py-0.5 bg-red-600 text-white
+                                     text-xs font-mono uppercase tracking-wider leading-tight">
+                      Sold Out
+                    </span>
+                  )}
+                </div>
 
-              {/* Info */}
-              <h3 className="text-sm font-medium truncate mb-1 group-hover:opacity-70 transition-opacity">
-                {drop.title}
-              </h3>
-              <div className="flex justify-between text-xs text-white/30 font-mono">
-                <span>${parseFloat(drop.price_usdc || '0').toFixed(2)} USDC</span>
-                <span>{drop.edition_size} ed.</span>
-              </div>
-              {drop.brandName && (
-                <p className="mt-1.5 text-[10px] font-mono text-white/25 uppercase tracking-wider">
+                {/* Info */}
+                <h3 className="text-base font-medium truncate mb-1 group-hover:opacity-70 transition-opacity">
+                  {drop.title}
+                </h3>
+                <div className="flex justify-between text-sm text-white/50 font-mono">
+                  <span>${parseFloat(drop.price_usdc || '0').toFixed(2)} USDC</span>
+                  <span>{drop.edition_size} ed.</span>
+                </div>
+              </Link>
+              {drop.brandName && drop.brandSlug && (
+                <Link
+                  href={`/rrg?brand=${drop.brandSlug}`}
+                  className="mt-1.5 block text-sm font-mono text-white/50 uppercase tracking-wider hover:text-white/80 transition-colors"
+                >
+                  by {drop.brandName}
+                </Link>
+              )}
+              {drop.brandName && !drop.brandSlug && (
+                <p className="mt-1.5 text-sm font-mono text-white/50 uppercase tracking-wider">
                   by {drop.brandName}
                 </p>
               )}
               {drop.creator_bio && bioExcerpt(drop.creator_bio) && (
-                <p className="mt-2 text-xs text-white/20 leading-snug line-clamp-2">
+                <p className="mt-2 text-sm text-white/50 leading-snug line-clamp-2">
                   {bioExcerpt(drop.creator_bio)}
                 </p>
               )}
-            </Link>
+            </div>
           ))}
         </div>
       )}
 
       {/* ── Pagination ───────────────────────────────────────────────── */}
       {totalPages > 1 && (
-        <div className="flex justify-end items-center gap-4 mt-10 text-sm font-mono">
+        <div className="flex justify-end items-center gap-4 mt-10 text-base font-mono">
           {page > 1 ? (
             <Link
               href={page === 2 ? buildQs({ page: undefined }) : buildQs({ page: String(page - 1) })}
-              className="text-white/50 hover:text-white transition-colors"
+              className="text-white/60 hover:text-white transition-colors"
             >
               &larr; Prev
             </Link>
           ) : (
-            <span className="text-white/15">&larr; Prev</span>
+            <span className="text-white/30">&larr; Prev</span>
           )}
-          <span className="text-white/30 tabular-nums">
+          <span className="text-white/50 tabular-nums">
             {page} / {totalPages}
           </span>
           {page < totalPages ? (
             <Link
               href={buildQs({ page: String(page + 1) })}
-              className="text-white/50 hover:text-white transition-colors"
+              className="text-white/60 hover:text-white transition-colors"
             >
               Next &rarr;
             </Link>
           ) : (
-            <span className="text-white/15">Next &rarr;</span>
+            <span className="text-white/30">Next &rarr;</span>
           )}
         </div>
       )}

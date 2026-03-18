@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, getDistributions } from '@/lib/rrg/db';
 import { isAdminFromCookies, adminUnauthorized } from '@/lib/rrg/auth';
-import { transferUsdc, getPlatformUsdcBalance, getDeployerSigner } from '@/lib/rrg/contract';
+import { transferUsdc, getPlatformUsdcBalance, getPlatformSigner } from '@/lib/rrg/contract';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get starting nonce — avoids "replacement fee too low" when sending sequential txs
-    const signer = getDeployerSigner();
+    const signer = getPlatformSigner();
     let nonce = await signer.getNonce('latest');
 
     // Process each distribution

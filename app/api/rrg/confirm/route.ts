@@ -7,21 +7,25 @@ import { uploadToIpfsInBackground } from '@/lib/rrg/ipfs';
 import { sendFileDeliveryEmail, sendPhysicalOrderToBrand, sendPhysicalPurchaseToBuyer } from '@/lib/rrg/email';
 import { randomBytes } from 'crypto';
 import { autopostSale } from '@/lib/rrg/autopost';
-import { postReputationSignal } from '@/lib/rrg/erc8004';
+import { postReputationSignal, postBuyerReputationSignal, fireVoucherSignal, DRHOBBS_AGENT_ID } from '@/lib/rrg/erc8004';
 import { calculateSplit } from '@/lib/rrg/splits';
 import { insertDistributionAndPay } from '@/lib/rrg/auto-payout';
+import { createVoucher, formatVoucherForDisplay } from '@/lib/rrg/vouchers';
+import { firePurchaseAttribution } from '@/lib/rrg/marketing-attribution';
+import { processReferralCommission } from '@/lib/rrg/referral';
 
 export const dynamic = 'force-dynamic';
 
 // POST /api/rrg/confirm — public: mintWithPermit → IPFS → deliver
-// Body: { tokenId, buyerWallet, buyerEmail, deadline, signature }
+// Body: { tokenId, buyerWallet, buyerEmail, deadline, signature, referralCode? }
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { tokenId, buyerWallet, buyerEmail, deadline, signature,
             shipping_name, shipping_address_line1, shipping_address_line2,
             shipping_city, shipping_state, shipping_postal_code,
-            shipping_country, shipping_phone, physical_terms_accepted } = body;
+            shipping_country, shipping_phone, physical_terms_accepted,
+            referralCode } = body;
 
     // ── Validate inputs ───────────────────────────────────────────────
     if (!tokenId || !buyerWallet || !deadline || !signature) {
@@ -114,31 +118,6 @@ export async function POST(req: NextRequest) {
 
     if (dbError) throw dbError;
 
-    // ── Record revenue distribution + auto-payout ────────────────────
-    try {
-      const brandId = drop.brand_id ?? RRG_BRAND_ID;
-      const brand   = brandId !== RRG_BRAND_ID ? await getBrandById(brandId) : null;
-      const isLegacy = brandId === RRG_BRAND_ID && !drop.is_brand_product;
-
-      const split = calculateSplit({
-        totalUsdc:      parseFloat(drop.price_usdc ?? '0'),
-        brandId,
-        creatorWallet:  drop.creator_wallet,
-        brandWallet:    brand?.wallet_address ?? null,
-        isBrandProduct: drop.is_brand_product ?? false,
-        isLegacy,
-      });
-
-      await insertDistributionAndPay({
-        purchaseId: purchase.id,
-        brandId,
-        split,
-      });
-    } catch (distErr) {
-      console.error('[confirm] Distribution/payout failed:', distErr);
-      // Non-fatal — purchase still succeeded
-    }
-
     // ── Autopost sale (non-blocking) ─────────────────────────────────────
     (async () => {
       try {
@@ -179,7 +158,23 @@ export async function POST(req: NextRequest) {
           tokenId:     parseInt(tokenId),
           txHash,
         });
-        console.log(`[confirm] ERC-8004 reputation signal posted: ${reputationTxHash?.slice(0, 10)}…`);
+        console.log(`[confirm] ERC-8004 seller signal posted: ${reputationTxHash?.slice(0, 10)}…`);
+
+        // ── Buyer agent signal — auto-detect known agent wallets ───────────
+        const DRHOBBS_WALLET = '0xe653804032a2d51cc031795afc601b9b1fd2c375';
+        const buyerAgentId: bigint | null =
+          buyerWallet.toLowerCase() === DRHOBBS_WALLET ? DRHOBBS_AGENT_ID : null;
+
+        if (buyerAgentId) {
+          const buyerSignalHash = await postBuyerReputationSignal({
+            buyerAgentId,
+            buyerWallet:  buyerWallet.toLowerCase(),
+            priceUsdc:    drop.price_usdc ?? '0',
+            tokenId:      parseInt(tokenId),
+            txHash,
+          });
+          console.log(`[confirm] ERC-8004 buyer signal posted (agent #${buyerAgentId}): ${buyerSignalHash.slice(0, 10)}…`);
+        }
       } catch (repErr) {
         // Non-fatal — purchase + mint still succeeded
         console.error('[confirm] ERC-8004 reputation signal failed:', repErr);
@@ -192,6 +187,77 @@ export async function POST(req: NextRequest) {
       ipfsResult = await uploadToIpfsInBackground(drop);
     } catch (err) {
       console.error('[confirm] IPFS upload failed:', err);
+    }
+
+    // ── Generate voucher (if drop has one attached) ──────────────────────
+    let voucherData: Awaited<ReturnType<typeof formatVoucherForDisplay>> = null;
+    if (drop.has_voucher && drop.voucher_template_id) {
+      try {
+        const voucher = await createVoucher({
+          templateId:   drop.voucher_template_id,
+          purchaseId:   purchase.id,
+          submissionId: drop.id,
+          brandId:      drop.brand_id ?? RRG_BRAND_ID,
+          buyerWallet:  buyerWallet.toLowerCase(),
+        });
+        voucherData = await formatVoucherForDisplay(voucher);
+        console.log(`[confirm] Voucher generated: ${voucher.code} (expires ${voucher.expires_at})`);
+        // Fire ERC-8004 voucher signal (awaited — sequential to avoid nonce collision)
+        try {
+          await fireVoucherSignal({
+            buyerWallet: buyerWallet.toLowerCase(),
+            voucherCode: voucher.code,
+            brandId:     drop.brand_id ?? RRG_BRAND_ID,
+            tokenId:     parseInt(tokenId),
+            signalType:  'voucher_issued',
+          });
+        } catch (sigErr) {
+          console.error('[confirm] Voucher signal failed:', sigErr);
+        }
+      } catch (voucherErr) {
+        console.error('[confirm] Voucher generation failed:', voucherErr);
+        // Non-fatal — purchase still succeeded
+      }
+    }
+
+    // ── Record revenue distribution + auto-payout ────────────────────
+    // MUST run AFTER all ERC-8004 signals to avoid deployer wallet nonce collisions.
+    try {
+      const brandId = drop.brand_id ?? RRG_BRAND_ID;
+      const brand   = brandId !== RRG_BRAND_ID ? await getBrandById(brandId) : null;
+      const isLegacy = brandId === RRG_BRAND_ID && !drop.is_brand_product;
+
+      const split = calculateSplit({
+        totalUsdc:      parseFloat(drop.price_usdc ?? '0'),
+        brandId,
+        creatorWallet:  drop.creator_wallet,
+        brandWallet:    brand?.wallet_address ?? null,
+        isBrandProduct: drop.is_brand_product ?? false,
+        isLegacy,
+      });
+
+      await insertDistributionAndPay({
+        purchaseId: purchase.id,
+        brandId,
+        split,
+      });
+
+      // Marketing attribution — commission is on platform share only
+      firePurchaseAttribution(buyerWallet.toLowerCase(), txHash, split.platformUsdc);
+
+      // Referral partner commission (fire-and-forget)
+      if (referralCode) {
+        processReferralCommission(
+          referralCode,
+          purchase.id,
+          split.platformUsdc,
+          buyerWallet.toLowerCase(),
+          drop.creator_wallet,
+        ).catch(() => {});
+      }
+    } catch (distErr) {
+      console.error('[confirm] Distribution/payout failed:', distErr);
+      // Non-fatal — purchase still succeeded
     }
 
     // ── Send delivery email ───────────────────────────────────────────
@@ -207,6 +273,7 @@ export async function POST(req: NextRequest) {
           txHash,
           downloadUrl,
           ipfsMetadataUrl: ipfsResult?.metadataUrl ?? null,
+          voucher:         voucherData ?? undefined,
         });
         await db
           .from('rrg_purchases')
@@ -270,6 +337,7 @@ export async function POST(req: NextRequest) {
       ipfsImageUrl:     ipfsResult ? `https://gateway.pinata.cloud/ipfs/${ipfsResult.imageCid}` : null,
       ipfsMetadataCid:  ipfsResult?.metadataCid ?? null,
       ipfsMetadataUrl:  ipfsResult?.metadataUrl ?? null,
+      voucher:          voucherData,
     });
 
   } catch (err) {

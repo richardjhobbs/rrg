@@ -17,8 +17,18 @@ import { getOutreachForCandidate } from '@/lib/rrg/marketing-db';
 
 export const dynamic = 'force-dynamic';
 
+async function checkAuth(req: Request): Promise<boolean> {
+  // Cookie auth (browser sessions)
+  const cookieAuth = await isAdminFromCookies();
+  if (cookieAuth) return true;
+  // Header auth (curl / agent calls)
+  const secret = process.env.ADMIN_SECRET;
+  const header = req.headers.get('x-admin-secret');
+  return !!(secret && header && header === secret);
+}
+
 export async function POST(req: Request) {
-  const isAdmin = await isAdminFromCookies();
+  const isAdmin = await checkAuth(req);
   if (!isAdmin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   try {
@@ -28,14 +38,17 @@ export async function POST(req: Request) {
     if (body.tier) {
       const results = await batchOutreach(
         body.tier,
-        body.channel ?? 'manual',
+        body.channel ?? 'a2a',
         Math.min(body.limit ?? 10, 50),
       );
+      const delivered = results.filter((r) => r.status === 'delivered').length;
+      const bounced = results.filter((r) => r.status === 'bounced').length;
+      const sent = results.filter((r) => r.status === 'sent').length;
+      const failed = results.filter((r) => r.status === 'failed').length;
       return NextResponse.json({
         ok: true,
         mode: 'batch',
-        sent: results.filter((r) => r.status === 'sent').length,
-        failed: results.filter((r) => r.status === 'failed').length,
+        summary: { delivered, bounced, sent, failed, total: results.length },
         results,
       });
     }
@@ -54,7 +67,7 @@ export async function POST(req: Request) {
       body.message_type ?? 'intro',
     );
 
-    return NextResponse.json({ ok: result.status === 'sent', ...result });
+    return NextResponse.json({ ok: result.status === 'delivered' || result.status === 'sent', ...result });
   } catch (err) {
     console.error('[marketing/outreach] error:', err);
     return NextResponse.json(
@@ -65,7 +78,7 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
-  const isAdmin = await isAdminFromCookies();
+  const isAdmin = await checkAuth(req);
   if (!isAdmin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const url = new URL(req.url);

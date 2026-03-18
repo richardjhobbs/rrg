@@ -1,8 +1,23 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import dynamic from 'next/dynamic';
 
+// Lazy-load thirdweb Google auth component (client-only)
+const GoogleAuthEmbed = dynamic(
+  () => import('@/components/rrg/GoogleAuthEmbed'),
+  { ssr: false, loading: () => <div className="h-12 border border-white/10 animate-pulse" /> },
+);
+
+// ── Types ──────────────────────────────────────────────────────────────
+interface PendingBrand {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+// ── Main Page ──────────────────────────────────────────────────────────
 function BrandLoginInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -10,38 +25,131 @@ function BrandLoginInner() {
   const accessToken  = searchParams.get('access_token');
   const refreshToken = searchParams.get('refresh_token');
 
-  const [mode,     setMode]     = useState<'login' | 'forgot' | 'reset'>(
-    isReset && accessToken ? 'reset' : 'login'
+  const [mode, setMode] = useState<'login' | 'register' | 'pending' | 'forgot' | 'reset'>(
+    isReset && accessToken ? 'reset' : 'login',
   );
-  const [email,    setEmail]    = useState('');
-  const [password, setPassword] = useState('');
-  const [newPass,  setNewPass]  = useState('');
-  const [msg,      setMsg]      = useState('');
-  const [err,      setErr]      = useState('');
-  const [loading,  setLoading]  = useState(false);
+  const [walletMode, setWalletMode] = useState<'choose' | 'own' | 'new'>('choose');
+  const [brandName,  setBrandName]  = useState('');
+  const [ownWallet,  setOwnWallet]  = useState('');
+  const [appText,    setAppText]    = useState('');
+  const [pendingBrand, setPendingBrand] = useState<PendingBrand | null>(null);
 
-  // Check if already logged in
+  // Legacy login
+  const [showLegacy,  setShowLegacy]  = useState(false);
+  const [legacyEmail, setLegacyEmail] = useState('');
+  const [legacyPass,  setLegacyPass]  = useState('');
+
+  // Forgot/reset password
+  const [email,   setEmail]   = useState('');
+  const [newPass, setNewPass] = useState('');
+
+  const [err,     setErr]     = useState('');
+  const [msg,     setMsg]     = useState('');
+  const [loading, setLoading] = useState(false);
+  const submittedRef = useRef(false);
+
+  // ── Check if already logged in ──────────────────────────────────────
   useEffect(() => {
     fetch('/api/brand/auth/check')
       .then((r) => r.json())
       .then((d) => {
         if (d.authenticated && d.brands?.length > 0) {
           router.push(`/brand/${d.brands[0].brandSlug}/admin`);
+        } else if (d.authenticated && d.pendingBrand) {
+          setPendingBrand(d.pendingBrand);
+          setMode('pending');
         }
       })
       .catch(() => {});
   }, [router]);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  // ── Google OAuth handler (login or register) ────────────────────────
+  const handleGoogleAuth = useCallback(async (wallet: string, authEmail: string) => {
+    if (submittedRef.current || loading) return;
+    submittedRef.current = true;
+    setErr('');
+    setLoading(true);
+
+    const effectiveWallet = (mode === 'register' && walletMode === 'own' && ownWallet.trim())
+      ? ownWallet.trim()
+      : wallet;
+
+    try {
+      if (mode === 'register') {
+        if (!brandName.trim()) {
+          setErr('Please enter your brand name');
+          setLoading(false);
+          submittedRef.current = false;
+          return;
+        }
+
+        if (walletMode === 'own' && !ownWallet.trim()) {
+          setErr('Please enter your wallet address');
+          setLoading(false);
+          submittedRef.current = false;
+          return;
+        }
+
+        const res = await fetch('/api/brand/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: authEmail,
+            wallet: effectiveWallet,
+            brandName: brandName.trim(),
+            applicationText: appText.trim(),
+            oauthRegistration: true,
+          }),
+        });
+        const data = await res.json();
+
+        if (res.ok && data.brand) {
+          setPendingBrand(data.brand);
+          setMode('pending');
+        } else {
+          setErr(data.error || 'Registration failed');
+          submittedRef.current = false;
+        }
+      } else {
+        // Login mode — wallet-login
+        const res = await fetch('/api/brand/auth/wallet-login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wallet, email: authEmail }),
+        });
+        const data = await res.json();
+
+        if (res.ok && data.pending) {
+          // Brand exists but is pending
+          const b = data.brands?.[0];
+          if (b) {
+            setPendingBrand({ id: b.brandId, name: b.brandName, slug: b.brandSlug });
+          }
+          setMode('pending');
+        } else if (res.ok && data.brands?.length > 0) {
+          router.push(`/brand/${data.brands[0].brandSlug}/admin`);
+        } else {
+          setErr(data.error || 'Login failed');
+          submittedRef.current = false;
+        }
+      }
+    } catch {
+      setErr('Something went wrong. Please try again.');
+      submittedRef.current = false;
+    }
+    setLoading(false);
+  }, [mode, walletMode, ownWallet, brandName, appText, loading, router]);
+
+  // ── Legacy email/password login ─────────────────────────────────────
+  const handleLegacyLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr('');
-    setMsg('');
     setLoading(true);
 
     const res = await fetch('/api/brand/auth/login', {
-      method:  'POST',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ email, password }),
+      body: JSON.stringify({ email: legacyEmail, password: legacyPass }),
     });
     const data = await res.json();
     setLoading(false);
@@ -53,6 +161,7 @@ function BrandLoginInner() {
     }
   };
 
+  // ── Forgot password ─────────────────────────────────────────────────
   const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr('');
@@ -60,9 +169,9 @@ function BrandLoginInner() {
     setLoading(true);
 
     const res = await fetch('/api/brand/auth/forgot-password', {
-      method:  'POST',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ email }),
+      body: JSON.stringify({ email }),
     });
     const data = await res.json();
     setLoading(false);
@@ -74,6 +183,7 @@ function BrandLoginInner() {
     }
   };
 
+  // ── Reset password ──────────────────────────────────────────────────
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
     setErr('');
@@ -81,12 +191,12 @@ function BrandLoginInner() {
     setLoading(true);
 
     const res = await fetch('/api/brand/auth/reset-password', {
-      method:  'POST',
+      method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({
-        access_token:  accessToken,
+      body: JSON.stringify({
+        access_token: accessToken,
         refresh_token: refreshToken,
-        password:      newPass,
+        password: newPass,
       }),
     });
     const data = await res.json();
@@ -100,55 +210,258 @@ function BrandLoginInner() {
     }
   };
 
+  // ── Switch modes ────────────────────────────────────────────────────
+  const switchMode = (newMode: 'login' | 'register') => {
+    setMode(newMode);
+    setWalletMode('choose');
+    setErr('');
+    setMsg('');
+    setShowLegacy(false);
+    submittedRef.current = false;
+  };
+
   return (
     <div className="w-full max-w-sm px-6">
-      <h1 className="text-xs font-mono uppercase tracking-[0.3em] text-white/40 mb-8">
-        Brand Admin
+      <h1 className="text-sm font-mono uppercase tracking-[0.3em] text-white/60 mb-8">
+        Brand Partner
       </h1>
 
+      {/* ── PENDING STATE ── */}
+      {mode === 'pending' && (
+        <div className="space-y-6">
+          <div className="border border-yellow-500/30 bg-yellow-500/5 p-6">
+            <h2 className="text-sm font-mono uppercase tracking-wider text-yellow-400 mb-3">
+              Application Pending
+            </h2>
+            {pendingBrand && (
+              <p className="text-sm text-white/70 mb-3">
+                <strong className="text-white">{pendingBrand.name}</strong>
+              </p>
+            )}
+            <p className="text-sm text-white/50 leading-relaxed">
+              Your brand application has been submitted and is under review.
+              We&apos;ll notify you by email once it&apos;s approved.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => switchMode('login')}
+            className="w-full text-sm text-white/30 hover:text-white/60 transition-colors font-mono"
+          >
+            ← Back to login
+          </button>
+        </div>
+      )}
+
+      {/* ── LOGIN MODE ── */}
       {mode === 'login' && (
-        <form onSubmit={handleLogin} className="space-y-4">
+        <div className="space-y-4">
+          <p className="text-sm font-mono text-white/50 mb-2">
+            Sign in with Google to access your brand dashboard.
+          </p>
+
+          <GoogleAuthEmbed
+            onAuthenticated={handleGoogleAuth}
+            buttonLabel="Sign in with Google"
+          />
+
+          {loading && (
+            <p className="text-sm font-mono text-white/50 animate-pulse">Signing in…</p>
+          )}
+
+          {err && <p className="text-red-400 text-sm font-mono">{err}</p>}
+
+          {/* Legacy email/password — hidden by default */}
+          {showLegacy ? (
+            <form onSubmit={handleLegacyLogin} className="space-y-3 pt-2 border-t border-white/10">
+              <div>
+                <label className="text-sm font-mono text-white/60 block mb-1">Email</label>
+                <input
+                  type="email" required value={legacyEmail}
+                  onChange={(e) => setLegacyEmail(e.target.value)}
+                  className="w-full bg-transparent border border-white/20 px-4 py-3 text-base
+                             focus:border-white outline-none transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-mono text-white/60 block mb-1">Password</label>
+                <input
+                  type="password" required value={legacyPass}
+                  onChange={(e) => setLegacyPass(e.target.value)}
+                  className="w-full bg-transparent border border-white/20 px-4 py-3 text-base
+                             focus:border-white outline-none transition-colors"
+                />
+              </div>
+              <button
+                type="submit" disabled={loading}
+                className="w-full py-3 border border-white/20 text-base text-white/80 hover:text-white
+                           hover:border-white/40 disabled:opacity-40 transition-all"
+              >
+                {loading ? 'Logging in…' : 'Login →'}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setMode('forgot'); setErr(''); setMsg(''); }}
+                className="w-full text-xs text-white/30 hover:text-white/60 transition-colors font-mono"
+              >
+                Forgot password?
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowLegacy(true)}
+              className="text-sm font-mono text-white/30 hover:text-white/50 transition-colors"
+            >
+              Login with email/password →
+            </button>
+          )}
+
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => switchMode('register')}
+              className="w-full text-sm text-white/50 hover:text-white/80 transition-colors font-mono"
+            >
+              Apply as a brand partner →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── REGISTER: WALLET CHOICE ── */}
+      {mode === 'register' && walletMode === 'choose' && (
+        <div className="space-y-4">
+          <p className="text-sm font-mono text-white/50 mb-2">
+            First — do you have a crypto wallet?
+          </p>
+
+          <button
+            type="button"
+            onClick={() => setWalletMode('own')}
+            className="w-full py-4 border border-white/20 text-base text-white/80
+                       hover:border-white/50 hover:text-white transition-all text-left px-5"
+          >
+            <span className="block font-medium">I have my own wallet</span>
+            <span className="block text-sm text-white/40 mt-1">
+              Use your existing wallet address for revenue payouts
+            </span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setWalletMode('new')}
+            className="w-full py-4 border border-white/20 text-base text-white/80
+                       hover:border-white/50 hover:text-white transition-all text-left px-5"
+          >
+            <span className="block font-medium">Set me up with a wallet</span>
+            <span className="block text-sm text-white/40 mt-1">
+              We&apos;ll create a wallet for you — linked to your Google account
+            </span>
+          </button>
+
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={() => switchMode('login')}
+              className="w-full text-sm text-white/50 hover:text-white/80 transition-colors font-mono"
+            >
+              ← Already have an account? Login
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── REGISTER: DETAILS + AUTH ── */}
+      {mode === 'register' && walletMode !== 'choose' && (
+        <div className="space-y-4">
+          <p className="text-sm font-mono text-white/50 mb-2">
+            {walletMode === 'own'
+              ? 'Enter your brand details and wallet, then sign in with Google.'
+              : 'Enter your brand details, then sign in with Google to create your account and wallet.'}
+          </p>
+
+          {/* Brand Name */}
           <div>
-            <label className="text-xs font-mono text-white/40 block mb-1">Email</label>
+            <label className="text-sm font-mono text-white/60 block mb-1">Brand Name</label>
             <input
-              type="email" required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-transparent border border-white/20 px-4 py-3 text-sm
-                         focus:border-white outline-none transition-colors placeholder:text-white/20"
+              type="text" value={brandName}
+              onChange={(e) => { setBrandName(e.target.value); setErr(''); }}
+              className="w-full bg-transparent border border-white/20 px-4 py-3 text-base
+                         focus:border-white outline-none transition-colors"
+              placeholder="Your brand name"
               autoFocus
             />
           </div>
+
+          {/* Wallet Address — only for "own wallet" path */}
+          {walletMode === 'own' && (
+            <div>
+              <label className="text-sm font-mono text-white/60 block mb-1">Wallet Address</label>
+              <input
+                type="text" value={ownWallet}
+                onChange={(e) => { setOwnWallet(e.target.value); setErr(''); }}
+                className="w-full bg-transparent border border-white/20 px-4 py-3 text-base font-mono
+                           focus:border-white outline-none transition-colors"
+                placeholder="0x…"
+                spellCheck={false}
+                autoComplete="off"
+              />
+              <p className="text-sm text-white/30 mt-1">
+                This is where your revenue share will be sent
+              </p>
+            </div>
+          )}
+
+          {/* Application Text */}
           <div>
-            <label className="text-xs font-mono text-white/40 block mb-1">Password</label>
-            <input
-              type="password" required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="w-full bg-transparent border border-white/20 px-4 py-3 text-sm
-                         focus:border-white outline-none transition-colors placeholder:text-white/20"
+            <label className="text-sm font-mono text-white/60 block mb-1">
+              Tell us about your brand
+            </label>
+            <textarea
+              value={appText}
+              onChange={(e) => setAppText(e.target.value)}
+              className="w-full bg-transparent border border-white/20 px-4 py-3 text-base
+                         focus:border-white outline-none transition-colors resize-none"
+              rows={3}
+              placeholder="What does your brand do? Why do you want to partner with RRG?"
             />
           </div>
-          {err && <p className="text-red-400 text-xs font-mono">{err}</p>}
-          {msg && <p className="text-green-400 text-xs font-mono">{msg}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full py-3 bg-white text-black text-sm font-medium hover:bg-white/90
-                       disabled:opacity-40 transition-all"
-          >
-            {loading ? 'Logging in…' : 'Login →'}
-          </button>
-          <button
-            type="button"
-            onClick={() => { setMode('forgot'); setErr(''); setMsg(''); }}
-            className="w-full text-xs text-white/30 hover:text-white/60 transition-colors font-mono"
-          >
-            Forgot password?
-          </button>
-        </form>
+
+          {/* Google sign-in → auto-register */}
+          <div className="pt-2">
+            <GoogleAuthEmbed
+              onAuthenticated={handleGoogleAuth}
+              buttonLabel="Apply with Google"
+            />
+          </div>
+
+          {loading && (
+            <p className="text-sm font-mono text-white/50 animate-pulse">Submitting application…</p>
+          )}
+
+          {err && <p className="text-red-400 text-sm font-mono">{err}</p>}
+
+          <div className="pt-2 flex gap-4">
+            <button
+              type="button"
+              onClick={() => { setWalletMode('choose'); setErr(''); submittedRef.current = false; }}
+              className="text-sm text-white/50 hover:text-white/80 transition-colors font-mono"
+            >
+              ← Back
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMode('login')}
+              className="text-sm text-white/50 hover:text-white/80 transition-colors font-mono"
+            >
+              Already have an account? Login
+            </button>
+          </div>
+        </div>
       )}
 
+      {/* ── FORGOT PASSWORD ── */}
       {mode === 'forgot' && (
         <form onSubmit={handleForgot} className="space-y-4">
           <p className="text-xs text-white/50 mb-4">
@@ -175,7 +488,7 @@ function BrandLoginInner() {
           </button>
           <button
             type="button"
-            onClick={() => { setMode('login'); setErr(''); setMsg(''); }}
+            onClick={() => switchMode('login')}
             className="w-full text-xs text-white/30 hover:text-white/60 transition-colors font-mono"
           >
             ← Back to login
@@ -183,6 +496,7 @@ function BrandLoginInner() {
         </form>
       )}
 
+      {/* ── RESET PASSWORD ── */}
       {mode === 'reset' && (
         <form onSubmit={handleReset} className="space-y-4">
           <p className="text-xs text-white/50 mb-4">

@@ -104,6 +104,7 @@ export async function sendFileDeliveryEmail({
   txHash,
   downloadUrl,
   ipfsMetadataUrl,
+  voucher,
 }: {
   to: string;
   title: string;
@@ -111,6 +112,7 @@ export async function sendFileDeliveryEmail({
   txHash: string;
   downloadUrl: string;
   ipfsMetadataUrl?: string | null;
+  voucher?: { code: string; offer: string; brand_url: string | null; terms: string | null; expires_at: string } | null;
 }): Promise<void> {
   const scanBase    = 'https://basescan.org';
   const dropUrl     = `${SITE_URL}/rrg/drop/${tokenId}`;
@@ -142,6 +144,15 @@ export async function sendFileDeliveryEmail({
     <p>On-chain receipt: <a href="${basescanUrl}" class="tx">${shortTx}</a></p>
     <p><a href="${dropUrl}" style="color:#7c3aed; text-decoration:none; font-size:13px">View drop page →</a></p>
     ${ipfsMetadataUrl ? `<p><a href="${ipfsMetadataUrl}" style="color:#7c3aed; text-decoration:none; font-size:13px">View metadata on IPFS →</a></p>` : ''}
+    ${voucher ? `
+    <div style="background:#052e16; border:1px solid rgba(16,185,129,0.3); border-radius:8px; padding:16px; margin:20px 0;">
+      <p style="color:#10b981; font-size:12px; text-transform:uppercase; letter-spacing:1px; margin:0 0 8px; font-weight:700">Your Voucher</p>
+      <p style="color:#e5e5e5; font-size:16px; font-weight:600; margin:0 0 4px">${escHtml(voucher.offer)}</p>
+      <p style="color:#fff; font-size:22px; font-family:monospace; letter-spacing:3px; margin:0 0 8px">${escHtml(voucher.code)}</p>
+      ${voucher.brand_url ? `<p style="color:#ccc; font-size:13px; margin:0 0 4px">Redeem at: <a href="${voucher.brand_url}" style="color:#10b981">${escHtml(voucher.brand_url)}</a></p>` : ''}
+      ${voucher.terms ? `<p style="color:#888; font-size:12px; margin:0 0 4px">${escHtml(voucher.terms)}</p>` : ''}
+      <p style="color:#888; font-size:12px; margin:0">Valid until ${new Date(voucher.expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+    </div>` : ''}
   </div>
   <div class="footer"><a href="${SITE_URL}/rrg" style="color:#e5e5e5; text-decoration:none">Browse all drops</a></div>
 </div>
@@ -344,6 +355,53 @@ ${escHtml(data.shippingAddress)}</div>
   await sendEmail({
     to: data.buyerEmail,
     subject: `Your RRG drop is ready — "${data.title}" (includes physical product)`,
+    html,
+  });
+}
+
+// ── 5. Brand approval notification ────────────────────────────────────
+
+export async function sendBrandApprovalEmail({
+  to,
+  brandName,
+  brandSlug,
+}: {
+  to: string;
+  brandName: string;
+  brandSlug: string;
+}): Promise<void> {
+  const dashboardUrl = `${SITE_URL}/brand/${brandSlug}/admin`;
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #e5e5e5; margin: 0; padding: 40px 20px; }
+  .card { max-width: 520px; margin: 0 auto; background: #111; border: 1px solid #222; border-radius: 12px; overflow: hidden; }
+  .header { background: #d4ff22; padding: 24px 28px; }
+  .header h1 { margin: 0; font-size: 20px; color: #0a0a0a; font-weight: 700; }
+  .body { padding: 28px; }
+  .body p { margin: 0 0 16px; line-height: 1.6; color: #ccc; font-size: 14px; }
+  .btn { display: inline-block; background: #d4ff22; color: #0a0a0a; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 14px; margin-top: 8px; }
+  .footer { padding: 20px 28px; border-top: 1px solid #1a1a1a; font-size: 12px; color: #555; }
+</style></head>
+<body>
+<div class="card">
+  <div class="header"><h1>Welcome to RRG, ${escHtml(brandName)}</h1></div>
+  <div class="body">
+    <p>Your brand partner application has been approved. You now have full access to your brand dashboard.</p>
+    <p>From your dashboard you can:</p>
+    <p style="color:#e5e5e5">• Submit products for the RRG collection<br>• Track sales and revenue<br>• Manage your brand profile</p>
+    <a class="btn" href="${dashboardUrl}">Go to your dashboard →</a>
+  </div>
+  <div class="footer">RRG — Real Real Genuine</div>
+</div>
+</body>
+</html>`;
+
+  await sendEmail({
+    to,
+    subject: `Your brand "${brandName}" is approved — welcome to RRG`,
     html,
   });
 }

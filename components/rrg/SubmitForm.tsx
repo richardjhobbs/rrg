@@ -88,14 +88,14 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
     return (
       <div className="px-6 py-32 max-w-xl mx-auto text-center">
         <div className="text-5xl mb-6 opacity-60">&#10003;</div>
-        <h2 className="text-xl font-light mb-4">Submission received</h2>
-        <p className="text-white/40 text-sm leading-relaxed mb-10">
+        <h2 className="text-2xl font-light mb-4">Submission received</h2>
+        <p className="text-white/60 text-base leading-relaxed mb-10">
           We&apos;ll review your design and notify you at the email provided if it&apos;s
           approved for a drop. This usually takes 2&ndash;5 days.
         </p>
         <Link
           href={`/brand/${brandSlug}`}
-          className="text-sm border border-white/30 px-6 py-2.5 hover:border-white transition-all"
+          className="text-base border border-white/30 px-6 py-2.5 hover:border-white transition-all"
         >
           &larr; Back to {brandName}
         </Link>
@@ -108,22 +108,22 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
 
       {/* Brief context */}
       {brief && (
-        <div className="mb-10 p-5 border border-white/10 bg-white/[0.03] text-sm">
-          <p className="font-mono text-xs uppercase tracking-widest text-white/30 mb-1">
+        <div className="mb-10 p-5 border border-white/10 bg-white/[0.03] text-base">
+          <p className="font-mono text-sm uppercase tracking-widest text-white/50 mb-1">
             Responding to
           </p>
           <p className="font-medium text-white">{brief.title}</p>
-          <p className="text-white/40 mt-1 text-xs leading-relaxed">{brief.description}</p>
+          <p className="text-white/60 mt-1 text-sm leading-relaxed">{brief.description}</p>
         </div>
       )}
 
-      <h1 className="text-xl font-mono tracking-wider mb-8">Submit a Design</h1>
+      <h1 className="text-2xl font-mono tracking-wider mb-8">Submit a Design</h1>
 
       <form onSubmit={handleSubmit} className="space-y-7">
 
         {/* Title */}
         <div>
-          <label className="block text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-2">
+          <label className="block text-sm font-mono uppercase tracking-[0.2em] text-white/60 mb-2">
             Title *
           </label>
           <input
@@ -132,15 +132,15 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
             maxLength={120}
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
-            className="w-full bg-transparent border border-white/20 px-4 py-3 text-sm
-                       focus:border-white outline-none transition-colors placeholder:text-white/20"
+            className="w-full bg-transparent border border-white/20 px-4 py-3 text-base
+                       focus:border-white outline-none transition-colors placeholder:text-white/40"
             placeholder="Give your design a title"
           />
         </div>
 
         {/* Description */}
         <div>
-          <label className="block text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-2">
+          <label className="block text-sm font-mono uppercase tracking-[0.2em] text-white/60 mb-2">
             Description
           </label>
           <textarea
@@ -148,15 +148,15 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
             maxLength={1000}
             value={form.description}
             onChange={(e) => setForm({ ...form, description: e.target.value })}
-            className="w-full bg-transparent border border-white/20 px-4 py-3 text-sm
-                       focus:border-white outline-none transition-colors resize-none placeholder:text-white/20"
+            className="w-full bg-transparent border border-white/20 px-4 py-3 text-base
+                       focus:border-white outline-none transition-colors resize-none placeholder:text-white/40"
             placeholder="Materials, process, inspiration — anything relevant"
           />
         </div>
 
         {/* Creator Bio */}
         <div>
-          <label className="block text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-2">
+          <label className="block text-sm font-mono uppercase tracking-[0.2em] text-white/60 mb-2">
             Creator Bio
           </label>
           <textarea
@@ -164,14 +164,14 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
             maxLength={2000}
             value={form.creator_bio}
             onChange={(e) => setForm({ ...form, creator_bio: e.target.value })}
-            className="w-full bg-transparent border border-white/20 px-4 py-3 text-sm
-                       focus:border-white outline-none transition-colors resize-none placeholder:text-white/20"
+            className="w-full bg-transparent border border-white/20 px-4 py-3 text-base
+                       focus:border-white outline-none transition-colors resize-none placeholder:text-white/40"
             placeholder="Tell collectors about yourself — your practice and where to find you online. Tip: [My Portfolio](https://…) creates a clickable link."
           />
-          <p className="mt-1.5 text-xs text-white/20 flex justify-between">
+          <p className="mt-1.5 text-sm text-white/50 flex justify-between">
             <span>
               Shown on your drop page. URLs become clickable links — or use{' '}
-              <span className="font-mono text-white/30">[My Site](https://…)</span>
+              <span className="font-mono text-white/60">[My Site](https://…)</span>
               {' '}for custom link text.
             </span>
             <span className="tabular-nums ml-4 shrink-0">{form.creator_bio.length}/2000</span>
@@ -181,7 +181,7 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
         {/* Edition + Price suggestions */}
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-2">
+            <label className="block text-sm font-mono uppercase tracking-[0.2em] text-white/60 mb-2">
               Suggested Edition Size
             </label>
             <input
@@ -191,12 +191,12 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
               placeholder="e.g. 10"
               value={form.suggested_edition}
               onChange={(e) => setForm({ ...form, suggested_edition: e.target.value })}
-              className="w-full bg-transparent border border-white/20 px-4 py-3 text-sm
-                         focus:border-white outline-none transition-colors placeholder:text-white/20"
+              className="w-full bg-transparent border border-white/20 px-4 py-3 text-base
+                         focus:border-white outline-none transition-colors placeholder:text-white/40"
             />
           </div>
           <div>
-            <label className="block text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-2">
+            <label className="block text-sm font-mono uppercase tracking-[0.2em] text-white/60 mb-2">
               Proposed Price (USDC)
             </label>
             <input
@@ -206,18 +206,18 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
               placeholder="e.g. 15"
               value={form.suggested_price_usdc}
               onChange={(e) => setForm({ ...form, suggested_price_usdc: e.target.value })}
-              className="w-full bg-transparent border border-white/20 px-4 py-3 text-sm
-                         focus:border-white outline-none transition-colors placeholder:text-white/20"
+              className="w-full bg-transparent border border-white/20 px-4 py-3 text-base
+                         focus:border-white outline-none transition-colors placeholder:text-white/40"
             />
           </div>
         </div>
-        <p className="text-xs text-white/20 -mt-4">
+        <p className="text-sm text-white/50 -mt-4">
           Optional suggestions for the reviewer. Final edition size and price are set on approval.
         </p>
 
         {/* Main Image */}
         <div>
-          <label className="block text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-2">
+          <label className="block text-sm font-mono uppercase tracking-[0.2em] text-white/60 mb-2">
             Main Image (JPEG or PNG) *
           </label>
           <input
@@ -225,38 +225,38 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
             accept="image/jpeg,image/jpg,image/png"
             required
             onChange={(e) => setJpeg(e.target.files?.[0] || null)}
-            className="w-full border border-white/20 px-4 py-3 text-sm text-white/50
+            className="w-full border border-white/20 px-4 py-3 text-base text-white/70
                        file:mr-4 file:bg-white file:text-black file:border-0
-                       file:px-3 file:py-1 file:text-xs file:font-medium file:cursor-pointer
+                       file:px-3 file:py-1 file:text-sm file:font-medium file:cursor-pointer
                        file:hover:bg-white/90 transition-all"
           />
-          <p className="mt-1.5 text-xs text-white/20">
+          <p className="mt-1.5 text-sm text-white/50">
             JPEG or PNG · max 5 MB · high-resolution preferred
           </p>
         </div>
 
         {/* Additional files */}
         <div>
-          <label className="block text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-2">
-            Additional Files <span className="normal-case tracking-normal text-white/20">(optional)</span>
+          <label className="block text-sm font-mono uppercase tracking-[0.2em] text-white/60 mb-2">
+            Additional Files <span className="normal-case tracking-normal text-white/40">(optional)</span>
           </label>
           <input
             type="file"
             multiple
             onChange={(e) => setAdditionalFiles(e.target.files)}
-            className="w-full border border-white/20 px-4 py-3 text-sm text-white/50
+            className="w-full border border-white/20 px-4 py-3 text-base text-white/70
                        file:mr-4 file:bg-white file:text-black file:border-0
-                       file:px-3 file:py-1 file:text-xs file:font-medium file:cursor-pointer
+                       file:px-3 file:py-1 file:text-sm file:font-medium file:cursor-pointer
                        file:hover:bg-white/90 transition-all"
           />
-          <p className="mt-1.5 text-xs text-white/20">
+          <p className="mt-1.5 text-sm text-white/50">
             ZIP, PDF, SVG, AI, PSD etc. · Delivered to buyers post-purchase · max 50 MB total
           </p>
         </div>
 
         {/* Creator wallet */}
         <div>
-          <label className="block text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-2">
+          <label className="block text-sm font-mono uppercase tracking-[0.2em] text-white/60 mb-2">
             Creator Wallet (Base) *
           </label>
           <input
@@ -266,18 +266,18 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
             title="A valid 0x Ethereum address"
             value={form.creator_wallet}
             onChange={(e) => setForm({ ...form, creator_wallet: e.target.value })}
-            className="w-full bg-transparent border border-white/20 px-4 py-3 text-sm font-mono
-                       focus:border-white outline-none transition-colors placeholder:text-white/20"
+            className="w-full bg-transparent border border-white/20 px-4 py-3 text-base font-mono
+                       focus:border-white outline-none transition-colors placeholder:text-white/40"
             placeholder="0x…"
           />
-          <p className="mt-1.5 text-xs text-white/20">
+          <p className="mt-1.5 text-sm text-white/50">
             70% of each sale is transferred here as USDC on Base
           </p>
         </div>
 
         {/* Email */}
         <div>
-          <label className="block text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-2">
+          <label className="block text-sm font-mono uppercase tracking-[0.2em] text-white/60 mb-2">
             Contact Email *
           </label>
           <input
@@ -285,18 +285,18 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
             required
             value={form.creator_email}
             onChange={(e) => setForm({ ...form, creator_email: e.target.value })}
-            className="w-full bg-transparent border border-white/20 px-4 py-3 text-sm
-                       focus:border-white outline-none transition-colors placeholder:text-white/20"
+            className="w-full bg-transparent border border-white/20 px-4 py-3 text-base
+                       focus:border-white outline-none transition-colors placeholder:text-white/40"
             placeholder="you@example.com"
           />
-          <p className="mt-1.5 text-xs text-white/20">
+          <p className="mt-1.5 text-sm text-white/50">
             We&apos;ll notify you when your design is approved for a drop
           </p>
         </div>
 
         {/* Error */}
         {(status === 'error' || error) && (
-          <p className="text-red-400 text-sm font-mono border border-red-400/20 bg-red-400/5 px-4 py-3">
+          <p className="text-red-400 text-base font-mono border border-red-400/20 bg-red-400/5 px-4 py-3">
             {error}
           </p>
         )}
@@ -305,30 +305,30 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
         {termsAccepted ? (
           <div className="p-4 border border-green-400/20 bg-green-400/5 flex items-center justify-between">
             <div>
-              <p className="text-xs font-mono text-green-400/80">
+              <p className="text-sm font-mono text-green-400/80">
                 Creator Terms & Conditions accepted (v{CREATOR_TC_VERSION})
               </p>
             </div>
             <button
               type="button"
               onClick={() => setTcModalOpen(true)}
-              className="text-xs text-white/30 hover:text-white/60 transition-colors underline"
+              className="text-sm text-white/50 hover:text-white/80 transition-colors underline"
             >
               Review Terms
             </button>
           </div>
         ) : (
           <div className="p-5 border border-amber-400/40 bg-amber-400/5 space-y-3">
-            <p className="text-xs font-mono uppercase tracking-widest text-amber-400">
+            <p className="text-sm font-mono uppercase tracking-widest text-amber-400">
               Action Required
             </p>
-            <p className="text-sm text-white/70">
+            <p className="text-base text-white/80">
               You must accept the Creator Terms & Conditions before submitting.
             </p>
             <button
               type="button"
               onClick={() => setTcModalOpen(true)}
-              className="px-5 py-2 border border-amber-400/60 text-amber-400 text-sm font-medium
+              className="px-5 py-2 border border-amber-400/60 text-amber-400 text-base font-medium
                          hover:bg-amber-400/10 transition-all"
             >
               Review & Accept Terms
@@ -341,17 +341,17 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
           <button
             type="submit"
             disabled={status === 'submitting' || !termsAccepted}
-            className="px-8 py-3 bg-white text-black text-sm font-medium
+            className="px-8 py-3 bg-white text-black text-base font-medium
                        hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
             {status === 'submitting' ? 'Submitting…' : 'Submit Design →'}
           </button>
-          <Link href={`/brand/${brandSlug}`} className="text-sm text-white/30 hover:text-white transition-colors">
+          <Link href={`/brand/${brandSlug}`} className="text-base text-white/50 hover:text-white transition-colors">
             Cancel
           </Link>
         </div>
         {!termsAccepted && (
-          <p className="text-xs text-amber-400/60 -mt-4">
+          <p className="text-sm text-amber-400/60 -mt-4">
             Accept the Terms & Conditions above to enable submission.
           </p>
         )}

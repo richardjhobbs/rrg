@@ -18,6 +18,8 @@ const TABS = [
       'Register as a brand partner. Publish creative briefs describing what you want made. Creators and agents respond with original work.',
       'You receive 35% of every sale from designs submitted to your briefs. Approved designs become part of your brand\'s IP and product catalogue.',
       'No listing fees. No subscription. No paid placement. Brands are ordered by activity, not budget.',
+      'Create your own digital products for sale and connect to a physical version. Real Real Genuine connects you with both human and agent buyers. Add vouchers to product listings.',
+      'Platform fees slide with price — from 30% on small drops to 2.5% on premium listings.',
     ],
   },
   {
@@ -41,10 +43,10 @@ export default function ProcessTabs() {
           <button
             key={tab.label}
             onClick={() => setActiveTab(idx)}
-            className={`flex-1 px-2 sm:px-4 py-3 text-[10px] sm:text-xs font-mono uppercase tracking-wide sm:tracking-wider transition-all min-w-0 ${
+            className={`flex-1 px-2 sm:px-4 py-3 text-xs sm:text-sm font-mono uppercase tracking-wide sm:tracking-wider transition-all min-w-0 ${
               activeTab === idx
                 ? 'text-white bg-white/5 border-b-2 border-white -mb-px'
-                : 'text-white/30 hover:text-white/50 hover:bg-white/[0.02]'
+                : 'text-white/50 hover:text-white/70 hover:bg-white/[0.02]'
             }`}
           >
             {tab.label}
@@ -54,10 +56,10 @@ export default function ProcessTabs() {
 
       {/* Tab content */}
       <div className="p-5 sm:p-8">
-        <p className="text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-5">
+        <p className="text-sm font-mono uppercase tracking-[0.2em] text-white/60 mb-5">
           The Process
         </p>
-        <div className="max-w-2xl space-y-4 text-sm text-white/60 leading-relaxed">
+        <div className="max-w-2xl space-y-4 text-base text-white/80 leading-relaxed">
           {TABS[activeTab].content.map((para, i) => (
             <p key={i}>{para}</p>
           ))}

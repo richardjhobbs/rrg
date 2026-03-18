@@ -14,7 +14,7 @@ export const RRG_BRAND_ID = '00000000-0000-4000-8000-000000000001';
 
 export type BriefStatus = 'active' | 'closed' | 'archived';
 export type SubmissionStatus = 'pending' | 'approved' | 'rejected';
-export type SubmissionChannel = 'web' | 'api' | 'telegram' | 'bluesky';
+export type SubmissionChannel = 'web' | 'api' | 'telegram' | 'bluesky' | 'agent' | 'email';
 export type BuyerType = 'human' | 'agent';
 export type CreatorType = 'human' | 'agent';
 export type RrgNetwork = 'base';
@@ -49,6 +49,7 @@ export interface RrgBrand {
   max_self_listings: number;
   self_listings_used: number;
   created_by: string | null;
+  application_text: string | null;
 }
 
 export interface RrgBrief {
@@ -108,6 +109,9 @@ export interface RrgSubmission {
   refund_commitment: boolean;
   collection_in_person: string | null;
   trust_behavior_accepted: boolean;
+  // Voucher fields
+  has_voucher: boolean;
+  voucher_template_id: string | null;
 }
 
 export interface RrgPurchase {
@@ -128,6 +132,12 @@ export interface RrgPurchase {
   payment_method: string;
   network: RrgNetwork;
   brand_id: string | null;
+  // Revenue split audit columns
+  split_creator_usdc: number | null;
+  split_brand_usdc: number | null;
+  split_platform_usdc: number | null;
+  brand_pct_applied: number | null;
+  split_model: string | null;
   // Shipping fields (physical products)
   shipping_name: string | null;
   shipping_address_line1: string | null;
@@ -183,6 +193,61 @@ export async function getAllActiveBrands(): Promise<RrgBrand[]> {
     .eq('status', 'active')
     .order('created_at', { ascending: true });
   return data ?? [];
+}
+
+export interface BrandDirectoryItem {
+  id: string;
+  slug: string;
+  name: string;
+  headline: string | null;
+  logo_path: string | null;
+  created_at: string;
+  product_count: number;
+  latest_product_at: string | null;
+}
+
+export async function getBrandsForDirectory(): Promise<BrandDirectoryItem[]> {
+  // Fetch active brands
+  const { data: brands } = await db
+    .from('rrg_brands')
+    .select('id, slug, name, headline, logo_path, created_at')
+    .eq('status', 'active');
+
+  if (!brands || brands.length === 0) return [];
+
+  // Fetch product stats per brand (approved, visible drops)
+  const brandIds = brands.map((b) => b.id);
+  const { data: stats } = await db
+    .from('rrg_submissions')
+    .select('brand_id, approved_at')
+    .eq('status', 'approved')
+    .eq('hidden', false)
+    .in('brand_id', brandIds);
+
+  // Aggregate: count + latest approved_at per brand
+  const brandStats = new Map<string, { count: number; latest: string | null }>();
+  for (const s of stats ?? []) {
+    const existing = brandStats.get(s.brand_id) ?? { count: 0, latest: null };
+    existing.count++;
+    if (!existing.latest || s.approved_at > existing.latest) {
+      existing.latest = s.approved_at;
+    }
+    brandStats.set(s.brand_id, existing);
+  }
+
+  return brands.map((b) => {
+    const st = brandStats.get(b.id);
+    return {
+      id: b.id,
+      slug: b.slug,
+      name: b.name,
+      headline: b.headline,
+      logo_path: b.logo_path,
+      created_at: b.created_at,
+      product_count: st?.count ?? 0,
+      latest_product_at: st?.latest ?? null,
+    };
+  });
 }
 
 export async function getAllBrands(): Promise<RrgBrand[]> {
@@ -244,13 +309,15 @@ export async function getCurrentBrief(brandId?: string): Promise<RrgBrief | null
     .from('rrg_briefs')
     .select('*')
     .eq('is_current', true)
-    .eq('status', 'active');
+    .eq('status', 'active')
+    .order('created_at', { ascending: false })
+    .limit(1);
 
   if (brandId) {
     query = query.eq('brand_id', brandId);
   }
 
-  const { data } = await query.single();
+  const { data } = await query.maybeSingle();
   return data ?? null;
 }
 
@@ -284,15 +351,18 @@ export async function getOpenBriefs(brandId?: string): Promise<RrgBrief[]> {
   return data ?? [];
 }
 
-/** All active briefs that haven't expired — current ones first, then others.
- *  Optionally filter to a single brand. */
+/** Active briefs that haven't expired.
+ *  When brandId is provided (brand pages), only returns CURRENT briefs for that brand.
+ *  Without brandId (main RRG page), returns all active briefs with current ones first. */
 export async function getSubmittableBriefs(brandId?: string): Promise<RrgBrief[]> {
   let query = db
     .from('rrg_briefs')
     .select('*')
     .eq('status', 'active');
 
-  if (brandId) query = query.eq('brand_id', brandId);
+  if (brandId) {
+    query = query.eq('brand_id', brandId).eq('is_current', true);
+  }
 
   const { data } = await query
     .order('is_current', { ascending: false })
@@ -344,7 +414,8 @@ export async function getApprovedDrops(brandId?: string): Promise<RrgSubmission[
     .from('rrg_submissions')
     .select('*')
     .eq('status', 'approved')
-    .eq('network', getCurrentNetwork());
+    .eq('network', getCurrentNetwork())
+    .eq('hidden', false);
 
   if (brandId) {
     query = query.eq('brand_id', brandId);
@@ -366,7 +437,8 @@ export async function getApprovedDropsPaginated(
     .from('rrg_submissions')
     .select('*', { count: 'exact' })
     .eq('status', 'approved')
-    .eq('network', getCurrentNetwork());
+    .eq('network', getCurrentNetwork())
+    .eq('hidden', false);
 
   if (briefId) {
     query = query.eq('brief_id', briefId);
@@ -406,6 +478,7 @@ export async function getDropByTokenId(tokenId: number): Promise<RrgSubmission |
     .eq('token_id', tokenId)
     .eq('status', 'approved')
     .eq('network', getCurrentNetwork())
+    .eq('hidden', false)
     .single();
   return data ?? null;
 }

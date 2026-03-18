@@ -1,11 +1,21 @@
-import React from 'react';
-import { getDropByTokenId } from '@/lib/rrg/db';
+import React, { Suspense } from 'react';
+import { getDropByTokenId, db } from '@/lib/rrg/db';
 import { getSignedUrl } from '@/lib/rrg/storage';
 import { getRRGReadOnly } from '@/lib/rrg/contract';
+import { getBrandPct } from '@/lib/rrg/splits';
 import { notFound } from 'next/navigation';
 import PurchaseFlow from './PurchaseFlow';
 import PhysicalProductButton from './PhysicalProductButton';
+import ReferralCapture from '@/components/rrg/ReferralCapture';
 import Link from 'next/link';
+
+const VOUCHER_TYPE_LABELS: Record<string, string> = {
+  percentage_discount: 'Discount',
+  fixed_discount: 'Discount',
+  free_item: 'Free Item',
+  experience: 'Experience',
+  custom: 'Perk',
+};
 
 export const dynamic = 'force-dynamic';
 
@@ -30,7 +40,7 @@ function renderBio(bio: string): React.ReactNode {
           href={match[2]}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-white/70 underline underline-offset-2 hover:text-white transition-colors"
+          className="text-white/80 underline underline-offset-2 hover:text-white transition-colors"
         >
           {match[1]}
         </a>
@@ -43,7 +53,7 @@ function renderBio(bio: string): React.ReactNode {
           href={match[0]}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-white/70 underline underline-offset-2 hover:text-white transition-colors"
+          className="text-white/80 underline underline-offset-2 hover:text-white transition-colors"
         >
           {match[0].replace(/^https?:\/\//, '').replace(/\/$/, '')}
         </a>
@@ -85,6 +95,17 @@ export default async function DropPage({ params }: Props) {
     }
   }
 
+  // Voucher template (if product has one attached)
+  let voucherTemplate: { title: string; description: string | null; voucher_type: string; voucher_value: Record<string, unknown> | null; terms: string | null; brand_url: string | null; valid_days: number } | null = null;
+  if (drop.has_voucher && drop.voucher_template_id) {
+    const { data: vt } = await db
+      .from('rrg_voucher_templates')
+      .select('title, description, voucher_type, voucher_value, terms, brand_url, valid_days')
+      .eq('id', drop.voucher_template_id)
+      .single();
+    voucherTemplate = vt ?? null;
+  }
+
   // On-chain live data
   let onChain = {
     minted:    0,
@@ -107,13 +128,19 @@ export default async function DropPage({ params }: Props) {
   const priceUsdc  = parseFloat(drop.price_usdc || '0');
   const scanBase   = 'https://basescan.org';
 
+  // Revenue share display
+  const brandPct   = drop.is_brand_product ? getBrandPct(priceUsdc) : null;
+  const shareLabel = brandPct !== null
+    ? `${brandPct % 1 === 0 ? brandPct.toFixed(0) : brandPct.toFixed(1)}% of purchase price goes to the brand`
+    : '35% of purchase price goes to the creator';
+
   return (
     <div className="px-6 py-12 max-w-5xl mx-auto">
 
       {/* Back */}
       <Link
         href="/rrg"
-        className="text-xs font-mono text-white/30 hover:text-white transition-colors mb-10 inline-block"
+        className="text-sm font-mono text-white/50 hover:text-white transition-colors mb-10 inline-block"
       >
         ← Gallery
       </Link>
@@ -129,13 +156,13 @@ export default async function DropPage({ params }: Props) {
               className="w-full h-full object-cover"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-white/10 font-mono text-xs">
+            <div className="w-full h-full flex items-center justify-center text-white/30 font-mono text-sm">
               #{tokenId}
             </div>
           )}
           {drop.is_physical_product && (
             <span className="absolute top-3 left-3 px-2.5 py-1 bg-lime-500 text-black
-                             text-[10px] font-mono uppercase tracking-wider leading-tight">
+                             text-xs font-mono uppercase tracking-wider leading-tight">
               Includes Real Real Product
             </span>
           )}
@@ -143,13 +170,13 @@ export default async function DropPage({ params }: Props) {
 
         {/* Details */}
         <div>
-          <p className="text-xs font-mono uppercase tracking-[0.2em] text-white/30 mb-3">
+          <p className="text-sm font-mono uppercase tracking-[0.2em] text-white/50 mb-3">
             Token #{tokenId}
           </p>
-          <h1 className="text-3xl font-light leading-tight mb-4">{drop.title}</h1>
+          <h1 className="text-4xl font-light leading-tight mb-4">{drop.title}</h1>
 
           {drop.description && (
-            <p className="text-white/50 text-sm leading-relaxed mb-8">
+            <p className="text-white/70 text-base leading-relaxed mb-8">
               {drop.description.replace(/\n?\[Suggested:[^\]]*\]/g, '').trim()}
             </p>
           )}
@@ -171,44 +198,74 @@ export default async function DropPage({ params }: Props) {
             />
           )}
 
+          {/* Voucher perk */}
+          {voucherTemplate && (
+            <div className="mb-8 p-5 border border-amber-400/30 bg-amber-400/5">
+              <p className="text-xs font-mono uppercase tracking-widest text-amber-400/70 mb-2">
+                Includes {VOUCHER_TYPE_LABELS[voucherTemplate.voucher_type] || 'Perk'}
+              </p>
+              <p className="text-lg font-medium mb-1">{voucherTemplate.title}</p>
+              {voucherTemplate.description && (
+                <p className="text-sm text-white/60 leading-relaxed mb-2">{voucherTemplate.description}</p>
+              )}
+              {voucherTemplate.voucher_value && (
+                <p className="text-sm font-mono text-amber-300/80">
+                  {voucherTemplate.voucher_value.percent
+                    ? `${voucherTemplate.voucher_value.percent}% off`
+                    : voucherTemplate.voucher_value.amount
+                    ? `$${voucherTemplate.voucher_value.amount} off`
+                    : voucherTemplate.voucher_value.item
+                    ? String(voucherTemplate.voucher_value.item)
+                    : null}
+                </p>
+              )}
+              {voucherTemplate.terms && (
+                <p className="text-xs text-white/40 mt-2">{voucherTemplate.terms}</p>
+              )}
+              <p className="text-xs text-white/30 mt-2 font-mono">
+                Valid for {voucherTemplate.valid_days} days after purchase
+              </p>
+            </div>
+          )}
+
           {/* Stats strip */}
           <div className="grid grid-cols-3 gap-4 border-t border-b border-white/10 py-6 mb-8">
             <div>
-              <p className="text-xs text-white/30 font-mono mb-1">Price</p>
-              <p className="text-xl font-mono">${priceUsdc.toFixed(2)}</p>
-              <p className="text-xs text-white/20 mt-0.5">USDC</p>
+              <p className="text-sm text-white/50 font-mono mb-1">Price</p>
+              <p className="text-2xl font-mono">${priceUsdc.toFixed(2)}</p>
+              <p className="text-sm text-white/40 mt-0.5">USDC</p>
             </div>
             <div>
-              <p className="text-xs text-white/30 font-mono mb-1">Edition</p>
-              <p className="text-xl font-mono">{onChain.maxSupply}</p>
-              <p className="text-xs text-white/20 mt-0.5">total copies</p>
+              <p className="text-sm text-white/50 font-mono mb-1">Edition</p>
+              <p className="text-2xl font-mono">{onChain.maxSupply}</p>
+              <p className="text-sm text-white/40 mt-0.5">total copies</p>
             </div>
             <div>
-              <p className="text-xs text-white/30 font-mono mb-1">Remaining</p>
-              <p className={`text-xl font-mono ${remaining === 0 ? 'text-red-400' : ''}`}>
+              <p className="text-sm text-white/50 font-mono mb-1">Remaining</p>
+              <p className={`text-2xl font-mono ${remaining === 0 ? 'text-red-400' : ''}`}>
                 {remaining}
               </p>
-              <p className="text-xs text-white/20 mt-0.5">available</p>
+              <p className="text-sm text-white/40 mt-0.5">available</p>
             </div>
           </div>
 
-          {/* Creator */}
+          {/* Creator / Brand */}
           <div className="mb-8">
             {drop.creator_wallet && (
-              <p className="text-xs font-mono text-white/20 mb-3">
-                Creator:{' '}
+              <p className="text-sm font-mono text-white/40 mb-3">
+                {drop.is_brand_product ? 'Brand:' : 'Creator:'}{' '}
                 <a
                   href={`${scanBase}/address/${drop.creator_wallet}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-white/50 transition-colors"
+                  className="hover:text-white/70 transition-colors"
                 >
                   {drop.creator_wallet.slice(0, 6)}…{drop.creator_wallet.slice(-4)}
                 </a>
               </p>
             )}
             {drop.creator_bio && (
-              <p className="text-sm text-white/40 leading-relaxed">
+              <p className="text-base text-white/60 leading-relaxed">
                 {renderBio(drop.creator_bio)}
               </p>
             )}
@@ -226,19 +283,25 @@ export default async function DropPage({ params }: Props) {
 
           {/* What you get */}
           <div className="mt-8 pt-6 border-t border-white/10">
-            <p className="text-xs font-mono uppercase tracking-[0.2em] text-white/30 mb-3">
+            <p className="text-sm font-mono uppercase tracking-[0.2em] text-white/50 mb-3">
               What you get
             </p>
-            <ul className="space-y-2 text-xs text-white/40">
+            <ul className="space-y-2 text-sm text-white/60">
               <li>· ERC-1155 token on Base (proof of ownership)</li>
               <li>· High-resolution JPEG download</li>
               {drop.additional_files_path && <li>· Source files / additional assets</li>}
               {drop.is_physical_product && <li>· Physical product shipped by the brand</li>}
-              <li>· 70% of purchase price goes to the creator</li>
+              {voucherTemplate && <li>· {voucherTemplate.title} (redeemable voucher)</li>}
+              <li>· {shareLabel}</li>
             </ul>
           </div>
         </div>
       </div>
+
+      {/* Referral tracking (invisible — reads ?ref= param, sets cookie) */}
+      <Suspense fallback={null}>
+        <ReferralCapture tokenId={tokenId} />
+      </Suspense>
     </div>
   );
 }

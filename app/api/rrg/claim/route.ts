@@ -6,10 +6,14 @@ import { getSignedUrl } from '@/lib/rrg/storage';
 import { uploadToIpfsInBackground } from '@/lib/rrg/ipfs';
 import { getRRGContract } from '@/lib/rrg/contract';
 import { autopostSale } from '@/lib/rrg/autopost';
-import { postReputationSignal } from '@/lib/rrg/erc8004';
+import { postReputationSignal, postBuyerReputationSignal, fireVoucherSignal, DRHOBBS_AGENT_ID } from '@/lib/rrg/erc8004';
 import { randomBytes } from 'crypto';
 import { calculateSplit } from '@/lib/rrg/splits';
 import { insertDistributionAndPay } from '@/lib/rrg/auto-payout';
+import { createVoucher, formatVoucherForDisplay } from '@/lib/rrg/vouchers';
+import { incrementTrust } from '@/lib/rrg/agent-trust';
+import { firePurchaseAttribution } from '@/lib/rrg/marketing-attribution';
+import { processReferralCommission } from '@/lib/rrg/referral';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,7 +24,7 @@ export const dynamic = 'force-dynamic';
 // Body: { txHash, buyerWallet, tokenId, email? }
 // Verifies on-chain, mints NFT via operatorMint, records purchase, returns download URL + IPFS details.
 
-const PLATFORM_WALLET = (process.env.RRG_PLATFORM_WALLET || '0xe653804032A2d51Cc031795afC601B9b1fd2c375').toLowerCase();
+const PLATFORM_WALLET = (process.env.RRG_PLATFORM_WALLET || '0xbfd71eA27FFc99747dA2873372f84346d9A8b7ed').toLowerCase();
 const USDC_CONTRACT   = (process.env.NEXT_PUBLIC_USDC_CONTRACT_MAINNET || '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913').toLowerCase();
 const BASE_RPC        = process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://mainnet.base.org';
 
@@ -32,13 +36,16 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const { txHash: rawTxHash, buyerWallet, tokenId, email,
+            buyerAgentId,
             shipping_name, shipping_address_line1, shipping_address_line2,
             shipping_city, shipping_state, shipping_postal_code,
-            shipping_country, shipping_phone, physical_terms_accepted } = body as {
+            shipping_country, shipping_phone, physical_terms_accepted,
+            referralCode } = body as {
       txHash?:     string;
       buyerWallet: string;
       tokenId:     number;
       email?:      string;
+      buyerAgentId?: number;  // ERC-8004 agent ID of the buyer (e.g. 17666 for DrHobbs)
       shipping_name?: string;
       shipping_address_line1?: string;
       shipping_address_line2?: string;
@@ -48,6 +55,7 @@ export async function POST(req: NextRequest) {
       shipping_country?: string;
       shipping_phone?: string;
       physical_terms_accepted?: boolean;
+      referralCode?: string;
     };
 
     // ── Input validation ──────────────────────────────────────────────────
@@ -238,90 +246,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Database error recording purchase' }, { status: 500 });
     }
 
-    // ── Record revenue distribution + auto-payout ────────────────────
-    try {
-      const brandId = submission.brand_id ?? RRG_BRAND_ID;
-      const brand   = brandId !== RRG_BRAND_ID ? await getBrandById(brandId) : null;
-      const isLegacy = brandId === RRG_BRAND_ID && !submission.is_brand_product;
-
-      const split = calculateSplit({
-        totalUsdc:      parseFloat(submission.price_usdc ?? '0'),
-        brandId,
-        creatorWallet:  submission.creator_wallet,
-        brandWallet:    brand?.wallet_address ?? null,
-        isBrandProduct: submission.is_brand_product ?? false,
-        isLegacy,
-      });
-
-      await insertDistributionAndPay({
-        purchaseId: purchase.id,
-        brandId,
-        split,
-      });
-    } catch (distErr) {
-      console.error('[claim] Distribution/payout failed:', distErr);
-    }
-
-    // ── Send delivery email if provided ───────────────────────────────────
-    if (email) {
-      try {
-        await sendFileDeliveryEmail({
-          to:          email,
-          title:       submission.title,
-          tokenId,
-          txHash,
-          downloadUrl,
-        });
-        await db
-          .from('rrg_purchases')
-          .update({ files_delivered: true })
-          .eq('tx_hash', txHash);
-      } catch (emailErr) {
-        console.error('[/api/rrg/claim] Email delivery error:', emailErr);
-        // Non-fatal — download URL still returned in response
-      }
-    }
-
-    // ── Physical product emails (brand + buyer) ─────────────────────────
-    if (submission.is_physical_product && shipping_name) {
-      try {
-        const brandId = submission.brand_id ?? RRG_BRAND_ID;
-        const brand   = await getBrandById(brandId);
-        const shippingAddress = [
-          shipping_address_line1,
-          shipping_address_line2,
-          [shipping_city, shipping_state, shipping_postal_code].filter(Boolean).join(', '),
-          shipping_country,
-        ].filter(Boolean).join('\n');
-
-        const emailData = {
-          title:             submission.title,
-          tokenId,
-          txHash,
-          buyerEmail:        email || null,
-          brandContactEmail: brand?.contact_email ?? '',
-          brandName:         brand?.name ?? 'RRG',
-          shippingName:      shipping_name,
-          shippingAddress,
-          shippingPhone:     shipping_phone || null,
-          shippingType:      submission.shipping_type || null,
-          downloadUrl,
-        };
-
-        if (brand?.contact_email) {
-          await sendPhysicalOrderToBrand(emailData);
-          console.log(`[claim] Physical order email sent to brand: ${brand.contact_email}`);
-        }
-        if (email) {
-          await sendPhysicalPurchaseToBuyer(emailData);
-          console.log(`[claim] Physical purchase email sent to buyer: ${email}`);
-        }
-      } catch (physEmailErr) {
-        console.error('[claim] Physical product email failed:', physEmailErr);
-        // Non-fatal
-      }
-    }
-
     // ── Mint NFT on-chain via operatorMint ────────────────────────────────
     let mintTxHash: string | null = null;
     try {
@@ -344,6 +268,8 @@ export async function POST(req: NextRequest) {
 
     console.log(`[/api/rrg/claim] Claim OK — token #${tokenId}, buyer: ${buyerWallet}, tx: ${txHash.slice(0, 10)}…`);
 
+    // Marketing attribution moved below — after split calculation (uses platformUsdc)
+
     // ── ERC-8004 reputation signal (sequential — after mint to avoid nonce collision) ─
     // Both operatorMint and giveFeedback use the same deployer wallet signer.
     // Must be sequential to prevent nonce race conditions.
@@ -355,7 +281,26 @@ export async function POST(req: NextRequest) {
         tokenId,
         txHash,
       });
-      console.log(`[/api/rrg/claim] ERC-8004 reputation signal posted: ${reputationTxHash?.slice(0, 10)}…`);
+      console.log(`[/api/rrg/claim] ERC-8004 seller signal posted: ${reputationTxHash?.slice(0, 10)}…`);
+
+      // ── Buyer agent signal — if buyer is a known ERC-8004 agent ──────────
+      // Auto-detect DrHobbs by wallet; or accept explicit buyerAgentId from request body.
+      const DRHOBBS_WALLET = '0xe653804032a2d51cc031795afc601b9b1fd2c375';
+      const resolvedBuyerAgentId: bigint | null =
+        buyerAgentId ? BigInt(buyerAgentId)
+        : buyerWallet.toLowerCase() === DRHOBBS_WALLET ? DRHOBBS_AGENT_ID
+        : null;
+
+      if (resolvedBuyerAgentId) {
+        const buyerSignalHash = await postBuyerReputationSignal({
+          buyerAgentId: resolvedBuyerAgentId,
+          buyerWallet:  buyerWallet.toLowerCase(),
+          priceUsdc:    submission.price_usdc ?? '0',
+          tokenId,
+          txHash,
+        });
+        console.log(`[/api/rrg/claim] ERC-8004 buyer signal posted (agent #${resolvedBuyerAgentId}): ${buyerSignalHash.slice(0, 10)}…`);
+      }
     } catch (repErr) {
       // Non-fatal — purchase + mint still succeeded
       console.error('[/api/rrg/claim] ERC-8004 reputation signal failed:', repErr);
@@ -396,6 +341,154 @@ export async function POST(req: NextRequest) {
       }
     })();
 
+    // ── Generate voucher (if drop has one attached) ──────────────────────
+    let voucherData: Awaited<ReturnType<typeof formatVoucherForDisplay>> = null;
+    if (submission.has_voucher && submission.voucher_template_id) {
+      try {
+        const voucher = await createVoucher({
+          templateId:   submission.voucher_template_id,
+          purchaseId:   purchase.id,
+          submissionId: submission.id,
+          brandId:      submission.brand_id ?? RRG_BRAND_ID,
+          buyerWallet:  buyerWallet.toLowerCase(),
+        });
+        voucherData = await formatVoucherForDisplay(voucher);
+        console.log(`[claim] Voucher generated: ${voucher.code} (expires ${voucher.expires_at})`);
+        // Fire ERC-8004 voucher signal (awaited — sequential to avoid nonce collision)
+        try {
+          await fireVoucherSignal({
+            buyerWallet: buyerWallet.toLowerCase(),
+            voucherCode: voucher.code,
+            brandId:     submission.brand_id ?? RRG_BRAND_ID,
+            tokenId:     Number(tokenId),
+            signalType:  'voucher_issued',
+          });
+        } catch (sigErr) {
+          console.error('[claim] Voucher signal failed:', sigErr);
+        }
+      } catch (voucherErr) {
+        console.error('[claim] Voucher generation failed:', voucherErr);
+        // Non-fatal
+      }
+    }
+
+    // ── Record revenue distribution + auto-payout ────────────────────
+    // MUST run AFTER all ERC-8004 signals to avoid deployer wallet nonce collisions.
+    try {
+      const brandId = submission.brand_id ?? RRG_BRAND_ID;
+      const brand   = brandId !== RRG_BRAND_ID ? await getBrandById(brandId) : null;
+      const isLegacy = brandId === RRG_BRAND_ID && !submission.is_brand_product;
+
+      const split = calculateSplit({
+        totalUsdc:      parseFloat(submission.price_usdc ?? '0'),
+        brandId,
+        creatorWallet:  submission.creator_wallet,
+        brandWallet:    brand?.wallet_address ?? null,
+        isBrandProduct: submission.is_brand_product ?? false,
+        isLegacy,
+      });
+
+      await insertDistributionAndPay({
+        purchaseId: purchase.id,
+        brandId,
+        split,
+      });
+
+      // Marketing attribution — commission is on platform share only
+      firePurchaseAttribution(buyerWallet.toLowerCase(), txHash, split.platformUsdc);
+
+      // Referral partner commission (fire-and-forget)
+      if (referralCode) {
+        processReferralCommission(
+          referralCode,
+          purchase.id,
+          split.platformUsdc,
+          buyerWallet.toLowerCase(),
+          submission.creator_wallet,
+        ).catch(() => {});
+      }
+    } catch (distErr) {
+      console.error('[claim] Distribution/payout failed:', distErr);
+    }
+
+    // ── Send delivery email if provided ───────────────────────────────────
+    if (email) {
+      try {
+        await sendFileDeliveryEmail({
+          to:              email,
+          title:           submission.title,
+          tokenId,
+          txHash,
+          downloadUrl,
+          ipfsMetadataUrl: ipfsResult?.metadataUrl ?? null,
+          voucher:         voucherData ?? undefined,
+        });
+        await db
+          .from('rrg_purchases')
+          .update({ files_delivered: true })
+          .eq('tx_hash', txHash);
+      } catch (emailErr) {
+        console.error('[/api/rrg/claim] Email delivery error:', emailErr);
+        // Non-fatal — download URL still returned in response
+      }
+    }
+
+    // ── Physical product emails (brand + buyer) ─────────────────────────
+    if (submission.is_physical_product && shipping_name) {
+      try {
+        const brandId = submission.brand_id ?? RRG_BRAND_ID;
+        const brand   = await getBrandById(brandId);
+        const shippingAddress = [
+          shipping_address_line1,
+          shipping_address_line2,
+          [shipping_city, shipping_state, shipping_postal_code].filter(Boolean).join(', '),
+          shipping_country,
+        ].filter(Boolean).join('\n');
+
+        const emailData = {
+          title:             submission.title,
+          tokenId,
+          txHash,
+          buyerEmail:        email || null,
+          brandContactEmail: brand?.contact_email ?? '',
+          brandName:         brand?.name ?? 'RRG',
+          shippingName:      shipping_name,
+          shippingAddress,
+          shippingPhone:     shipping_phone || null,
+          shippingType:      submission.shipping_type || null,
+          downloadUrl,
+          ipfsMetadataUrl:   ipfsResult?.metadataUrl ?? null,
+        };
+
+        if (brand?.contact_email) {
+          await sendPhysicalOrderToBrand(emailData);
+          console.log(`[claim] Physical order email sent to brand: ${brand.contact_email}`);
+        }
+        if (email) {
+          await sendPhysicalPurchaseToBuyer(emailData);
+          console.log(`[claim] Physical purchase email sent to buyer: ${email}`);
+        }
+      } catch (physEmailErr) {
+        console.error('[claim] Physical product email failed:', physEmailErr);
+        // Non-fatal
+      }
+    }
+
+    // ── Update agent trust (agent purchases only) ──────────────────────
+    if (submission.brand_id && submission.brand_id !== RRG_BRAND_ID) {
+      try {
+        await incrementTrust(
+          submission.brand_id,
+          buyerWallet.toLowerCase(),
+          parseFloat(submission.price_usdc ?? '0')
+        );
+        console.log(`[claim] Agent trust incremented for brand ${submission.brand_id}`);
+      } catch (trustErr) {
+        console.error('[claim] Agent trust update failed:', trustErr);
+        // Non-fatal
+      }
+    }
+
     return NextResponse.json({
       success:          true,
       tokenId,
@@ -409,6 +502,7 @@ export async function POST(req: NextRequest) {
       ipfsImageUrl:     ipfsResult ? `https://gateway.pinata.cloud/ipfs/${ipfsResult.imageCid}` : null,
       ipfsMetadataCid:  ipfsResult?.metadataCid ?? null,
       ipfsMetadataUrl:  ipfsResult?.metadataUrl ?? null,
+      voucher:          voucherData,
       message:          mintTxHash
         ? 'Payment verified and ERC-1155 NFT minted to your wallet. Your artwork is ready to download.'
         : 'Payment verified. Your artwork is ready to download. The ERC-1155 NFT will be minted to your wallet shortly.',

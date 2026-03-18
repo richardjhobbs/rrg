@@ -1,0 +1,1 @@
+{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"signal_transaction_trust","arguments":{"buyer_wallet":"0x369d04F08F245454926AC96a0164a634fd94660B","tx_hash":"0xdac4181e84f438d585e784e870fa80aae133c0ad75bfbdccd3a21f57897cccef","token_id":1,"buyer_agent_id":26244}}}

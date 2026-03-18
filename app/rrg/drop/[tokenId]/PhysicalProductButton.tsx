@@ -24,7 +24,7 @@ export default function PhysicalProductButton({ details }: Props) {
     <>
       <button
         onClick={() => setOpen(true)}
-        className="mb-6 w-full py-3 border border-lime-400/40 text-lime-400 text-sm font-mono
+        className="mb-6 w-full py-3 border border-lime-400/40 text-lime-400 text-base font-mono
                    uppercase tracking-widest hover:bg-lime-400/10 transition-all"
       >
         Physical Product Details →

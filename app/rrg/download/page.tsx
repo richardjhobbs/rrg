@@ -1,5 +1,6 @@
 import { getPurchaseByDownloadToken, getSubmissionById, db } from '@/lib/rrg/db';
 import { getSignedUrl } from '@/lib/rrg/storage';
+import { getVouchersByPurchase, formatVoucherForDisplay } from '@/lib/rrg/vouchers';
 import Link from 'next/link';
 
 export const dynamic = 'force-dynamic';
@@ -64,6 +65,14 @@ export default async function DownloadPage({ searchParams }: Props) {
     return <ErrorPage message="Could not generate download link. Please try again." />;
   }
 
+  // ── Look up vouchers for this purchase ────────────────────────────────
+  let voucherDisplay: NonNullable<Awaited<ReturnType<typeof formatVoucherForDisplay>>>[] = [];
+  try {
+    const vouchers = await getVouchersByPurchase(purchase.id);
+    const formatted = await Promise.all(vouchers.map(v => formatVoucherForDisplay(v)));
+    voucherDisplay = formatted.filter(Boolean) as NonNullable<Awaited<ReturnType<typeof formatVoucherForDisplay>>>[];
+  } catch { /* non-fatal */ }
+
   // ── Refresh expiry on visit ─────────────────────────────────────────
   const newExpiry = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
   await db
@@ -83,20 +92,20 @@ export default async function DownloadPage({ searchParams }: Props) {
 
           {/* Header */}
           <div className="text-3xl mb-5">✓</div>
-          <h1 className="text-xl font-medium mb-1">{submission.title}</h1>
-          <p className="text-sm text-white/40 mb-1">Token #{purchase.token_id}</p>
+          <h1 className="text-2xl font-medium mb-1">{submission.title}</h1>
+          <p className="text-base text-white/60 mb-1">Token #{purchase.token_id}</p>
           <a
             href={`${scanBase}/tx/${purchase.tx_hash}`}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs font-mono text-white/20 hover:text-white/40 transition-colors"
+            className="text-sm font-mono text-white/40 hover:text-white/60 transition-colors"
           >
             {txShort} ↗
           </a>
 
           {/* Files */}
           <div className="border-t border-white/10 mt-7 pt-7 space-y-3">
-            <p className="text-xs font-mono uppercase tracking-[0.2em] text-white/30 mb-5">
+            <p className="text-sm font-mono uppercase tracking-[0.2em] text-white/50 mb-5">
               Your files
             </p>
 
@@ -108,10 +117,10 @@ export default async function DownloadPage({ searchParams }: Props) {
                          px-4 py-3.5 hover:border-white transition-all group"
             >
               <div>
-                <p className="text-sm">{filename}</p>
-                <p className="text-xs text-white/30 mt-0.5">High-resolution JPEG</p>
+                <p className="text-base">{filename}</p>
+                <p className="text-sm text-white/50 mt-0.5">High-resolution JPEG</p>
               </div>
-              <span className="text-sm font-mono text-white/30 group-hover:text-white/70 transition-colors ml-4">
+              <span className="text-base font-mono text-white/50 group-hover:text-white/80 transition-colors ml-4">
                 ↓
               </span>
             </a>
@@ -126,17 +135,44 @@ export default async function DownloadPage({ searchParams }: Props) {
                            px-4 py-3.5 hover:border-white transition-all group"
               >
                 <div>
-                  <p className="text-sm">{f.name}</p>
-                  <p className="text-xs text-white/30 mt-0.5">Additional file</p>
+                  <p className="text-base">{f.name}</p>
+                  <p className="text-sm text-white/50 mt-0.5">Additional file</p>
                 </div>
-                <span className="text-sm font-mono text-white/30 group-hover:text-white/70 transition-colors ml-4">
+                <span className="text-base font-mono text-white/50 group-hover:text-white/80 transition-colors ml-4">
                   ↓
                 </span>
               </a>
             ))}
           </div>
 
-          <p className="text-xs text-white/20 mt-7">
+          {/* Voucher section */}
+          {voucherDisplay.length > 0 && (
+            <div className="border-t border-white/10 mt-7 pt-7">
+              <p className="text-sm font-mono uppercase tracking-[0.2em] text-white/50 mb-5">
+                Your voucher{voucherDisplay.length > 1 ? 's' : ''}
+              </p>
+              {voucherDisplay.map((v) => (
+                <div key={v.code} className="border border-emerald-500/30 bg-emerald-500/5 p-5 mb-3">
+                  <p className="text-lg font-medium text-emerald-400 mb-1">{v.offer}</p>
+                  <p className="text-2xl font-mono tracking-wider text-white mb-3">{v.code}</p>
+                  {v.brand_url && (
+                    <p className="text-sm text-white/60 mb-1">
+                      Redeem at:{' '}
+                      <a href={v.brand_url} target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:text-emerald-300 transition-colors">
+                        {v.brand_url} ↗
+                      </a>
+                    </p>
+                  )}
+                  {v.terms && <p className="text-xs text-white/40 mb-1">{v.terms}</p>}
+                  <p className="text-xs text-white/40">
+                    Valid until {new Date(v.expires_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className="text-sm text-white/50 mt-7">
             Link refreshed — valid for 24 hours from this visit.
           </p>
         </div>
@@ -144,7 +180,7 @@ export default async function DownloadPage({ searchParams }: Props) {
         <div className="mt-5 text-center">
           <Link
             href="/rrg"
-            className="text-xs text-white/20 hover:text-white/40 transition-colors"
+            className="text-sm text-white/50 hover:text-white/70 transition-colors"
           >
             ← Browse RRG
           </Link>
@@ -160,10 +196,10 @@ function ErrorPage({ message }: { message: string }) {
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center px-4">
       <div className="w-full max-w-sm border border-red-400/20 bg-red-400/5 p-8 text-center">
-        <p className="text-red-400 text-sm font-mono mb-6">{message}</p>
+        <p className="text-red-400 text-base font-mono mb-6">{message}</p>
         <Link
           href="/rrg"
-          className="text-xs text-white/40 hover:text-white/60 transition-colors"
+          className="text-sm text-white/50 hover:text-white/70 transition-colors"
         >
           ← Browse RRG
         </Link>

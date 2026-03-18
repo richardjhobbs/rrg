@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/rrg/db';
 import { isAdminFromCookies, adminUnauthorized } from '@/lib/rrg/auth';
+import { sendBrandApprovalEmail } from '@/lib/rrg/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
       .update({ status: 'active' })
       .eq('id', brandId)
       .eq('status', 'pending')
-      .select('id, name, slug')
+      .select('id, name, slug, contact_email')
       .single();
 
     if (error || !data) {
@@ -27,6 +28,15 @@ export async function POST(req: NextRequest) {
         { error: 'Brand not found or not in pending status' },
         { status: 404 },
       );
+    }
+
+    // Send approval email (non-blocking)
+    if (data.contact_email) {
+      sendBrandApprovalEmail({
+        to: data.contact_email,
+        brandName: data.name,
+        brandSlug: data.slug,
+      }).catch((err) => console.error('[brand/approve] email failed:', err));
     }
 
     return NextResponse.json({

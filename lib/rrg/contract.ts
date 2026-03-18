@@ -29,6 +29,16 @@ export function getDeployerSigner(): ethers.Wallet {
   return new ethers.Wallet(process.env.DEPLOYER_PRIVATE_KEY!, getRpcProvider());
 }
 
+/**
+ * Platform wallet signer (0xe653…) — holds all USDC revenue.
+ * Used for distribution payouts. Deployer is gas-only (mints + signals).
+ */
+export function getPlatformSigner(): ethers.Wallet {
+  const key = process.env.PLATFORM_PRIVATE_KEY;
+  if (!key) throw new Error('PLATFORM_PRIVATE_KEY not set');
+  return new ethers.Wallet(key, getRpcProvider());
+}
+
 export function getRRGContract(): ethers.Contract {
   return new ethers.Contract(
     process.env.NEXT_PUBLIC_RRG_CONTRACT_ADDRESS!,
@@ -65,11 +75,12 @@ const USDC_ABI = [
 export function getUsdcContract(): ethers.Contract {
   const usdcAddress = process.env.NEXT_PUBLIC_USDC_ADDRESS;
   if (!usdcAddress) throw new Error('NEXT_PUBLIC_USDC_ADDRESS not set');
-  return new ethers.Contract(usdcAddress, USDC_ABI, getDeployerSigner());
+  return new ethers.Contract(usdcAddress, USDC_ABI, getPlatformSigner());
 }
 
 /**
- * Transfer USDC from the platform (deployer) wallet to a recipient.
+ * Transfer USDC from the platform wallet (0xe653…) to a recipient.
+ * Revenue flows into this wallet on-chain; payouts go out from here.
  * @param to      Recipient address
  * @param amount  Amount in human-readable USDC (e.g. 3.50)
  * @returns       Transaction hash
@@ -86,7 +97,7 @@ export async function transferUsdc(
   const amount6dp = toUsdc6dp(amount);
 
   // Use explicit nonce to avoid collisions in sequential transfers
-  const signer = getDeployerSigner();
+  const signer = getPlatformSigner();
   const txNonce = nonce ?? await signer.getNonce('latest');
 
   const tx = await usdc.transfer(to, amount6dp, { nonce: txNonce });
@@ -100,7 +111,7 @@ export async function transferUsdc(
  */
 export async function getPlatformUsdcBalance(): Promise<number> {
   const usdc = getUsdcContract();
-  const signer = getDeployerSigner();
+  const signer = getPlatformSigner();
   const balance = await usdc.balanceOf(await signer.getAddress());
   return fromUsdc6dp(balance);
 }

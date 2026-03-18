@@ -20,8 +20,13 @@ const IDENTITY_REGISTRY_ADDR  = '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432';
 const REPUTATION_REGISTRY_ADDR = '0x8004BAa17C55a88189AE136b182e5fdA19dE9b63';
 
 export const DRHOBBS_AGENT_ID   = 17666n;
-const AGENT_ENDPOINT            = 'https://richard-hobbs.com/mcp';
-const AGENT_URI                 = 'https://richard-hobbs.com/agent.json';
+
+// RRG platform agent — registered on Base mainnet via scripts/register-rrg-agent.mjs
+// Registered 2026-03-18, tx: 0xe36778025d2c0b5ad698402ae8a22c3d778a3d5a20667123edb56ca409da4393
+export const RRG_AGENT_ID      = 33313n;
+
+const AGENT_ENDPOINT            = 'https://realrealgenuine.com/mcp';
+const AGENT_URI                 = 'https://realrealgenuine.com/agent.json';
 const SITE_URL                  = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://realrealgenuine.com').replace(/\/$/, '');
 
 // ── Minimal ABIs ──────────────────────────────────────────────────────────
@@ -100,7 +105,7 @@ export interface ReputationSignalParams {
  * Returns the tx hash of the reputation signal.
  */
 export async function postReputationSignal(p: ReputationSignalParams): Promise<string> {
-  const agentId = p.agentId ?? DRHOBBS_AGENT_ID;
+  const agentId = p.agentId ?? (RRG_AGENT_ID > 0n ? RRG_AGENT_ID : DRHOBBS_AGENT_ID);
   const signer  = getPlatformSigner();
   const contract = new ethers.Contract(REPUTATION_REGISTRY_ADDR, REPUTATION_ABI, signer);
 
@@ -144,7 +149,126 @@ export async function postReputationSignal(p: ReputationSignalParams): Promise<s
   return receipt!.hash;
 }
 
-// ── Public fire-and-forget wrapper ────────────────────────────────────────
+// ── Voucher Reputation Signals ───────────────────────────────────────────
+
+export interface VoucherSignalParams {
+  agentId?:    bigint;
+  buyerWallet: string;
+  voucherCode: string;
+  brandId:     string;
+  tokenId:     number;
+  signalType:  'voucher_issued' | 'voucher_redeemed';
+}
+
+/**
+ * Post a voucher-related reputation signal to the ERC-8004 Reputation Registry.
+ * Uses tag1='voucher' and tag2='issued' or 'redeemed'.
+ *
+ * Called after voucher creation or redemption to build on-chain trust history.
+ * Returns the tx hash.
+ */
+export async function postVoucherSignal(p: VoucherSignalParams): Promise<string> {
+  const agentId = p.agentId ?? (RRG_AGENT_ID > 0n ? RRG_AGENT_ID : DRHOBBS_AGENT_ID);
+  const signer  = getPlatformSigner();
+  const contract = new ethers.Contract(REPUTATION_REGISTRY_ADDR, REPUTATION_ABI, signer);
+
+  // Lower value for voucher signals (3 = moderate positive signal)
+  const value         = 3n;
+  const valueDecimals = 0;
+
+  const tag1 = 'voucher';
+  const tag2 = p.signalType === 'voucher_redeemed' ? 'redeemed' : 'issued';
+
+  const feedbackURI = `${SITE_URL}/rrg/drop/${p.tokenId}`;
+
+  // Hash the voucher code as the feedback hash
+  const feedbackHash = ethers.keccak256(ethers.toUtf8Bytes(p.voucherCode));
+
+  const tx = await (contract.giveFeedback as (
+    agentId:      bigint,
+    value:        bigint,
+    valueDecimals: number,
+    tag1:          string,
+    tag2:          string,
+    endpoint:      string,
+    feedbackURI:   string,
+    feedbackHash:  string,
+  ) => Promise<ethers.ContractTransactionResponse>)(
+    agentId,
+    value,
+    valueDecimals,
+    tag1,
+    tag2,
+    AGENT_ENDPOINT,
+    feedbackURI,
+    feedbackHash,
+  );
+
+  const receipt = await tx.wait(1);
+  return receipt!.hash;
+}
+
+// ── Buyer Reputation Signal ───────────────────────────────────────────────
+
+export interface BuyerReputationSignalParams {
+  buyerAgentId: bigint;    // e.g. DRHOBBS_AGENT_ID (17666)
+  buyerEndpoint?: string;  // buyer's MCP endpoint (defaults to their on-chain registration)
+  buyerWallet: string;
+  priceUsdc:   string;
+  tokenId:     number;
+  txHash:      string;
+}
+
+/**
+ * Post a reputation signal for the BUYER agent.
+ * Called when a known agent makes a purchase — signals their trustworthiness as a buyer.
+ * Complements postReputationSignal (which signals the seller/platform).
+ *
+ * giveFeedback(agentId=buyerAgentId, tag1='purchase', tag2='buyer') means:
+ * "Platform (deployer) attests buyerAgentId completed a verified on-chain purchase."
+ */
+export async function postBuyerReputationSignal(p: BuyerReputationSignalParams): Promise<string> {
+  const signer   = getPlatformSigner();
+  const contract = new ethers.Contract(REPUTATION_REGISTRY_ADDR, REPUTATION_ABI, signer);
+
+  const value         = 5n;
+  const valueDecimals = 0;
+  const tag1          = 'purchase';
+  const tag2          = 'buyer';
+
+  const feedbackURI  = `${SITE_URL}/rrg/drop/${p.tokenId}?buyer=${p.buyerWallet.toLowerCase()}`;
+  const feedbackHash = p.txHash.startsWith('0x') && p.txHash.length === 66
+    ? ethers.keccak256(ethers.toUtf8Bytes(p.txHash))
+    : ethers.ZeroHash;
+
+  // Use the buyer's endpoint if provided, otherwise RRG's (platform is the attester)
+  const endpoint = p.buyerEndpoint ?? AGENT_ENDPOINT;
+
+  const tx = await (contract.giveFeedback as (
+    agentId:      bigint,
+    value:        bigint,
+    valueDecimals: number,
+    tag1:          string,
+    tag2:          string,
+    endpoint:      string,
+    feedbackURI:   string,
+    feedbackHash:  string,
+  ) => Promise<ethers.ContractTransactionResponse>)(
+    p.buyerAgentId,
+    value,
+    valueDecimals,
+    tag1,
+    tag2,
+    endpoint,
+    feedbackURI,
+    feedbackHash,
+  );
+
+  const receipt = await tx.wait(1);
+  return receipt!.hash;
+}
+
+// ── Public fire-and-forget wrappers ──────────────────────────────────────
 
 /**
  * Non-blocking wrapper — call after a confirmed purchase.
@@ -158,4 +282,21 @@ export function fireReputationSignal(
   }).catch((err) => {
     console.error('[erc8004] reputation signal failed:', err);
   });
+}
+
+/**
+ * Non-blocking wrapper — call after voucher issuance or redemption.
+ * Posts a voucher signal to the ERC-8004 Reputation Registry.
+ */
+export async function fireVoucherSignal(
+  params: Omit<VoucherSignalParams, 'agentId'>,
+): Promise<string | null> {
+  try {
+    const hash = await postVoucherSignal(params);
+    console.log(`[erc8004] voucher ${params.signalType} signal posted:`, hash);
+    return hash;
+  } catch (err) {
+    console.error(`[erc8004] voucher ${params.signalType} signal failed:`, err);
+    return null;
+  }
 }

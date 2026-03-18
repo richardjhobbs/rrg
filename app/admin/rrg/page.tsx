@@ -38,6 +38,7 @@ interface Drop {
   edition_size: number;
   creator_wallet: string;
   approved_at: string;
+  hidden?: boolean;
 }
 
 interface Brand {
@@ -76,6 +77,7 @@ interface Contributor {
   creator_type: string;
   display_name?: string | null;
   email?: string | null;
+  avatar_url?: string | null;
   registered_at: string;
   last_active_at?: string | null;
   total_submissions: number;
@@ -124,7 +126,7 @@ export default function AdminPage() {
   if (authed === null) {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
-        <p className="font-mono text-white/30 text-sm">Loading…</p>
+        <p className="font-mono text-white/50 text-base">Loading…</p>
       </div>
     );
   }
@@ -134,7 +136,7 @@ export default function AdminPage() {
     return (
       <div className="min-h-screen bg-black text-white flex items-center justify-center">
         <form onSubmit={handleLogin} className="w-full max-w-sm space-y-4 px-6">
-          <h1 className="text-xs font-mono uppercase tracking-[0.3em] text-white/40 mb-6">
+          <h1 className="text-sm font-mono uppercase tracking-[0.3em] text-white/60 mb-6">
             RRG Admin
           </h1>
           <input
@@ -142,14 +144,14 @@ export default function AdminPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder="Password"
-            className="w-full bg-transparent border border-white/20 px-4 py-3 text-sm
-                       focus:border-white outline-none transition-colors placeholder:text-white/20"
+            className="w-full bg-transparent border border-white/20 px-4 py-3 text-base
+                       focus:border-white outline-none transition-colors placeholder:text-white/60"
             autoFocus
           />
-          {loginErr && <p className="text-red-400 text-xs font-mono">{loginErr}</p>}
+          {loginErr && <p className="text-red-400 text-sm font-mono">{loginErr}</p>}
           <button
             type="submit"
-            className="w-full py-3 bg-white text-black text-sm font-medium hover:bg-white/90 transition-all"
+            className="w-full py-3 bg-white text-black text-base font-medium hover:bg-white/90 transition-all"
           >
             Login →
           </button>
@@ -163,12 +165,12 @@ export default function AdminPage() {
     <div className="min-h-screen bg-black text-white">
       {/* Header */}
       <header className="border-b border-white/10 px-6 py-4 flex justify-between items-center">
-        <span className="font-mono text-xs uppercase tracking-[0.3em] text-white/60">
+        <span className="font-mono text-sm uppercase tracking-[0.3em] text-white/80">
           RRG Admin
         </span>
         <button
           onClick={handleLogout}
-          className="text-xs text-white/30 hover:text-white transition-colors font-mono"
+          className="text-sm text-white/50 hover:text-white transition-colors font-mono"
         >
           Logout
         </button>
@@ -180,10 +182,10 @@ export default function AdminPage() {
           <button
             key={t}
             onClick={() => setTab(t)}
-            className={`py-3 text-xs font-mono uppercase tracking-widest transition-colors border-b-2 -mb-px
+            className={`py-3 text-sm font-mono uppercase tracking-widest transition-colors border-b-2 -mb-px
               ${tab === t
                 ? 'text-white border-white'
-                : 'text-white/30 border-transparent hover:text-white/60'
+                : 'text-white/50 border-transparent hover:text-white/80'
               }`}
           >
             {t}
@@ -192,7 +194,7 @@ export default function AdminPage() {
       </div>
 
       {/* Tab content */}
-      <div className="px-6 py-8 max-w-5xl">
+      <div className="px-6 py-8 max-w-7xl">
         {tab === 'briefs'        && <BriefTab />}
         {tab === 'submissions'   && <SubmissionsTab />}
         {tab === 'drops'         && <DropsTab />}
@@ -314,25 +316,25 @@ function BriefTab() {
   const statusColor = (s: string) => {
     if (s === 'active')   return 'bg-green-400/20 text-green-400';
     if (s === 'closed')   return 'bg-amber-400/20 text-amber-400';
-    return 'bg-white/10 text-white/40';
+    return 'bg-white/10 text-white/60';
   };
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xs font-mono uppercase tracking-widest text-white/40">
+        <h2 className="text-sm font-mono uppercase tracking-widest text-white/60">
           Briefs ({briefs.length})
         </h2>
         <button
           onClick={() => { setCreating(!creating); setEditing(null); }}
-          className="text-xs border border-white/30 px-4 py-1.5 hover:border-white transition-all"
+          className="text-sm border border-white/30 px-4 py-1.5 hover:border-white transition-all"
         >
           {creating ? 'Cancel' : '+ New Brief'}
         </button>
       </div>
 
       {msg && (
-        <div className={`mb-4 p-3 border text-xs font-mono ${
+        <div className={`mb-4 p-3 border text-sm font-mono ${
           msg.startsWith('Error') ? 'border-red-400/30 text-red-400' : 'border-white/20 text-green-400'
         }`}>
           {msg}
@@ -341,13 +343,13 @@ function BriefTab() {
 
       {creating && (
         <form onSubmit={handleCreate} className="mb-8 p-6 border border-white/20 space-y-4">
-          <h3 className="text-sm font-medium mb-2">New Brief</h3>
+          <h3 className="text-base font-medium mb-2">New Brief</h3>
           <div>
-            <label className="text-xs font-mono text-white/40 block mb-1">Brand *</label>
+            <label className="text-sm font-mono text-white/60 block mb-1">Brand *</label>
             <select
               value={form.brand_id}
               onChange={(e) => setForm({ ...form, brand_id: e.target.value })}
-              className="w-full bg-black border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
+              className="w-full bg-black border border-white/20 px-3 py-2 text-base focus:border-white outline-none"
             >
               {brands.map((b) => (
                 <option key={b.id} value={b.id}>{b.name}</option>
@@ -355,35 +357,35 @@ function BriefTab() {
             </select>
           </div>
           <div>
-            <label className="text-xs font-mono text-white/40 block mb-1">Title *</label>
+            <label className="text-sm font-mono text-white/60 block mb-1">Title *</label>
             <input
               type="text" required maxLength={200}
               value={form.title}
               onChange={(e) => setForm({ ...form, title: e.target.value })}
-              className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
+              className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none"
             />
           </div>
           <div>
-            <label className="text-xs font-mono text-white/40 block mb-1">Description *</label>
+            <label className="text-sm font-mono text-white/60 block mb-1">Description *</label>
             <textarea
               required rows={4} maxLength={2000}
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none resize-none"
+              className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none resize-none"
             />
           </div>
           <div>
-            <label className="text-xs font-mono text-white/40 block mb-1">Ends (optional)</label>
+            <label className="text-sm font-mono text-white/60 block mb-1">Ends (optional)</label>
             <input
               type="date"
               value={form.ends_at}
               onChange={(e) => setForm({ ...form, ends_at: e.target.value })}
-              className="bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
+              className="bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none"
             />
           </div>
           <button
             type="submit"
-            className="px-6 py-2 bg-white text-black text-sm font-medium hover:bg-white/90 transition-all"
+            className="px-6 py-2 bg-white text-black text-base font-medium hover:bg-white/90 transition-all"
           >
             Create &amp; Set as Current &rarr;
           </button>
@@ -391,7 +393,7 @@ function BriefTab() {
       )}
 
       {loading ? (
-        <p className="text-white/20 text-xs font-mono">Loading…</p>
+        <p className="text-white/40 text-sm font-mono">Loading…</p>
       ) : (
         <div className="space-y-4">
           {briefs.map((b) => (
@@ -400,43 +402,43 @@ function BriefTab() {
                 /* ── Edit form ────────────────────────────────── */
                 <div className="p-5 space-y-3">
                   <div>
-                    <label className="text-xs font-mono text-white/40 block mb-1">Title</label>
+                    <label className="text-sm font-mono text-white/60 block mb-1">Title</label>
                     <input
                       type="text" maxLength={200}
                       value={editForm.title}
                       onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                      className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
+                      className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-mono text-white/40 block mb-1">Description</label>
+                    <label className="text-sm font-mono text-white/60 block mb-1">Description</label>
                     <textarea
                       rows={4} maxLength={2000}
                       value={editForm.description}
                       onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                      className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none resize-none"
+                      className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none resize-none"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-mono text-white/40 block mb-1">Ends</label>
+                    <label className="text-sm font-mono text-white/60 block mb-1">Ends</label>
                     <input
                       type="date"
                       value={editForm.ends_at}
                       onChange={(e) => setEditForm({ ...editForm, ends_at: e.target.value })}
-                      className="bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
+                      className="bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none"
                     />
                   </div>
                   <div className="flex gap-3">
                     <button
                       onClick={() => handleUpdate(b.id)}
                       disabled={acting}
-                      className="px-5 py-1.5 bg-white text-black text-sm font-medium hover:bg-white/90 disabled:opacity-40 transition-all"
+                      className="px-5 py-1.5 bg-white text-black text-base font-medium hover:bg-white/90 disabled:opacity-40 transition-all"
                     >
                       {acting ? 'Saving…' : 'Save'}
                     </button>
                     <button
                       onClick={() => setEditing(null)}
-                      className="text-xs text-white/30 hover:text-white transition-colors"
+                      className="text-sm text-white/50 hover:text-white transition-colors"
                     >
                       Cancel
                     </button>
@@ -448,22 +450,22 @@ function BriefTab() {
                   <div className="flex justify-between items-start mb-2">
                     <div className="flex-1 min-w-0 mr-4">
                       <div className="flex items-center gap-2 mb-1">
-                        <h3 className="text-sm font-medium truncate">{b.title}</h3>
+                        <h3 className="text-base font-medium truncate">{b.title}</h3>
                         {b.is_current && (
-                          <span className="shrink-0 text-[10px] font-mono bg-white text-black px-2 py-0.5 uppercase">
+                          <span className="shrink-0 text-sm font-mono bg-white text-black px-2 py-0.5 uppercase">
                             Current
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-white/40 leading-relaxed mb-2 line-clamp-2">{b.description}</p>
+                      <p className="text-sm text-white/60 leading-relaxed mb-2 line-clamp-2">{b.description}</p>
                     </div>
-                    <span className={`shrink-0 text-[10px] font-mono px-2 py-0.5 uppercase ${statusColor(b.status || 'active')}`}>
+                    <span className={`shrink-0 text-sm font-mono px-2 py-0.5 uppercase ${statusColor(b.status || 'active')}`}>
                       {b.status || 'active'}
                     </span>
                   </div>
-                  <div className="flex gap-4 text-xs text-white/20 font-mono">
+                  <div className="flex gap-4 text-sm text-white/40 font-mono">
                     {b.brand && (
-                      <span className="text-white/40">Brand: {b.brand.name}</span>
+                      <span className="text-white/60">Brand: {b.brand.name}</span>
                     )}
                     <span>{new Date(b.created_at).toLocaleDateString()}</span>
                     {b.ends_at && <span>Ends: {new Date(b.ends_at).toLocaleDateString()}</span>}
@@ -476,7 +478,7 @@ function BriefTab() {
                 <div className="border-t border-white/10 p-4 flex gap-3 flex-wrap">
                   <button
                     onClick={() => startEdit(b)}
-                    className="px-4 py-1.5 text-xs border border-white/20 hover:border-white/50 transition-all"
+                    className="px-4 py-1.5 text-sm border border-white/20 hover:border-white/50 transition-all"
                   >
                     Edit
                   </button>
@@ -484,7 +486,7 @@ function BriefTab() {
                     <button
                       onClick={() => handleAction(b.id, { is_current: true })}
                       disabled={acting}
-                      className="px-4 py-1.5 text-xs border border-white/20 text-white/60 hover:border-white/50 disabled:opacity-40 transition-all"
+                      className="px-4 py-1.5 text-sm border border-white/20 text-white/80 hover:border-white/50 disabled:opacity-40 transition-all"
                     >
                       Set Current
                     </button>
@@ -493,7 +495,7 @@ function BriefTab() {
                     <button
                       onClick={() => handleAction(b.id, { status: 'closed', is_current: false })}
                       disabled={acting}
-                      className="px-4 py-1.5 text-xs border border-amber-400/30 text-amber-400 hover:border-amber-400 disabled:opacity-40 transition-all"
+                      className="px-4 py-1.5 text-sm border border-amber-400/30 text-amber-400 hover:border-amber-400 disabled:opacity-40 transition-all"
                     >
                       Close
                     </button>
@@ -502,7 +504,7 @@ function BriefTab() {
                     <button
                       onClick={() => handleAction(b.id, { status: 'active' })}
                       disabled={acting}
-                      className="px-4 py-1.5 text-xs border border-green-400/30 text-green-400 hover:border-green-400 disabled:opacity-40 transition-all"
+                      className="px-4 py-1.5 text-sm border border-green-400/30 text-green-400 hover:border-green-400 disabled:opacity-40 transition-all"
                     >
                       Reactivate
                     </button>
@@ -510,7 +512,7 @@ function BriefTab() {
                   <button
                     onClick={() => handleDelete(b.id, b.title)}
                     disabled={acting}
-                    className="px-4 py-1.5 text-xs border border-red-400/30 text-red-400 hover:border-red-400 disabled:opacity-40 transition-all"
+                    className="px-4 py-1.5 text-sm border border-red-400/30 text-red-400 hover:border-red-400 disabled:opacity-40 transition-all"
                   >
                     Delete
                   </button>
@@ -606,27 +608,27 @@ function SubmissionsTab() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xs font-mono uppercase tracking-widest text-white/40">
+        <h2 className="text-sm font-mono uppercase tracking-widest text-white/60">
           Pending Submissions
         </h2>
         <button
           onClick={load}
-          className="text-xs text-white/30 hover:text-white transition-colors font-mono"
+          className="text-sm text-white/50 hover:text-white transition-colors font-mono"
         >
           ↻ Refresh
         </button>
       </div>
 
       {msg && (
-        <div className="mb-4 p-3 border border-white/20 bg-white/5 text-xs font-mono text-white/80">
+        <div className="mb-4 p-3 border border-white/20 bg-white/5 text-sm font-mono text-white/80">
           {msg}
         </div>
       )}
 
       {loading ? (
-        <p className="text-white/20 text-xs font-mono">Loading…</p>
+        <p className="text-white/40 text-sm font-mono">Loading…</p>
       ) : submissions.length === 0 ? (
-        <p className="text-white/20 text-xs font-mono">No pending submissions.</p>
+        <p className="text-white/40 text-sm font-mono">No pending submissions.</p>
       ) : (
         <div className="space-y-6">
           {submissions.map((s) => (
@@ -649,24 +651,24 @@ function SubmissionsTab() {
                 )}
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-start mb-1">
-                    <h3 className="text-sm font-medium truncate pr-2">{s.title}</h3>
-                    <span className="text-xs font-mono text-white/30 flex-shrink-0">
+                    <h3 className="text-base font-medium truncate pr-2">{s.title}</h3>
+                    <span className="text-sm font-mono text-white/50 flex-shrink-0">
                       {new Date(s.created_at).toLocaleDateString()}
                     </span>
                   </div>
                   {s.description && (
-                    <p className="text-xs text-white/40 leading-relaxed mb-2 line-clamp-2">
+                    <p className="text-sm text-white/60 leading-relaxed mb-2 line-clamp-2">
                       {s.description}
                     </p>
                   )}
-                  <div className="flex gap-4 text-xs text-white/20 font-mono flex-wrap">
+                  <div className="flex gap-4 text-sm text-white/40 font-mono flex-wrap">
                     <span title={s.creator_wallet}>
                       Wallet: {s.creator_wallet.slice(0, 6)}…{s.creator_wallet.slice(-4)}
                     </span>
                     {s.creator_email && <span>{s.creator_email}</span>}
                   </div>
                   {(s.suggestedEdition || s.suggestedPrice) && (
-                    <div className="mt-2 text-xs font-mono text-amber-400/60">
+                    <div className="mt-2 text-sm font-mono text-amber-400/60">
                       Suggested: {s.suggestedEdition ? `${s.suggestedEdition} ed` : ''}
                       {s.suggestedEdition && s.suggestedPrice ? ' · ' : ''}
                       {s.suggestedPrice ? `$${s.suggestedPrice} USDC` : ''}
@@ -679,27 +681,27 @@ function SubmissionsTab() {
               {approveForm?.id === s.id ? (
                 <form onSubmit={handleApprove} className="border-t border-white/10 p-4 flex gap-3 items-end">
                   <div>
-                    <label className="text-xs font-mono text-white/40 block mb-1">Edition size (1–50)</label>
+                    <label className="text-sm font-mono text-white/60 block mb-1">Edition size (1–50)</label>
                     <input
                       type="number" required min={1} max={50}
                       value={approveForm.edition_size}
                       onChange={(e) => setApproveForm({ ...approveForm, edition_size: e.target.value })}
-                      className="w-24 bg-transparent border border-white/20 px-3 py-1.5 text-sm focus:border-white outline-none"
+                      className="w-24 bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-mono text-white/40 block mb-1">Price USDC</label>
+                    <label className="text-sm font-mono text-white/60 block mb-1">Price USDC</label>
                     <input
-                      type="number" required min={0.5} max={50} step={0.5}
+                      type="number" required min={0.5} max={500} step={0.5}
                       value={approveForm.price_usdc}
                       onChange={(e) => setApproveForm({ ...approveForm, price_usdc: e.target.value })}
-                      className="w-24 bg-transparent border border-white/20 px-3 py-1.5 text-sm focus:border-white outline-none"
+                      className="w-24 bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none"
                     />
                   </div>
                   <button
                     type="submit"
                     disabled={acting === s.id}
-                    className="px-5 py-1.5 bg-white text-black text-sm font-medium
+                    className="px-5 py-1.5 bg-white text-black text-base font-medium
                                hover:bg-white/90 disabled:opacity-40 transition-all"
                   >
                     {acting === s.id ? 'Approving…' : 'Confirm Approve'}
@@ -707,7 +709,7 @@ function SubmissionsTab() {
                   <button
                     type="button"
                     onClick={() => setApproveForm(null)}
-                    className="text-xs text-white/30 hover:text-white transition-colors"
+                    className="text-sm text-white/50 hover:text-white transition-colors"
                   >
                     Cancel
                   </button>
@@ -715,19 +717,19 @@ function SubmissionsTab() {
               ) : rejectForm?.id === s.id ? (
                 <form onSubmit={handleReject} className="border-t border-white/10 p-4 flex gap-3 items-end">
                   <div className="flex-1">
-                    <label className="text-xs font-mono text-white/40 block mb-1">Reason (optional)</label>
+                    <label className="text-sm font-mono text-white/60 block mb-1">Reason (optional)</label>
                     <input
                       type="text" maxLength={500}
                       placeholder="Reason for rejection…"
                       value={rejectForm.reason}
                       onChange={(e) => setRejectForm({ ...rejectForm, reason: e.target.value })}
-                      className="w-full bg-transparent border border-white/20 px-3 py-1.5 text-sm focus:border-white outline-none"
+                      className="w-full bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none"
                     />
                   </div>
                   <button
                     type="submit"
                     disabled={acting === s.id}
-                    className="px-5 py-1.5 border border-red-400/50 text-red-400 text-sm
+                    className="px-5 py-1.5 border border-red-400/50 text-red-400 text-base
                                hover:border-red-400 disabled:opacity-40 transition-all"
                   >
                     {acting === s.id ? 'Rejecting…' : 'Confirm Reject'}
@@ -735,7 +737,7 @@ function SubmissionsTab() {
                   <button
                     type="button"
                     onClick={() => setRejectForm(null)}
-                    className="text-xs text-white/30 hover:text-white transition-colors"
+                    className="text-sm text-white/50 hover:text-white transition-colors"
                   >
                     Cancel
                   </button>
@@ -751,7 +753,7 @@ function SubmissionsTab() {
                       });
                       setRejectForm(null);
                     }}
-                    className="px-5 py-1.5 bg-white text-black text-xs font-medium hover:bg-white/90 transition-all"
+                    className="px-5 py-1.5 bg-white text-black text-sm font-medium hover:bg-white/90 transition-all"
                   >
                     Approve
                   </button>
@@ -760,7 +762,7 @@ function SubmissionsTab() {
                       setRejectForm({ id: s.id, reason: '' });
                       setApproveForm(null);
                     }}
-                    className="px-5 py-1.5 border border-red-400/30 text-red-400 text-xs
+                    className="px-5 py-1.5 border border-red-400/30 text-red-400 text-sm
                                hover:border-red-400 transition-all"
                   >
                     Reject
@@ -804,7 +806,7 @@ function DropsTab() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const res = await fetch('/api/rrg/drops');
+    const res = await fetch('/api/rrg/admin/drops');
     const d = await res.json();
     setDrops(d.drops || []);
     setLoading(false);
@@ -849,47 +851,71 @@ function DropsTab() {
     }
   };
 
+  const toggleHidden = async (d: Drop) => {
+    setActing(true);
+    const res = await fetch('/api/rrg/admin/drops', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ submissionId: d.id, hidden: !d.hidden }),
+    });
+    setActing(false);
+    if (res.ok) load();
+    else setMsg('Error toggling visibility');
+  };
+
   const scanBase = 'https://basescan.org';
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xs font-mono uppercase tracking-widest text-white/40">
+        <h2 className="text-sm font-mono uppercase tracking-widest text-white/60">
           Approved Drops
         </h2>
-        <button onClick={load} className="text-xs text-white/30 hover:text-white transition-colors font-mono">
+        <button onClick={load} className="text-sm text-white/50 hover:text-white transition-colors font-mono">
           ↻ Refresh
         </button>
       </div>
 
       {msg && (
-        <div className={`mb-4 p-3 border text-xs font-mono ${
+        <div className={`mb-4 p-3 border text-sm font-mono ${
           msg.startsWith('Error') ? 'border-red-400/30 text-red-400' : 'border-white/20 text-green-400'
         }`}>{msg}</div>
       )}
 
       {loading ? (
-        <p className="text-white/20 text-xs font-mono">Loading…</p>
+        <p className="text-white/40 text-sm font-mono">Loading…</p>
       ) : drops.length === 0 ? (
-        <p className="text-white/20 text-xs font-mono">No approved drops yet.</p>
+        <p className="text-white/40 text-sm font-mono">No approved drops yet.</p>
       ) : (
         <div className="space-y-3">
           {drops.map((d) => (
-            <div key={d.id} className="border border-white/10">
+            <div key={d.id} className={`border border-white/10 ${d.hidden ? 'opacity-40' : ''}`}>
               <div className="p-4 flex justify-between items-center">
-                <div>
-                  <p className="text-sm font-medium">{d.title}</p>
-                  <div className="flex gap-4 mt-1 text-xs text-white/30 font-mono">
-                    <span>Token #{d.token_id}</span>
-                    <span>${parseFloat(d.price_usdc).toFixed(2)} USDC</span>
-                    <span>{d.edition_size} ed.</span>
-                    <span>{new Date(d.approved_at).toLocaleDateString()}</span>
+                <div className="flex items-center gap-3">
+                  <label className="flex items-center gap-1.5 cursor-pointer" title={d.hidden ? 'Hidden — click to show' : 'Visible — click to hide'}>
+                    <input
+                      type="checkbox"
+                      checked={!d.hidden}
+                      onChange={() => toggleHidden(d)}
+                      disabled={acting}
+                      className="w-4 h-4 accent-white cursor-pointer"
+                    />
+                    <span className="text-sm text-white/50 font-mono">{d.hidden ? 'Hidden' : 'Visible'}</span>
+                  </label>
+                  <div>
+                    <p className="text-base font-medium">{d.title}</p>
+                    <div className="flex gap-4 mt-1 text-sm text-white/50 font-mono">
+                      <span>Token #{d.token_id}</span>
+                      <span>${parseFloat(d.price_usdc).toFixed(2)} USDC</span>
+                      <span>{d.edition_size} ed.</span>
+                      <span>{new Date(d.approved_at).toLocaleDateString()}</span>
+                    </div>
                   </div>
                 </div>
-                <div className="flex gap-3 text-xs">
+                <div className="flex gap-3 text-sm">
                   <button
                     onClick={() => editing === d.id ? setEditing(null) : startEdit(d)}
-                    className="text-white/30 hover:text-white transition-colors"
+                    className="text-white/50 hover:text-white transition-colors"
                   >
                     {editing === d.id ? 'Cancel' : 'Edit'}
                   </button>
@@ -897,7 +923,7 @@ function DropsTab() {
                     href={`/rrg/drop/${d.token_id}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-white/30 hover:text-white transition-colors"
+                    className="text-white/50 hover:text-white transition-colors"
                   >
                     View ↗
                   </a>
@@ -905,7 +931,7 @@ function DropsTab() {
                     href={`${scanBase}/address/${process.env.NEXT_PUBLIC_RRG_CONTRACT_ADDRESS}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-white/30 hover:text-white transition-colors font-mono"
+                    className="text-white/50 hover:text-white transition-colors font-mono"
                   >
                     Contract ↗
                   </a>
@@ -916,37 +942,37 @@ function DropsTab() {
                 <form onSubmit={handleSave} className="border-t border-white/10 p-4 space-y-3">
                   <div className="grid grid-cols-3 gap-3">
                     <div>
-                      <label className="text-xs font-mono text-white/40 block mb-1">Title</label>
+                      <label className="text-sm font-mono text-white/60 block mb-1">Title</label>
                       <input
                         type="text" required maxLength={60}
                         value={editForm.title}
                         onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                        className="w-full bg-transparent border border-white/20 px-3 py-1.5 text-sm focus:border-white outline-none"
+                        className="w-full bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none"
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-mono text-white/40 block mb-1">Price USDC</label>
+                      <label className="text-sm font-mono text-white/60 block mb-1">Price USDC</label>
                       <input
-                        type="number" required min={0.5} max={50} step={0.5}
+                        type="number" required min={0.5} max={500} step={0.5}
                         value={editForm.price_usdc}
                         onChange={(e) => setEditForm({ ...editForm, price_usdc: e.target.value })}
-                        className="w-full bg-transparent border border-white/20 px-3 py-1.5 text-sm focus:border-white outline-none"
+                        className="w-full bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none"
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-mono text-white/40 block mb-1">Edition Size</label>
+                      <label className="text-sm font-mono text-white/60 block mb-1">Edition Size</label>
                       <input
                         type="number" required min={1} max={50}
                         value={editForm.edition_size}
                         onChange={(e) => setEditForm({ ...editForm, edition_size: e.target.value })}
-                        className="w-full bg-transparent border border-white/20 px-3 py-1.5 text-sm focus:border-white outline-none"
+                        className="w-full bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none"
                       />
                     </div>
                   </div>
                   <button
                     type="submit"
                     disabled={acting}
-                    className="px-5 py-1.5 bg-white text-black text-sm font-medium
+                    className="px-5 py-1.5 bg-white text-black text-base font-medium
                                hover:bg-white/90 disabled:opacity-40 transition-all"
                   >
                     {acting ? 'Saving…' : 'Save Changes'}
@@ -1076,94 +1102,94 @@ function BrandsTab() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xs font-mono uppercase tracking-widest text-white/40">Brands</h2>
+        <h2 className="text-sm font-mono uppercase tracking-widest text-white/60">Brands</h2>
         <button
           onClick={() => setCreating(!creating)}
-          className="text-xs border border-white/30 px-4 py-1.5 hover:border-white transition-all"
+          className="text-sm border border-white/30 px-4 py-1.5 hover:border-white transition-all"
         >
           {creating ? 'Cancel' : '+ Register Brand'}
         </button>
       </div>
 
       {msg && (
-        <div className="mb-4 p-3 border border-white/20 bg-white/5 text-xs font-mono text-white/80">
+        <div className="mb-4 p-3 border border-white/20 bg-white/5 text-sm font-mono text-white/80">
           {msg}
         </div>
       )}
 
       {creating && (
         <form onSubmit={handleCreate} className="mb-8 p-6 border border-white/20 space-y-4">
-          <h3 className="text-sm font-medium mb-2">Register New Brand</h3>
+          <h3 className="text-base font-medium mb-2">Register New Brand</h3>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-xs font-mono text-white/40 block mb-1">Name *</label>
+              <label className="text-sm font-mono text-white/60 block mb-1">Name *</label>
               <input
                 type="text" required maxLength={100}
                 value={form.name}
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
-                className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
+                className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none"
               />
             </div>
             <div>
-              <label className="text-xs font-mono text-white/40 block mb-1">Slug *</label>
+              <label className="text-sm font-mono text-white/60 block mb-1">Slug *</label>
               <input
                 type="text" required maxLength={50}
                 placeholder="my-brand"
                 value={form.slug}
                 onChange={(e) => setForm({ ...form, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })}
-                className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none font-mono"
+                className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none font-mono"
               />
             </div>
             <div>
-              <label className="text-xs font-mono text-white/40 block mb-1">Contact Email *</label>
+              <label className="text-sm font-mono text-white/60 block mb-1">Contact Email *</label>
               <input
                 type="email" required
                 value={form.contact_email}
                 onChange={(e) => setForm({ ...form, contact_email: e.target.value })}
-                className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
+                className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none"
               />
             </div>
             <div>
-              <label className="text-xs font-mono text-white/40 block mb-1">Wallet Address *</label>
+              <label className="text-sm font-mono text-white/60 block mb-1">Wallet Address *</label>
               <input
                 type="text" required
                 placeholder="0x…"
                 value={form.wallet_address}
                 onChange={(e) => setForm({ ...form, wallet_address: e.target.value })}
-                className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none font-mono"
+                className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none font-mono"
               />
             </div>
             <div>
-              <label className="text-xs font-mono text-white/40 block mb-1">Headline</label>
+              <label className="text-sm font-mono text-white/60 block mb-1">Headline</label>
               <input
                 type="text" maxLength={200}
                 value={form.headline}
                 onChange={(e) => setForm({ ...form, headline: e.target.value })}
-                className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
+                className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none"
               />
             </div>
             <div>
-              <label className="text-xs font-mono text-white/40 block mb-1">Website</label>
+              <label className="text-sm font-mono text-white/60 block mb-1">Website</label>
               <input
                 type="url"
                 value={form.website_url}
                 onChange={(e) => setForm({ ...form, website_url: e.target.value })}
-                className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
+                className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none"
               />
             </div>
           </div>
           <div>
-            <label className="text-xs font-mono text-white/40 block mb-1">Description</label>
+            <label className="text-sm font-mono text-white/60 block mb-1">Description</label>
             <textarea
               rows={3} maxLength={1000}
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
-              className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none resize-none"
+              className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none resize-none"
             />
           </div>
           <button
             type="submit"
-            className="px-6 py-2 bg-white text-black text-sm font-medium hover:bg-white/90 transition-all"
+            className="px-6 py-2 bg-white text-black text-base font-medium hover:bg-white/90 transition-all"
           >
             Create Brand →
           </button>
@@ -1171,9 +1197,9 @@ function BrandsTab() {
       )}
 
       {loading ? (
-        <p className="text-white/20 text-xs font-mono">Loading…</p>
+        <p className="text-white/40 text-sm font-mono">Loading…</p>
       ) : brands.length === 0 ? (
-        <p className="text-white/20 text-xs font-mono">No brands registered.</p>
+        <p className="text-white/40 text-sm font-mono">No brands registered.</p>
       ) : (
         <div className="space-y-4">
           {brands.map((b) => (
@@ -1182,80 +1208,80 @@ function BrandsTab() {
                 /* ── Edit form ────────────────────────────── */
                 <div className="p-5 space-y-3">
                   <div className="flex justify-between items-center mb-2">
-                    <span className="text-xs font-mono text-white/40">Editing: /{b.slug}</span>
-                    <span className={`text-xs font-mono px-2 py-0.5 ${
+                    <span className="text-sm font-mono text-white/60">Editing: /{b.slug}</span>
+                    <span className={`text-sm font-mono px-2 py-0.5 ${
                       b.status === 'active' ? 'bg-green-400/20 text-green-400' :
                       b.status === 'suspended' ? 'bg-red-400/20 text-red-400' :
-                      'bg-white/10 text-white/40'
+                      'bg-white/10 text-white/60'
                     }`}>{b.status.toUpperCase()}</span>
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-xs font-mono text-white/40 block mb-1">Name</label>
+                      <label className="text-sm font-mono text-white/60 block mb-1">Name</label>
                       <input
                         type="text" maxLength={100}
                         value={editForm.name}
                         onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                        className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
+                        className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none"
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-mono text-white/40 block mb-1">Headline</label>
+                      <label className="text-sm font-mono text-white/60 block mb-1">Headline</label>
                       <input
                         type="text" maxLength={200}
                         value={editForm.headline}
                         onChange={(e) => setEditForm({ ...editForm, headline: e.target.value })}
-                        className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
+                        className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none"
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-mono text-white/40 block mb-1">Contact Email</label>
+                      <label className="text-sm font-mono text-white/60 block mb-1">Contact Email</label>
                       <input
                         type="email"
                         value={editForm.contact_email}
                         onChange={(e) => setEditForm({ ...editForm, contact_email: e.target.value })}
-                        className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
+                        className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none"
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-mono text-white/40 block mb-1">Website</label>
+                      <label className="text-sm font-mono text-white/60 block mb-1">Website</label>
                       <input
                         type="url"
                         value={editForm.website_url}
                         onChange={(e) => setEditForm({ ...editForm, website_url: e.target.value })}
-                        className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none"
+                        className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none"
                       />
                     </div>
                   </div>
                   <div>
-                    <label className="text-xs font-mono text-white/40 block mb-1">Wallet Address</label>
+                    <label className="text-sm font-mono text-white/60 block mb-1">Wallet Address</label>
                     <input
                       type="text"
                       value={editForm.wallet_address}
                       onChange={(e) => setEditForm({ ...editForm, wallet_address: e.target.value })}
-                      className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none font-mono"
+                      className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none font-mono"
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-mono text-white/40 block mb-1">Description</label>
+                    <label className="text-sm font-mono text-white/60 block mb-1">Description</label>
                     <textarea
                       rows={3} maxLength={1000}
                       value={editForm.description}
                       onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                      className="w-full bg-transparent border border-white/20 px-3 py-2 text-sm focus:border-white outline-none resize-none"
+                      className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none resize-none"
                     />
                   </div>
                   <div className="flex gap-3">
                     <button
                       onClick={() => handleEditSave(b.id)}
                       disabled={editSaving}
-                      className="px-5 py-1.5 bg-white text-black text-sm font-medium hover:bg-white/90 disabled:opacity-40 transition-all"
+                      className="px-5 py-1.5 bg-white text-black text-base font-medium hover:bg-white/90 disabled:opacity-40 transition-all"
                     >
                       {editSaving ? 'Saving…' : 'Save'}
                     </button>
                     <button
                       onClick={() => setEditing(null)}
-                      className="text-xs text-white/30 hover:text-white transition-colors"
+                      className="text-sm text-white/50 hover:text-white transition-colors"
                     >
                       Cancel
                     </button>
@@ -1267,29 +1293,29 @@ function BrandsTab() {
                   <div className="p-5">
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <h3 className="text-sm font-medium">{b.name}</h3>
-                        <span className="text-xs font-mono text-white/30">/{b.slug}</span>
+                        <h3 className="text-base font-medium">{b.name}</h3>
+                        <span className="text-sm font-mono text-white/50">/{b.slug}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <span className={`text-xs font-mono px-2 py-0.5 ${
+                        <span className={`text-sm font-mono px-2 py-0.5 ${
                           b.status === 'active'    ? 'bg-green-400/20 text-green-400' :
                           b.status === 'pending'   ? 'bg-amber-400/20 text-amber-400' :
                           b.status === 'suspended' ? 'bg-red-400/20 text-red-400' :
-                                                     'bg-white/10 text-white/40'
+                                                     'bg-white/10 text-white/60'
                         }`}>
                           {b.status.toUpperCase()}
                         </span>
                       </div>
                     </div>
-                    {b.headline && <p className="text-xs text-white/50 mb-2">{b.headline}</p>}
-                    <div className="flex gap-4 text-xs text-white/20 font-mono flex-wrap">
+                    {b.headline && <p className="text-sm text-white/70 mb-2">{b.headline}</p>}
+                    <div className="flex gap-4 text-sm text-white/40 font-mono flex-wrap">
                       <span title={b.wallet_address}>
                         {b.wallet_address.slice(0, 6)}…{b.wallet_address.slice(-4)}
                       </span>
                       <span>{b.contact_email}</span>
                       <span>Listings: {b.self_listings_used}/{b.max_self_listings}</span>
                       <span>{new Date(b.created_at).toLocaleDateString()}</span>
-                      {b.website_url && <a href={b.website_url} target="_blank" rel="noopener noreferrer" className="hover:text-white/50">{b.website_url}</a>}
+                      {b.website_url && <a href={b.website_url} target="_blank" rel="noopener noreferrer" className="hover:text-white/80">{b.website_url}</a>}
                     </div>
                   </div>
 
@@ -1297,33 +1323,33 @@ function BrandsTab() {
                   {inviting === b.id ? (
                     <form onSubmit={handleInvite} className="border-t border-white/10 p-4 flex gap-3 items-end flex-wrap">
                       <div>
-                        <label className="text-xs font-mono text-white/40 block mb-1">Admin email</label>
+                        <label className="text-sm font-mono text-white/60 block mb-1">Admin email</label>
                         <input
                           type="email" required
                           value={inviteForm.email}
                           onChange={(e) => setInviteForm({ ...inviteForm, email: e.target.value })}
-                          className="w-56 bg-transparent border border-white/20 px-3 py-1.5 text-sm focus:border-white outline-none"
+                          className="w-56 bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none"
                         />
                       </div>
                       <div>
-                        <label className="text-xs font-mono text-white/40 block mb-1">Temp password</label>
+                        <label className="text-sm font-mono text-white/60 block mb-1">Temp password</label>
                         <input
                           type="text" required minLength={8}
                           value={inviteForm.temp_password}
                           onChange={(e) => setInviteForm({ ...inviteForm, temp_password: e.target.value })}
-                          className="w-40 bg-transparent border border-white/20 px-3 py-1.5 text-sm focus:border-white outline-none"
+                          className="w-40 bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none"
                         />
                       </div>
                       <button
                         type="submit"
-                        className="px-5 py-1.5 bg-white text-black text-sm font-medium hover:bg-white/90 transition-all"
+                        className="px-5 py-1.5 bg-white text-black text-base font-medium hover:bg-white/90 transition-all"
                       >
                         Send Invite
                       </button>
                       <button
                         type="button"
                         onClick={() => setInviting(null)}
-                        className="text-xs text-white/30 hover:text-white transition-colors"
+                        className="text-sm text-white/50 hover:text-white transition-colors"
                       >
                         Cancel
                       </button>
@@ -1332,19 +1358,19 @@ function BrandsTab() {
                     <div className="border-t border-white/10 p-4 flex gap-3">
                       <button
                         onClick={() => startEdit(b)}
-                        className="px-4 py-1.5 text-xs border border-white/20 hover:border-white/50 transition-all"
+                        className="px-4 py-1.5 text-sm border border-white/20 hover:border-white/50 transition-all"
                       >
                         Edit
                       </button>
                       <button
                         onClick={() => { setInviting(b.id); setEditing(null); setInviteForm({ email: '', temp_password: '' }); }}
-                        className="px-4 py-1.5 text-xs border border-white/20 hover:border-white/50 transition-all"
+                        className="px-4 py-1.5 text-sm border border-white/20 hover:border-white/50 transition-all"
                       >
                         Invite Admin
                       </button>
                       <button
                         onClick={() => handleStatusToggle(b)}
-                        className={`px-4 py-1.5 text-xs border transition-all ${
+                        className={`px-4 py-1.5 text-sm border transition-all ${
                           b.status === 'active'
                             ? 'border-red-400/30 text-red-400 hover:border-red-400'
                             : 'border-green-400/30 text-green-400 hover:border-green-400'
@@ -1448,6 +1474,7 @@ function DistributionsTab() {
   const splitLabel = (s: string) => {
     const labels: Record<string, string> = {
       'challenge_35_35_30':  'Challenge 35/35/30',
+      'brand_product_tiered': 'Brand Product (Tiered)',
       'brand_product_70_30': 'Brand Product 70/30',
       'rrg_challenge_35_65': 'RRG Challenge 35/65',
       'legacy_70_30':        'Legacy 70/30',
@@ -1458,16 +1485,16 @@ function DistributionsTab() {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-xs font-mono uppercase tracking-widest text-white/40">Distributions</h2>
+        <h2 className="text-sm font-mono uppercase tracking-widest text-white/60">Distributions</h2>
         <div className="flex gap-2">
           {['', 'pending', 'completed', 'failed'].map((s) => (
             <button
               key={s}
               onClick={() => setStatusFilter(s)}
-              className={`text-xs font-mono px-3 py-1 border transition-all ${
+              className={`text-sm font-mono px-3 py-1 border transition-all ${
                 statusFilter === s
                   ? 'border-white text-white'
-                  : 'border-white/20 text-white/30 hover:border-white/50'
+                  : 'border-white/20 text-white/50 hover:border-white/50'
               }`}
             >
               {s || 'All'}
@@ -1477,7 +1504,7 @@ function DistributionsTab() {
       </div>
 
       {msg && (
-        <div className="mb-4 p-3 border border-white/20 bg-white/5 text-xs font-mono text-white/80">
+        <div className="mb-4 p-3 border border-white/20 bg-white/5 text-sm font-mono text-white/80">
           {msg}
         </div>
       )}
@@ -1487,14 +1514,14 @@ function DistributionsTab() {
         <div className="mb-4 p-4 border border-amber-400/30 bg-amber-400/5">
           {payoutConfirm ? (
             <div className="flex items-center gap-4">
-              <p className="text-xs font-mono text-amber-400 flex-1">
+              <p className="text-sm font-mono text-amber-400 flex-1">
                 Process {pendingCount} pending distribution{pendingCount !== 1 ? 's' : ''}?
                 Total: ${pendingOwed.toFixed(2)} USDC to creators/brands.
               </p>
               <button
                 onClick={handleProcessPayouts}
                 disabled={payoutRunning}
-                className="px-5 py-1.5 bg-amber-400 text-black text-xs font-medium
+                className="px-5 py-1.5 bg-amber-400 text-black text-sm font-medium
                            hover:bg-amber-300 disabled:opacity-40 transition-all"
               >
                 {payoutRunning ? 'Processing…' : 'Confirm Payout'}
@@ -1502,19 +1529,19 @@ function DistributionsTab() {
               <button
                 onClick={() => setPayoutConfirm(false)}
                 disabled={payoutRunning}
-                className="text-xs text-white/30 hover:text-white transition-colors"
+                className="text-sm text-white/50 hover:text-white transition-colors"
               >
                 Cancel
               </button>
             </div>
           ) : (
             <div className="flex items-center justify-between">
-              <p className="text-xs font-mono text-white/40">
+              <p className="text-sm font-mono text-white/60">
                 {pendingCount} pending payout{pendingCount !== 1 ? 's' : ''} — ${pendingOwed.toFixed(2)} USDC owed
               </p>
               <button
                 onClick={() => setPayoutConfirm(true)}
-                className="px-4 py-1.5 text-xs border border-amber-400/40 text-amber-400
+                className="px-4 py-1.5 text-sm border border-amber-400/40 text-amber-400
                            hover:border-amber-400 transition-all"
               >
                 Process Payouts
@@ -1528,40 +1555,40 @@ function DistributionsTab() {
       {distributions.length > 0 && (
         <div className="mb-6 p-4 border border-white/10 grid grid-cols-4 gap-4 text-center">
           <div>
-            <p className="text-xs font-mono text-white/30 mb-1">Total</p>
-            <p className="text-sm font-medium">${totals.total.toFixed(2)}</p>
+            <p className="text-sm font-mono text-white/50 mb-1">Total</p>
+            <p className="text-base font-medium">${totals.total.toFixed(2)}</p>
           </div>
           <div>
-            <p className="text-xs font-mono text-white/30 mb-1">Creators</p>
-            <p className="text-sm font-medium text-green-400">${totals.creator.toFixed(2)}</p>
+            <p className="text-sm font-mono text-white/50 mb-1">Creators</p>
+            <p className="text-base font-medium text-green-400">${totals.creator.toFixed(2)}</p>
           </div>
           <div>
-            <p className="text-xs font-mono text-white/30 mb-1">Brands</p>
-            <p className="text-sm font-medium text-blue-400">${totals.brand.toFixed(2)}</p>
+            <p className="text-sm font-mono text-white/50 mb-1">Brands</p>
+            <p className="text-base font-medium text-blue-400">${totals.brand.toFixed(2)}</p>
           </div>
           <div>
-            <p className="text-xs font-mono text-white/30 mb-1">Platform</p>
-            <p className="text-sm font-medium text-amber-400">${totals.platform.toFixed(2)}</p>
+            <p className="text-sm font-mono text-white/50 mb-1">Platform</p>
+            <p className="text-base font-medium text-amber-400">${totals.platform.toFixed(2)}</p>
           </div>
         </div>
       )}
 
       {loading ? (
-        <p className="text-white/20 text-xs font-mono">Loading…</p>
+        <p className="text-white/40 text-sm font-mono">Loading…</p>
       ) : distributions.length === 0 ? (
-        <p className="text-white/20 text-xs font-mono">No distributions found.</p>
+        <p className="text-white/40 text-sm font-mono">No distributions found.</p>
       ) : (
         <div className="space-y-3">
           {distributions.map((d) => (
             <div key={d.id} className="p-4 border border-white/10">
               <div className="flex justify-between items-start mb-2">
                 <div>
-                  <span className="text-xs font-mono text-white/50">{splitLabel(d.split_type)}</span>
-                  <span className="text-xs font-mono text-white/20 ml-3">
+                  <span className="text-sm font-mono text-white/70">{splitLabel(d.split_type)}</span>
+                  <span className="text-sm font-mono text-white/40 ml-3">
                     {new Date(d.created_at).toLocaleString()}
                   </span>
                 </div>
-                <span className={`text-xs font-mono px-2 py-0.5 ${
+                <span className={`text-sm font-mono px-2 py-0.5 ${
                   d.status === 'completed' ? 'bg-green-400/20 text-green-400' :
                   d.status === 'pending'   ? 'bg-amber-400/20 text-amber-400' :
                                              'bg-red-400/20 text-red-400'
@@ -1570,14 +1597,14 @@ function DistributionsTab() {
                 </span>
               </div>
 
-              <div className="grid grid-cols-4 gap-2 text-xs font-mono mb-2">
-                <span className="text-white/40">Total: <span className="text-white">${parseFloat(d.total_usdc).toFixed(2)}</span></span>
-                <span className="text-white/40">Creator: <span className="text-green-400">${parseFloat(d.creator_usdc).toFixed(2)}</span></span>
-                <span className="text-white/40">Brand: <span className="text-blue-400">${parseFloat(d.brand_usdc).toFixed(2)}</span></span>
-                <span className="text-white/40">Platform: <span className="text-amber-400">${parseFloat(d.platform_usdc).toFixed(2)}</span></span>
+              <div className="grid grid-cols-4 gap-2 text-sm font-mono mb-2">
+                <span className="text-white/60">Total: <span className="text-white">${parseFloat(d.total_usdc).toFixed(2)}</span></span>
+                <span className="text-white/60">Creator: <span className="text-green-400">${parseFloat(d.creator_usdc).toFixed(2)}</span></span>
+                <span className="text-white/60">Brand: <span className="text-blue-400">${parseFloat(d.brand_usdc).toFixed(2)}</span></span>
+                <span className="text-white/60">Platform: <span className="text-amber-400">${parseFloat(d.platform_usdc).toFixed(2)}</span></span>
               </div>
 
-              <div className="flex gap-4 text-xs text-white/20 font-mono">
+              <div className="flex gap-4 text-sm text-white/40 font-mono">
                 {d.creator_wallet && (
                   <span>Creator: {d.creator_wallet.slice(0, 6)}…{d.creator_wallet.slice(-4)}</span>
                 )}
@@ -1587,7 +1614,7 @@ function DistributionsTab() {
               </div>
 
               {d.notes && (
-                <p className="text-xs text-white/30 mt-1">{d.notes}</p>
+                <p className="text-sm text-white/50 mt-1">{d.notes}</p>
               )}
 
               {d.status === 'pending' && (
@@ -1595,7 +1622,7 @@ function DistributionsTab() {
                   <button
                     onClick={() => handleMarkCompleted(d.id)}
                     disabled={acting === d.id}
-                    className="px-4 py-1.5 text-xs bg-green-400/20 text-green-400 border border-green-400/30
+                    className="px-4 py-1.5 text-sm bg-green-400/20 text-green-400 border border-green-400/30
                                hover:border-green-400 disabled:opacity-40 transition-all"
                   >
                     {acting === d.id ? 'Marking…' : 'Mark Completed'}
@@ -1638,7 +1665,7 @@ function ContributorsTab() {
     : contributors.filter((c) => c.creator_type === filter);
 
   if (loading) {
-    return <p className="text-white/30 font-mono text-sm py-8">Loading contributors…</p>;
+    return <p className="text-white/50 font-mono text-base py-8">Loading contributors…</p>;
   }
 
   return (
@@ -1647,20 +1674,20 @@ function ContributorsTab() {
       {stats && (
         <div className="grid grid-cols-4 gap-4">
           <div className="border border-white/10 p-4">
-            <p className="text-xs text-white/40 font-mono uppercase tracking-wider">Total</p>
-            <p className="text-2xl font-mono mt-1">{stats.total}</p>
+            <p className="text-sm text-white/60 font-mono uppercase tracking-wider">Total</p>
+            <p className="text-3xl font-mono mt-1">{stats.total}</p>
           </div>
           <div className="border border-white/10 p-4">
-            <p className="text-xs text-white/40 font-mono uppercase tracking-wider">Human</p>
-            <p className="text-2xl font-mono mt-1">{stats.humans}</p>
+            <p className="text-sm text-white/60 font-mono uppercase tracking-wider">Human</p>
+            <p className="text-3xl font-mono mt-1">{stats.humans}</p>
           </div>
           <div className="border border-white/10 p-4">
-            <p className="text-xs text-white/40 font-mono uppercase tracking-wider">AI Agent</p>
-            <p className="text-2xl font-mono mt-1">{stats.agents}</p>
+            <p className="text-sm text-white/60 font-mono uppercase tracking-wider">AI Agent</p>
+            <p className="text-3xl font-mono mt-1">{stats.agents}</p>
           </div>
           <div className="border border-white/10 p-4">
-            <p className="text-xs text-white/40 font-mono uppercase tracking-wider">Revenue Dist.</p>
-            <p className="text-2xl font-mono mt-1">${stats.totalRevenue.toFixed(2)}</p>
+            <p className="text-sm text-white/60 font-mono uppercase tracking-wider">Revenue Dist.</p>
+            <p className="text-3xl font-mono mt-1">${stats.totalRevenue.toFixed(2)}</p>
           </div>
         </div>
       )}
@@ -1671,10 +1698,10 @@ function ContributorsTab() {
           <button
             key={f}
             onClick={() => setFilter(f)}
-            className={`px-3 py-1.5 text-xs font-mono uppercase tracking-wider border transition-all
+            className={`px-3 py-1.5 text-sm font-mono uppercase tracking-wider border transition-all
               ${filter === f
                 ? 'text-white border-white'
-                : 'text-white/30 border-white/10 hover:text-white/60'
+                : 'text-white/50 border-white/10 hover:text-white/80'
               }`}
           >
             {f === 'all' ? `All (${contributors.length})` : f}
@@ -1684,22 +1711,23 @@ function ContributorsTab() {
 
       {/* Table */}
       {filtered.length === 0 ? (
-        <p className="text-white/30 text-sm font-mono py-4">No contributors found.</p>
+        <p className="text-white/50 text-base font-mono py-4">No contributors found.</p>
       ) : (
-        <div className="border border-white/10 overflow-x-auto">
-          <table className="w-full text-xs font-mono">
+        <div className="border border-white/10">
+          <table className="w-full text-sm font-mono">
             <thead>
-              <tr className="border-b border-white/10 text-white/40 uppercase tracking-wider">
+              <tr className="border-b border-white/10 text-white/60 uppercase tracking-wider text-sm">
+                <th className="text-left p-3 w-10"></th>
                 <th className="text-left p-3">Wallet</th>
                 <th className="text-left p-3">Type</th>
                 <th className="text-left p-3">Name</th>
                 <th className="text-left p-3">Email</th>
                 <th className="text-right p-3">Subs</th>
-                <th className="text-right p-3">Approved</th>
-                <th className="text-right p-3">Rejected</th>
+                <th className="text-right p-3">OK</th>
+                <th className="text-right p-3">Rej</th>
                 <th className="text-right p-3">Rate</th>
                 <th className="text-right p-3">Revenue</th>
-                <th className="text-left p-3">Last Active</th>
+                <th className="text-left p-3">Active</th>
               </tr>
             </thead>
             <tbody>
@@ -1709,11 +1737,20 @@ function ContributorsTab() {
                   : '—';
                 return (
                   <tr key={c.wallet_address} className="border-b border-white/5 hover:bg-white/5 transition-colors">
-                    <td className="p-3 text-white/60">
+                    <td className="p-3">
+                      {c.avatar_url ? (
+                        <img src={c.avatar_url} alt="" className="w-8 h-8 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-8 h-8 rounded-full flex items-center justify-center bg-white/10 text-white/60 text-xs font-medium">
+                          {(c.display_name || c.wallet_address.slice(2, 4)).slice(0, 2).toUpperCase()}
+                        </div>
+                      )}
+                    </td>
+                    <td className="p-3 text-white/80">
                       {c.wallet_address.slice(0, 6)}…{c.wallet_address.slice(-4)}
                     </td>
                     <td className="p-3">
-                      <span className={`px-2 py-0.5 text-[10px] uppercase tracking-wider
+                      <span className={`px-2 py-0.5 text-sm uppercase
                         ${c.creator_type === 'agent'
                           ? 'bg-purple-400/20 text-purple-300 border border-purple-400/30'
                           : 'bg-blue-400/20 text-blue-300 border border-blue-400/30'
@@ -1722,14 +1759,14 @@ function ContributorsTab() {
                         {c.creator_type}
                       </span>
                     </td>
-                    <td className="p-3 text-white/60">{c.display_name || '—'}</td>
-                    <td className="p-3 text-white/40 truncate max-w-[180px]">{c.email || '—'}</td>
+                    <td className="p-3 text-white/80 truncate">{c.display_name || '—'}</td>
+                    <td className="p-3 text-white/60 truncate">{c.email || '—'}</td>
                     <td className="p-3 text-right">{c.total_submissions}</td>
                     <td className="p-3 text-right text-green-400">{c.total_approved}</td>
                     <td className="p-3 text-right text-red-400">{c.total_rejected}</td>
-                    <td className="p-3 text-right text-white/40">{rate}%</td>
+                    <td className="p-3 text-right text-white/60">{rate}%</td>
                     <td className="p-3 text-right">${Number(c.total_revenue_usdc).toFixed(2)}</td>
-                    <td className="p-3 text-white/40">
+                    <td className="p-3 text-white/60">
                       {c.last_active_at
                         ? new Date(c.last_active_at).toLocaleDateString()
                         : '—'}

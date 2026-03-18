@@ -48,3 +48,4 @@ hardhat.config.js.bak
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+.claude/settings.local.json

@@ -1,8 +1,19 @@
 /**
  * POST /api/rrg/submit-agent
  *
- * JSON endpoint for AI agents to submit designs to RRG without
- * needing multipart/form-data. Supports four image submission methods:
+ * JSON endpoint for AI agents to submit designs to RRG.
+ *
+ * ╔═══════════════════════════════════════════════════════════════════════╗
+ * ║  IMPORTANT: USE image_url WHENEVER POSSIBLE                         ║
+ * ║                                                                     ║
+ * ║  Most image generation tools (DALL-E, Replicate, Leonardo,          ║
+ * ║  Stability AI, Midjourney) return a temporary CDN URL.              ║
+ * ║  Pass that URL directly via image_url — our server fetches it.      ║
+ * ║                                                                     ║
+ * ║  DO NOT use image_base64 unless your runtime guarantees the full    ║
+ * ║  base64 string is delivered without truncation. LLM output token    ║
+ * ║  limits WILL truncate base64 image data, producing broken images.   ║
+ * ╚═══════════════════════════════════════════════════════════════════════╝
  *
  * Body (JSON):
  *   title                string    required  max 60 chars
@@ -12,29 +23,26 @@
  *   suggested_edition    string    optional  e.g. "10"  — reviewer can adjust
  *   suggested_price_usdc string    optional  e.g. "15"  — reviewer can adjust
  *
- * Image — provide exactly ONE of:
- *   image_url     string    Publicly accessible JPEG or PNG URL (max 5 MB). Server fetches it.
- *                           Best when the image is already hosted somewhere.
- *
- *   image_base64  string    Raw base64 or data URI (data:image/jpeg;base64,… or
- *                           data:image/png;base64,…). No hosting needed.
- *                           Use when base64 fits in a single JSON string field.
- *
- *   image_chunks  string[]  Base64 split across an array of strings; concatenated
- *                           server-side before decoding. Identical to image_base64 but
- *                           solves context/field-size limits — split the base64 into
- *                           however many chunks your runtime allows and send as a JSON
- *                           array. A data URI prefix on the first chunk is stripped
- *                           automatically.
+ * Image — provide exactly ONE of (in order of preference):
+ *   image_url     string    RECOMMENDED. Publicly accessible JPEG or PNG URL (max 5 MB).
+ *                           Server fetches it. Works with any image gen API that returns a URL.
+ *                           Temporary URLs (e.g. DALL-E 1-hour expiry) are fine — we fetch immediately.
  *
  *   ipfs_cid      string    IPFS CID of a JPEG or PNG already pinned to IPFS.
  *                           Server fetches from Pinata gateway with ipfs.io as fallback.
- *                           Ideal when the image is already on IPFS.
+ *
+ *   image_base64  string    NOT RECOMMENDED. Raw base64 or data URI. Only use if your runtime
+ *                           can guarantee the full string is delivered without truncation.
+ *                           Truncated images will be rejected with an integrity error.
+ *
+ *   image_chunks  string[]  NOT RECOMMENDED. Same as image_base64 but split across an array.
+ *                           Same truncation risk applies.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { db, getCurrentBrief, RRG_BRAND_ID } from '@/lib/rrg/db';
 import { uploadSubmissionFile, jpegStoragePath } from '@/lib/rrg/storage';
+import { fireSubmitAttribution } from '@/lib/rrg/marketing-attribution';
 import { randomUUID } from 'crypto';
 
 export const dynamic = 'force-dynamic';
@@ -51,6 +59,29 @@ function detectImageFormat(buf: Buffer): { ext: 'jpg' | 'png'; mimeType: string 
   if (isJpegBuffer(buf)) return { ext: 'jpg', mimeType: 'image/jpeg' };
   if (isPngBuffer(buf))  return { ext: 'png', mimeType: 'image/png' };
   return null;
+}
+
+// ── Image integrity check (detects truncated files) ─────────────────────
+function isImageComplete(buf: Buffer): { ok: boolean; reason?: string } {
+  if (isJpegBuffer(buf)) {
+    // JPEG must end with FFD9 (End of Image marker)
+    if (buf.length < 100) return { ok: false, reason: 'JPEG is too small to be a valid image (likely truncated base64)' };
+    if (buf[buf.length - 2] !== 0xFF || buf[buf.length - 1] !== 0xD9) {
+      return { ok: false, reason: 'JPEG is truncated — missing end-of-image marker (FFD9). This usually means the base64 string was cut short by token limits. Use image_url instead of image_base64.' };
+    }
+    return { ok: true };
+  }
+  if (isPngBuffer(buf)) {
+    // PNG must end with IEND chunk: 00 00 00 00 49 45 4E 44 AE 42 60 82
+    if (buf.length < 100) return { ok: false, reason: 'PNG is too small to be a valid image (likely truncated base64)' };
+    const tail = buf.subarray(buf.length - 12);
+    const iend = Buffer.from([0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82]);
+    if (!tail.equals(iend)) {
+      return { ok: false, reason: 'PNG is truncated — missing IEND chunk. This usually means the base64 string was cut short by token limits. Use image_url instead of image_base64.' };
+    }
+    return { ok: true };
+  }
+  return { ok: false, reason: 'Unknown image format' };
 }
 
 // ── IPFS gateways (tried in order) ────────────────────────────────────
@@ -220,6 +251,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // ── Integrity check (reject truncated images) ───────────────────
+    const integrity = isImageComplete(imageBuffer);
+    if (!integrity.ok) {
+      return NextResponse.json(
+        { error: integrity.reason },
+        { status: 400 }
+      );
+    }
+
     // ── Build description with suggestion tag ─────────────────────────
     const rawDesc      = (description || '').trim().slice(0, 280);
     const suggestionTag =
@@ -278,6 +318,9 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    // Marketing attribution (fire-and-forget)
+    fireSubmitAttribution(creator_wallet.trim().toLowerCase(), data.id);
 
     return NextResponse.json({
       success:      true,

@@ -35,8 +35,8 @@ export default async function BrandSubmitPage({
   // Multiple active briefs — show a selection page scoped to this brand
   return (
     <div className="px-6 py-12 max-w-3xl mx-auto">
-      <h1 className="text-xl font-mono tracking-wider mb-3">Submit a Design</h1>
-      <p className="text-sm text-white/40 mb-10">
+      <h1 className="text-2xl font-mono tracking-wider mb-3">Submit a Design</h1>
+      <p className="text-base text-white/60 mb-10">
         Choose a brief from {brand.name} to respond to.
       </p>
 
@@ -53,24 +53,24 @@ export default async function BrandSubmitPage({
             <div className="flex justify-between items-start gap-4">
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-3 mb-2">
-                  <p className="text-xs font-mono uppercase tracking-[0.15em] text-white/30">
+                  <p className="text-sm font-mono uppercase tracking-[0.15em] text-white/50">
                     {brand.name}
                   </p>
                   {brief.is_current && (
-                    <span className="px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider
+                    <span className="px-2 py-0.5 text-xs font-mono uppercase tracking-wider
                                      border border-green-400/30 text-green-400/70 leading-tight">
                       Current
                     </span>
                   )}
                 </div>
-                <h2 className="text-lg font-light mb-2 leading-snug group-hover:opacity-80 transition-opacity">
+                <h2 className="text-xl font-light mb-2 leading-snug group-hover:opacity-80 transition-opacity">
                   {brief.title}
                 </h2>
-                <p className="text-sm text-white/50 leading-relaxed line-clamp-2">
+                <p className="text-base text-white/70 leading-relaxed line-clamp-2">
                   {brief.description}
                 </p>
                 {brief.ends_at && (
-                  <p className="mt-3 text-xs font-mono text-white/25">
+                  <p className="mt-3 text-sm font-mono text-white/50">
                     Deadline:{' '}
                     {new Date(brief.ends_at).toLocaleDateString('en-GB', {
                       day: 'numeric',
@@ -80,7 +80,7 @@ export default async function BrandSubmitPage({
                   </p>
                 )}
               </div>
-              <span className="text-white/20 group-hover:text-white/60 transition-colors text-lg shrink-0 mt-1">
+              <span className="text-white/40 group-hover:text-white/80 transition-colors text-xl shrink-0 mt-1">
                 &rarr;
               </span>
             </div>
@@ -90,7 +90,7 @@ export default async function BrandSubmitPage({
 
       <Link
         href={`/brand/${slug}`}
-        className="mt-8 inline-block text-sm text-white/30 hover:text-white transition-colors"
+        className="mt-8 inline-block text-base text-white/50 hover:text-white transition-colors"
       >
         &larr; Back to {brand.name}
       </Link>

@@ -115,10 +115,10 @@ export default async function BrandStorefront({
           {/* Text */}
           <div className="flex-1 min-w-0">
             {brand.headline && (
-              <h2 className="text-2xl font-light mb-2 leading-snug">{brand.headline}</h2>
+              <h2 className="text-3xl font-light mb-2 leading-snug">{brand.headline}</h2>
             )}
             {brand.description && (
-              <p className="text-white/60 leading-relaxed text-sm max-w-2xl">
+              <p className="text-white/80 leading-relaxed text-base max-w-2xl">
                 {brand.description}
               </p>
             )}
@@ -131,7 +131,7 @@ export default async function BrandStorefront({
                     href={brand.website_url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-white/40 hover:text-white/70 transition-colors font-mono"
+                    className="text-sm text-white/60 hover:text-white/80 transition-colors font-mono"
                   >
                     {brand.website_url.replace(/^https?:\/\//, '').replace(/\/$/, '')} &nearr;
                   </a>
@@ -142,7 +142,7 @@ export default async function BrandStorefront({
                     href={url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-white/30 hover:text-white/60 transition-colors font-mono"
+                    className="text-sm text-white/50 hover:text-white/80 transition-colors font-mono"
                   >
                     {SOCIAL_LABELS[platform.toLowerCase()] ?? platform} &nearr;
                   </a>
@@ -157,23 +157,23 @@ export default async function BrandStorefront({
       {brief && (
         <div className="mb-10 p-8 border border-white/20 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
-          <p className="text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-3">
+          <p className="text-sm font-mono uppercase tracking-[0.2em] text-white/60 mb-3">
             Current Brief
           </p>
-          <h2 className="text-2xl font-light mb-3 leading-snug">{brief.title}</h2>
-          <p className="text-white/60 leading-relaxed mb-5 max-w-xl text-sm">
+          <h2 className="text-3xl font-light mb-3 leading-snug">{brief.title}</h2>
+          <p className="text-white/80 leading-relaxed mb-5 max-w-xl text-base">
             {brief.description}
           </p>
           <div className="flex items-center gap-6">
             <Link
               href={`/brand/${slug}/submit`}
-              className="inline-flex items-center gap-2 px-6 py-2.5 border border-white text-sm
+              className="inline-flex items-center gap-2 px-6 py-2.5 border border-white text-base
                          hover:bg-white hover:text-black transition-all font-medium"
             >
               Submit a Design &rarr;
             </Link>
             {brief.ends_at && (
-              <p className="text-xs font-mono text-white/30">
+              <p className="text-sm font-mono text-white/50">
                 Deadline:{' '}
                 {new Date(brief.ends_at).toLocaleDateString('en-GB', {
                   day: 'numeric', month: 'long', year: 'numeric',
@@ -186,13 +186,13 @@ export default async function BrandStorefront({
 
       {/* ── Gallery Header ───────────────────────────────────────── */}
       <div className="flex justify-between items-center mb-8">
-        <h1 className="text-xs font-mono uppercase tracking-[0.3em] text-white/40">
+        <h1 className="text-sm font-mono uppercase tracking-[0.3em] text-white/60">
           Products ({totalCount})
         </h1>
         {!brief && (
           <Link
             href={`/brand/${slug}/submit`}
-            className="text-sm border border-white/30 px-4 py-1.5 hover:border-white transition-all"
+            className="text-base border border-white/30 px-4 py-1.5 hover:border-white transition-all"
           >
             Submit &rarr;
           </Link>
@@ -201,11 +201,11 @@ export default async function BrandStorefront({
 
       {/* ── Drop Grid ────────────────────────────────────────────── */}
       {dropsWithUrls.length === 0 ? (
-        <div className="text-center py-32 text-white/20 font-mono text-sm">
+        <div className="text-center py-32 text-white/50 font-mono text-base">
           <p>No products yet.</p>
           <Link
             href={`/brand/${slug}/submit`}
-            className="mt-4 inline-block text-white/40 hover:text-white transition-colors"
+            className="mt-4 inline-block text-white/60 hover:text-white transition-colors"
           >
             Be the first to submit &rarr;
           </Link>
@@ -228,23 +228,23 @@ export default async function BrandStorefront({
                     className="w-full h-full object-cover group-hover:scale-[1.03] transition-transform duration-700"
                   />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-white/10 font-mono text-xs">
+                  <div className="w-full h-full flex items-center justify-center text-white/30 font-mono text-sm">
                     #{drop.token_id}
                   </div>
                 )}
                 {drop.soldOut && (
                   <span className="absolute top-2 right-2 px-2 py-0.5 bg-red-600 text-white
-                                   text-[10px] font-mono uppercase tracking-wider leading-tight">
+                                   text-xs font-mono uppercase tracking-wider leading-tight">
                     Sold Out
                   </span>
                 )}
               </div>
 
               {/* Info */}
-              <h3 className="text-sm font-medium truncate mb-1 group-hover:opacity-70 transition-opacity">
+              <h3 className="text-base font-medium truncate mb-1 group-hover:opacity-70 transition-opacity">
                 {drop.title}
               </h3>
-              <div className="flex justify-between text-xs text-white/30 font-mono">
+              <div className="flex justify-between text-sm text-white/50 font-mono">
                 <span>${parseFloat(drop.price_usdc || '0').toFixed(2)} USDC</span>
                 <span>{drop.edition_size} ed.</span>
               </div>
@@ -255,39 +255,39 @@ export default async function BrandStorefront({
 
       {/* ── Pagination ───────────────────────────────────────────── */}
       {totalPages > 1 && (
-        <div className="flex justify-end items-center gap-4 mt-10 text-sm font-mono">
+        <div className="flex justify-end items-center gap-4 mt-10 text-base font-mono">
           {page > 1 ? (
             <Link
               href={page === 2 ? `/brand/${slug}` : `/brand/${slug}?page=${page - 1}`}
-              className="text-white/50 hover:text-white transition-colors"
+              className="text-white/60 hover:text-white transition-colors"
             >
               &larr; Prev
             </Link>
           ) : (
-            <span className="text-white/15">&larr; Prev</span>
+            <span className="text-white/30">&larr; Prev</span>
           )}
-          <span className="text-white/30 tabular-nums">
+          <span className="text-white/50 tabular-nums">
             {page} / {totalPages}
           </span>
           {page < totalPages ? (
             <Link
               href={`/brand/${slug}?page=${page + 1}`}
-              className="text-white/50 hover:text-white transition-colors"
+              className="text-white/60 hover:text-white transition-colors"
             >
               Next &rarr;
             </Link>
           ) : (
-            <span className="text-white/15">Next &rarr;</span>
+            <span className="text-white/30">Next &rarr;</span>
           )}
         </div>
       )}
 
       {/* ── How to Join In ──────────────────────────────────────────── */}
       <div className="mt-20 mb-0 p-8 border border-white/10">
-        <p className="text-xs font-mono uppercase tracking-[0.2em] text-white/40 mb-5">
+        <p className="text-sm font-mono uppercase tracking-[0.2em] text-white/60 mb-5">
           How to Join In
         </p>
-        <div className="max-w-2xl space-y-4 text-sm text-white/60 leading-relaxed">
+        <div className="max-w-2xl space-y-4 text-base text-white/80 leading-relaxed">
           <p>
             Real Real Genuine is a collaborative creation platform connecting brands with human
             creators and AI agents. Brands publish design briefs. Creators respond with original

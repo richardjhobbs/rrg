@@ -4,7 +4,8 @@
  * Discovers candidate agents from sources beyond ERC-8004 chain scanning:
  *   - RNWY Explorer   (124K+ agents, rich reputation data, public API)
  *   - MCP Registry     (official MCP server catalogue, public API)
- *   - Olas Registry    (on-chain autonomous services)
+ *   - ag0 Subgraph     (multi-chain agent search via The Graph)
+ *   - ClawPlaza/IACP   (ERC-8183 bounty marketplace, on-chain job scanning)
  *
  * Each oracle returns normalised candidate data that feeds into the same
  * mkt_candidates table and scoring pipeline as chain_scan results.
@@ -24,6 +25,24 @@ import {
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const DRHOBBS_WALLET = '0xe653804032A2d51Cc031795afC601B9b1fd2c375';
+
+// ── Tier thresholds (single source of truth) ─────────────────────────────
+export const TIER_HOT_THRESHOLD = 55;
+export const TIER_WARM_THRESHOLD = 30;
+
+// ── RPC call timeout (prevents hanging on unresponsive RPCs) ─────────────
+const RPC_TIMEOUT_MS = 30_000;
+
+/** Wrap a promise with a timeout. Rejects with TimeoutError if exceeded. */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`Timeout (${ms}ms): ${label}`)), ms);
+    promise.then(
+      (val) => { clearTimeout(timer); resolve(val); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
+}
 
 // Our own agents — skip
 const SKIP_ERC8004_IDS: Record<string, Set<number>> = {
@@ -61,8 +80,8 @@ interface NormalisedCandidate {
 // ── Scoring helpers ────────────────────────────────────────────────────────
 
 function tierFromScore(score: number): CandidateTier {
-  if (score >= 55) return 'hot';
-  if (score >= 30) return 'warm';
+  if (score >= TIER_HOT_THRESHOLD) return 'hot';
+  if (score >= TIER_WARM_THRESHOLD) return 'warm';
   return 'cold';
 }
 
@@ -630,6 +649,667 @@ export async function searchRnwyAgents(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 5. ag0 SDK — Multi-chain agent search via agent0-sdk
+//    npm: agent0-sdk (ESM-only, Node 22+)
+//    Searches ERC-8004 agents across all chains with rich filtering
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface Ag0AgentSummary {
+  agentId: number;
+  chainId: number;
+  name?: string;
+  description?: string;
+  active?: boolean;
+  mcpEndpoint?: string;
+  mcpTools?: string[];
+  a2aEndpoint?: string;
+  a2aSkills?: string[];
+  x402Support?: boolean;
+  feedbackCount?: number;
+  avgScore?: number;
+  webEndpoint?: string;
+  emailEndpoint?: string;
+  image?: string;
+  ens?: string;
+  hasOASF?: boolean;
+  oasfSkills?: string[];
+}
+
+function scoreAg0Agent(agent: Ag0AgentSummary): NormalisedCandidate {
+  let score = 0;
+  const parts: string[] = [];
+  const allText = [
+    agent.name ?? '',
+    agent.description ?? '',
+    ...(agent.mcpTools ?? []),
+    ...(agent.a2aSkills ?? []),
+  ].join(' ').toLowerCase();
+
+  // Registered on-chain
+  score += 15;
+  parts.push('+15 registered');
+
+  // Has name
+  if (agent.name && agent.name.trim().length > 1) {
+    score += 5;
+    parts.push('+5 named');
+  }
+
+  // Has description
+  if (agent.description && agent.description.length > 20) {
+    score += 5;
+    parts.push('+5 described');
+  }
+
+  // MCP support
+  const hasMcp = !!(agent.mcpEndpoint || (agent.mcpTools && agent.mcpTools.length > 0));
+  if (hasMcp) {
+    score += 15;
+    parts.push('+15 mcp');
+  }
+
+  // A2A support
+  const hasA2a = !!(agent.a2aEndpoint || (agent.a2aSkills && agent.a2aSkills.length > 0));
+  if (hasA2a) {
+    score += 10;
+    parts.push('+10 a2a');
+  }
+
+  // Creative capability
+  const hasImageGen = detectCreative(allText);
+  if (hasImageGen) {
+    score += 15;
+    parts.push('+15 creative');
+  }
+
+  // x402 support — commerce-ready
+  if (agent.x402Support) {
+    score += 10;
+    parts.push('+10 x402');
+  }
+
+  // Has reputation (feedback)
+  if (agent.feedbackCount && agent.feedbackCount > 0) {
+    score += 5;
+    parts.push(`+5 reputation(${agent.feedbackCount})`);
+  }
+
+  // Active
+  if (agent.active) {
+    score += 5;
+    parts.push('+5 active');
+  }
+
+  // Has website or email (contactable)
+  if (agent.webEndpoint || agent.emailEndpoint) {
+    score += 5;
+    parts.push('+5 contactable');
+  }
+
+  // Has ENS (identity signal)
+  if (agent.ens) {
+    score += 3;
+    parts.push('+3 ens');
+  }
+
+  // Has OASF skills
+  if (agent.hasOASF && agent.oasfSkills && agent.oasfSkills.length > 0) {
+    score += 5;
+    parts.push(`+5 oasf(${agent.oasfSkills.length})`);
+  }
+
+  const chainName = CHAIN_ID_TO_NAME[agent.chainId] ?? `chain_${agent.chainId}`;
+
+  return {
+    chain: chainName,
+    erc8004_id: agent.agentId,
+    wallet_address: null, // ag0 subgraph doesn't expose owner wallet
+    name: agent.name ?? null,
+    description: agent.description ?? null,
+    platform: null,
+    metadata_url: agent.webEndpoint ?? agent.mcpEndpoint ?? null,
+    score: Math.min(score, 100),
+    tier: tierFromScore(score),
+    scoring_notes: parts.join(', '),
+    has_wallet: false,
+    has_mcp: hasMcp,
+    has_a2a: hasA2a,
+    has_image_gen: hasImageGen,
+  };
+}
+
+/**
+ * Scan agents via ag0 SDK searchAgents().
+ * Filters for creative/image capabilities by default.
+ * Supports multi-chain or single-chain searches.
+ */
+export async function scanAg0(
+  chain: string = 'all',
+  limit: number = 100,
+  filters?: {
+    name?: string;
+    active?: boolean;
+    mcpTools?: string[];
+    a2aSkills?: string[];
+    x402support?: boolean;
+    minFeedback?: number;
+  },
+): Promise<OracleResult> {
+  const errors: string[] = [];
+  const drHobbs = await getMarketingAgentByWallet(DRHOBBS_WALLET);
+  if (!drHobbs) throw new Error('DrHobbs marketing agent not found');
+
+  const run = await createDiscoveryRun(drHobbs.id, 'ag0_sdk', chain);
+  if (!run) throw new Error('Failed to create discovery run');
+
+  let agentsScanned = 0;
+  let newCandidates = 0;
+  let updatedCandidates = 0;
+
+  try {
+    // Query The Graph subgraph directly (avoids heavy agent0-sdk dependency)
+    // API keys from env vars — fall back to hardcoded only if env not set
+    const graphKeyBase = process.env.THEGRAPH_API_KEY_BASE ?? '536c6d8572876cabea4a4ad0fa49aa57';
+    const graphKeyEth = process.env.THEGRAPH_API_KEY_ETH ?? '7fd2e7d89ce3ef24cd0d4590298f0b2c';
+    const AG0_SUBGRAPH_URLS: Record<number, string> = {
+      8453: `https://gateway.thegraph.com/api/${graphKeyBase}/subgraphs/id/43s9hQRurMGjuYnC1r2ZwS6xSQktbFyXMPMqGKUFJojb`,
+      1: `https://gateway.thegraph.com/api/${graphKeyEth}/subgraphs/id/FV6RR6y13rsnCxBAicKuQEwDp8ioEGiNaWaZUmvr1F8k`,
+    };
+
+    // Determine which chains to query
+    const chainEntries = chain === 'all'
+      ? Object.entries(AG0_SUBGRAPH_URLS)
+      : (() => {
+          const chainId = Number(Object.entries(CHAIN_ID_TO_NAME).find(([, name]) => name === chain)?.[0] ?? 8453);
+          const url = AG0_SUBGRAPH_URLS[chainId];
+          return url ? [[String(chainId), url]] : [];
+        })();
+
+    // Build GraphQL query with filters
+    const whereClause: string[] = [];
+    if (filters?.name) whereClause.push(`name_contains_nocase: "${filters.name}"`);
+    if (filters?.active !== undefined) whereClause.push(`active: ${filters.active}`);
+    const whereStr = whereClause.length > 0 ? `, where: { ${whereClause.join(', ')} }` : '';
+
+    const query = `{
+      agentRegistrationFiles(first: ${limit}, orderBy: agentId, orderDirection: desc${whereStr}) {
+        agentId
+        name
+        description
+        active
+        mcpEndpoint
+        mcpTools { name }
+        a2aEndpoint
+        a2aSkills { name }
+        x402Support
+        webEndpoint
+        emailEndpoint
+        image
+        ens
+        hasOASF
+        oasfSkills { name }
+      }
+    }`;
+
+    const agents: Ag0AgentSummary[] = [];
+
+    for (const [chainIdStr, subgraphUrl] of chainEntries) {
+      try {
+        const res = await fetch(subgraphUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ query }),
+          signal: AbortSignal.timeout(30_000),
+        });
+        if (!res.ok) {
+          errors.push(`ag0 subgraph chain ${chainIdStr}: HTTP ${res.status}`);
+          continue;
+        }
+        const data = await res.json();
+        const files = data?.data?.agentRegistrationFiles ?? [];
+        for (const f of files) {
+          // agentId format is "chainId:tokenId" (e.g. "8453:9961")
+          const agentIdStr = String(f.agentId ?? '');
+          const colonIdx = agentIdStr.indexOf(':');
+          const tokenId = colonIdx >= 0 ? Number(agentIdStr.slice(colonIdx + 1)) : Number(agentIdStr);
+          if (isNaN(tokenId)) continue;
+
+          // mcpTools and a2aSkills are arrays of {name} objects
+          const mcpToolNames = Array.isArray(f.mcpTools)
+            ? f.mcpTools.map((t: { name?: string }) => t.name ?? '').filter(Boolean)
+            : [];
+          const a2aSkillNames = Array.isArray(f.a2aSkills)
+            ? f.a2aSkills.map((s: { name?: string }) => s.name ?? '').filter(Boolean)
+            : [];
+          const oasfSkillNames = Array.isArray(f.oasfSkills)
+            ? f.oasfSkills.map((s: { name?: string }) => s.name ?? '').filter(Boolean)
+            : [];
+
+          agents.push({
+            agentId: tokenId,
+            chainId: Number(chainIdStr),
+            name: f.name ?? undefined,
+            description: f.description ?? undefined,
+            active: f.active ?? undefined,
+            mcpEndpoint: f.mcpEndpoint ?? undefined,
+            mcpTools: mcpToolNames.length > 0 ? mcpToolNames : undefined,
+            a2aEndpoint: f.a2aEndpoint ?? undefined,
+            a2aSkills: a2aSkillNames.length > 0 ? a2aSkillNames : undefined,
+            x402Support: f.x402Support ?? undefined,
+            webEndpoint: f.webEndpoint ?? undefined,
+            emailEndpoint: f.emailEndpoint ?? undefined,
+            image: f.image ?? undefined,
+            ens: f.ens ?? undefined,
+            hasOASF: f.hasOASF ?? false,
+            oasfSkills: oasfSkillNames.length > 0 ? oasfSkillNames : undefined,
+          });
+        }
+      } catch (err) {
+        errors.push(`ag0 subgraph chain ${chainIdStr}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    for (const agent of agents) {
+      // Skip our own agents on Base
+      const chainName = CHAIN_ID_TO_NAME[agent.chainId] ?? `chain_${agent.chainId}`;
+      if (SKIP_ERC8004_IDS[chainName]?.has(agent.agentId)) continue;
+
+      try {
+        agentsScanned++;
+        const scored = scoreAg0Agent(agent);
+
+        // Check if this (chain, erc8004_id) already exists
+        const { data: existing } = await db
+          .from('mkt_candidates')
+          .select('id, score')
+          .eq('erc8004_id', agent.agentId)
+          .eq('chain', chainName)
+          .single();
+
+        if (existing) {
+          await db
+            .from('mkt_candidates')
+            .update({
+              name: scored.name ?? undefined,
+              wallet_address: scored.wallet_address,
+              metadata_url: scored.metadata_url ?? undefined,
+              score: Math.max(existing.score, scored.score),
+              tier: tierFromScore(Math.max(existing.score, scored.score)),
+              scoring_notes: scored.scoring_notes,
+              has_mcp: scored.has_mcp || undefined,
+              has_a2a: scored.has_a2a || undefined,
+              has_image_gen: scored.has_image_gen || undefined,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existing.id);
+          updatedCandidates++;
+        } else {
+          const { error: insertErr } = await db
+            .from('mkt_candidates')
+            .insert({
+              chain: chainName,
+              erc8004_id: agent.agentId,
+              wallet_address: scored.wallet_address,
+              name: scored.name,
+              platform: scored.platform,
+              metadata_url: scored.metadata_url,
+              discovered_by: drHobbs.id,
+              discovery_run: run.id,
+              discovery_source: 'ag0_sdk' as const,
+              score: scored.score,
+              tier: scored.tier,
+              scoring_notes: scored.scoring_notes,
+              has_wallet: scored.has_wallet,
+              has_mcp: scored.has_mcp,
+              has_a2a: scored.has_a2a,
+              has_image_gen: scored.has_image_gen,
+              on_chain_txns: 0,
+              outreach_status: 'pending' as const,
+              contact_count: 0,
+            });
+
+          if (insertErr) {
+            errors.push(`ag0 agent #${agent.agentId}: ${insertErr.message}`);
+          } else {
+            newCandidates++;
+          }
+        }
+      } catch (err) {
+        errors.push(`ag0 agent #${agent.agentId}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    await completeDiscoveryRun(run.id, {
+      agents_scanned: agentsScanned,
+      new_candidates: newCandidates,
+      updated_candidates: updatedCandidates,
+      notes: errors.length > 0
+        ? `${errors.length} errors: ${errors.slice(0, 5).join('; ')}`
+        : `ag0 SDK ${chain} (${agents.length} agents returned)`,
+    });
+
+    await updateMarketingAgentStats(drHobbs.id, {
+      total_candidates_found: drHobbs.total_candidates_found + newCandidates,
+    });
+
+    return { runId: run.id, source: 'ag0_sdk', agentsScanned, newCandidates, updatedCandidates, errors };
+  } catch (err) {
+    await failDiscoveryRun(run.id, err instanceof Error ? err.message : String(err));
+    throw err;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// 6. ClawPlaza / ERC-8183 (IACP) — On-chain bounty marketplace
+//    Contract: 0x16213AB6a660A24f36d4F8DdACA7a3d0856A8AF5 (Base)
+//    Scans open creative jobs to find active agent providers
+// ═══════════════════════════════════════════════════════════════════════════
+
+const IACP_CONTRACT = '0x16213AB6a660A24f36d4F8DdACA7a3d0856A8AF5';
+
+const IACP_ABI = [
+  'function jobCount() external view returns (uint256)',
+  'function getJob(uint256 jobId) external view returns (tuple(address client, address provider, uint8 status, uint256 reward, string metadataURI))',
+] as const;
+
+// IACP job statuses: 0=Open, 1=Funded, 2=Submitted, 3=Completed, 4=Rejected
+const JOB_STATUS_NAMES = ['Open', 'Funded', 'Submitted', 'Completed', 'Rejected'] as const;
+
+interface IacpJob {
+  jobId: number;
+  client: string;
+  provider: string;
+  status: number;
+  reward: bigint;
+  metadataURI: string;
+}
+
+function scoreClawPlazaAgent(
+  address: string,
+  role: 'provider' | 'client',
+  jobCount: number,
+  completedJobs: number,
+  totalRewardWei: bigint,
+  hasCreativeJobs: boolean,
+): NormalisedCandidate {
+  let score = 0;
+  const parts: string[] = [];
+
+  // On-chain activity
+  score += 15;
+  parts.push('+15 on_chain');
+
+  // Has completed jobs (proven track record)
+  if (completedJobs > 0) {
+    score += 15;
+    parts.push(`+15 completed(${completedJobs})`);
+  }
+
+  // Active in bounty marketplace
+  if (jobCount > 1) {
+    score += 5;
+    parts.push(`+5 active(${jobCount} jobs)`);
+  }
+
+  // Provider role preferred (they do the work)
+  if (role === 'provider') {
+    score += 10;
+    parts.push('+10 provider');
+  }
+
+  // Creative jobs
+  if (hasCreativeJobs) {
+    score += 15;
+    parts.push('+15 creative');
+  }
+
+  // Has earned rewards (commerce-ready)
+  if (totalRewardWei > 0n) {
+    score += 10;
+    parts.push('+10 earned_rewards');
+  }
+
+  // Has wallet (always true for on-chain)
+  score += 5;
+  parts.push('+5 wallet');
+
+  return {
+    chain: 'base',
+    erc8004_id: null,
+    wallet_address: address.toLowerCase(),
+    name: `ClawPlaza ${role} (${jobCount} jobs)`,
+    description: `Active ${role} on ClawPlaza/IACP marketplace. ${completedJobs} completed, ${jobCount} total jobs.`,
+    platform: 'clawplaza',
+    metadata_url: null,
+    score: Math.min(score, 100),
+    tier: tierFromScore(score),
+    scoring_notes: parts.join(', '),
+    has_wallet: true,
+    has_mcp: false,
+    has_a2a: false,
+    has_image_gen: hasCreativeJobs,
+  };
+}
+
+/**
+ * Scan ERC-8183 IACP contract on Base for active creative agents.
+ * Finds providers and clients who participate in bounty jobs,
+ * especially those with creative/design-related metadata.
+ */
+export async function scanClawPlaza(
+  maxJobs: number = 200,
+  startFromEnd: boolean = true,
+): Promise<OracleResult> {
+  const errors: string[] = [];
+  const drHobbs = await getMarketingAgentByWallet(DRHOBBS_WALLET);
+  if (!drHobbs) throw new Error('DrHobbs marketing agent not found');
+
+  const run = await createDiscoveryRun(drHobbs.id, 'clawplaza', 'base');
+  if (!run) throw new Error('Failed to create discovery run');
+
+  let agentsScanned = 0;
+  let newCandidates = 0;
+  let updatedCandidates = 0;
+
+  try {
+    const { ethers } = await import('ethers');
+    const provider = new ethers.JsonRpcProvider('https://mainnet.base.org');
+    const contract = new ethers.Contract(IACP_CONTRACT, IACP_ABI, provider);
+
+    // Get total job count (with timeout — RPC can hang indefinitely)
+    const totalJobs = Number(await withTimeout(
+      contract.jobCount() as Promise<bigint>,
+      RPC_TIMEOUT_MS,
+      'IACP jobCount()',
+    ));
+    if (totalJobs === 0) {
+      await completeDiscoveryRun(run.id, {
+        agents_scanned: 0,
+        new_candidates: 0,
+        updated_candidates: 0,
+        notes: 'IACP contract has 0 jobs',
+      });
+      return { runId: run.id, source: 'clawplaza', agentsScanned: 0, newCandidates: 0, updatedCandidates: 0, errors };
+    }
+
+    // Determine scan range (scan most recent jobs first)
+    const scanCount = Math.min(maxJobs, totalJobs);
+    const startId = startFromEnd ? Math.max(0, totalJobs - scanCount) : 0;
+    const endId = startFromEnd ? totalJobs : Math.min(scanCount, totalJobs);
+
+    // Collect agent activity across jobs
+    const agentActivity: Map<string, {
+      role: 'provider' | 'client';
+      jobCount: number;
+      completedJobs: number;
+      totalRewardWei: bigint;
+      hasCreativeJobs: boolean;
+    }> = new Map();
+
+    for (let jobId = startId; jobId < endId; jobId++) {
+      try {
+        const job = await withTimeout(
+          contract.getJob(BigInt(jobId)) as Promise<[string, string, bigint, bigint, string]>,
+          RPC_TIMEOUT_MS,
+          `IACP getJob(${jobId})`,
+        );
+        const client: string = job[0];
+        const jobProvider: string = job[1];
+        const status: number = Number(job[2]);
+        const reward: bigint = BigInt(job[3]);
+        const metadataURI: string = job[4] ?? '';
+
+        // Check if job is creative-related
+        const metaText = metadataURI.toLowerCase();
+        const isCreative = detectCreative(metaText) ||
+          /art|design|image|creative|nft|fashion|visual|illustrat/i.test(metaText);
+
+        // Track provider activity
+        if (jobProvider && jobProvider !== ethers.ZeroAddress) {
+          const key = jobProvider.toLowerCase();
+          const existing = agentActivity.get(key);
+          if (existing) {
+            existing.jobCount++;
+            if (status === 3) existing.completedJobs++;
+            existing.totalRewardWei += reward;
+            if (isCreative) existing.hasCreativeJobs = true;
+          } else {
+            agentActivity.set(key, {
+              role: 'provider',
+              jobCount: 1,
+              completedJobs: status === 3 ? 1 : 0,
+              totalRewardWei: reward,
+              hasCreativeJobs: isCreative,
+            });
+          }
+        }
+
+        // Track client activity (they post bounties — potential brand partners)
+        if (client && client !== ethers.ZeroAddress) {
+          const key = client.toLowerCase();
+          const existing = agentActivity.get(key);
+          if (existing) {
+            // Don't overwrite provider role with client role
+            if (existing.role !== 'provider') {
+              existing.jobCount++;
+              if (status === 3) existing.completedJobs++;
+              existing.totalRewardWei += reward;
+              if (isCreative) existing.hasCreativeJobs = true;
+            }
+          } else {
+            agentActivity.set(key, {
+              role: 'client',
+              jobCount: 1,
+              completedJobs: status === 3 ? 1 : 0,
+              totalRewardWei: reward,
+              hasCreativeJobs: isCreative,
+            });
+          }
+        }
+      } catch (err) {
+        errors.push(`IACP job #${jobId}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+
+      // Rate limit: pause every 20 jobs
+      if (jobId > 0 && jobId % 20 === 0) {
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    }
+
+    // Skip our own wallet
+    agentActivity.delete(DRHOBBS_WALLET.toLowerCase());
+
+    // Insert/update candidates from aggregated activity
+    for (const [address, activity] of agentActivity) {
+      try {
+        agentsScanned++;
+        const scored = scoreClawPlazaAgent(
+          address,
+          activity.role,
+          activity.jobCount,
+          activity.completedJobs,
+          activity.totalRewardWei,
+          activity.hasCreativeJobs,
+        );
+
+        // Check if wallet already exists in candidates
+        const { data: existing } = await db
+          .from('mkt_candidates')
+          .select('id, score')
+          .eq('wallet_address', address)
+          .single();
+
+        if (existing) {
+          // Enrich existing candidate with ClawPlaza data
+          await db
+            .from('mkt_candidates')
+            .update({
+              platform: scored.platform ?? undefined,
+              score: Math.max(existing.score, scored.score),
+              tier: tierFromScore(Math.max(existing.score, scored.score)),
+              scoring_notes: scored.scoring_notes,
+              has_image_gen: scored.has_image_gen || undefined,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existing.id);
+          updatedCandidates++;
+        } else {
+          const { error: insertErr } = await db
+            .from('mkt_candidates')
+            .insert({
+              chain: 'base',
+              erc8004_id: null,
+              wallet_address: scored.wallet_address,
+              name: scored.name,
+              platform: 'clawplaza',
+              metadata_url: null,
+              discovered_by: drHobbs.id,
+              discovery_run: run.id,
+              discovery_source: 'clawplaza' as const,
+              score: scored.score,
+              tier: scored.tier,
+              scoring_notes: scored.scoring_notes,
+              has_wallet: true,
+              has_mcp: false,
+              has_a2a: false,
+              has_image_gen: scored.has_image_gen,
+              on_chain_txns: activity.jobCount,
+              outreach_status: 'pending' as const,
+              contact_count: 0,
+            });
+
+          if (insertErr) {
+            errors.push(`ClawPlaza ${address}: ${insertErr.message}`);
+          } else {
+            newCandidates++;
+          }
+        }
+      } catch (err) {
+        errors.push(`ClawPlaza ${address}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    await completeDiscoveryRun(run.id, {
+      agents_scanned: agentsScanned,
+      new_candidates: newCandidates,
+      updated_candidates: updatedCandidates,
+      notes: errors.length > 0
+        ? `${errors.length} errors: ${errors.slice(0, 5).join('; ')}`
+        : `ClawPlaza IACP: ${totalJobs} total jobs, scanned ${scanCount}, found ${agentActivity.size} unique agents`,
+    });
+
+    await updateMarketingAgentStats(drHobbs.id, {
+      total_candidates_found: drHobbs.total_candidates_found + newCandidates,
+    });
+
+    return { runId: run.id, source: 'clawplaza', agentsScanned, newCandidates, updatedCandidates, errors };
+  } catch (err) {
+    await failDiscoveryRun(run.id, err instanceof Error ? err.message : String(err));
+    throw err;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Supported oracles — used by admin UI and API route
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -661,5 +1341,23 @@ export const ORACLE_CONFIGS: OracleConfig[] = [
     supportsChain: false,
     defaultChain: 'offchain',
     rateLimit: 'generous',
+  },
+  {
+    id: 'ag0_sdk',
+    name: 'ag0 SDK',
+    description: 'Multi-chain agent search with filters (MCP tools, A2A skills, x402, feedback)',
+    source: 'ag0_sdk',
+    supportsChain: true,
+    defaultChain: 'all',
+    rateLimit: 'generous',
+  },
+  {
+    id: 'clawplaza',
+    name: 'ClawPlaza / IACP',
+    description: 'ERC-8183 bounty marketplace — scans on-chain jobs for active creative providers',
+    source: 'clawplaza',
+    supportsChain: false,
+    defaultChain: 'base',
+    rateLimit: 'RPC-limited',
   },
 ];

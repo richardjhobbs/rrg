@@ -33,7 +33,7 @@ export default function AgentTrustBadge() {
   // Skeleton while loading
   if (!data) {
     return (
-      <div className="flex items-center gap-1.5 px-3 py-1.5 border border-white/10 text-white/20 text-[10px] font-mono animate-pulse">
+      <div className="flex items-center gap-1.5 px-3 py-1.5 border border-white/10 text-white/40 text-xs font-mono animate-pulse">
         <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
         ERC-8004
       </div>
@@ -46,8 +46,8 @@ export default function AgentTrustBadge() {
       <div className="flex items-center gap-2">
         {/* Status pill */}
         <div
-          className="flex items-center gap-1.5 px-3 py-1.5 border text-[10px] font-mono uppercase tracking-wider cursor-pointer select-none
-                     border-white/20 text-white/60 hover:border-white/40 hover:text-white/90 transition-colors"
+          className="flex items-center gap-1.5 px-3 py-1.5 border text-xs font-mono uppercase tracking-wider cursor-pointer select-none
+                     border-white/20 text-white/70 hover:border-white/40 hover:text-white/90 transition-colors"
           onClick={() => setTip(t => !t)}
           title="What is ERC-8004?"
         >
@@ -57,7 +57,7 @@ export default function AgentTrustBadge() {
             }`}
           />
           ERC-8004
-          <span className="text-white/30 ml-0.5">▾</span>
+          <span className="text-white/50 ml-0.5">▾</span>
         </div>
       </div>
 
@@ -68,10 +68,10 @@ export default function AgentTrustBadge() {
           <div className="fixed inset-0 z-10" onClick={() => setTip(false)} />
 
           {/* Panel */}
-          <div className="fixed sm:absolute right-4 sm:right-0 left-4 sm:left-auto top-auto sm:top-full mt-2 z-20 sm:w-72 border border-white/20 bg-black/95 p-4 text-xs font-mono shadow-xl">
+          <div className="fixed sm:absolute right-4 sm:right-0 left-4 sm:left-auto top-auto sm:top-full mt-2 z-20 sm:w-72 border border-white/20 bg-black/95 p-4 text-sm font-mono shadow-xl">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-white/40 uppercase tracking-widest text-[9px]">ERC-8004 Trustless Agent</span>
-              <button onClick={() => setTip(false)} className="text-white/30 hover:text-white">✕</button>
+              <span className="text-white/60 uppercase tracking-widest text-xs">ERC-8004 Trustless Agent</span>
+              <button onClick={() => setTip(false)} className="text-white/50 hover:text-white">✕</button>
             </div>
 
             {data.registered ? (
@@ -81,7 +81,7 @@ export default function AgentTrustBadge() {
                   <span className="text-emerald-400">Verified on Base mainnet</span>
                 </div>
 
-                <div className="space-y-1.5 text-white/50 mb-4">
+                <div className="space-y-1.5 text-white/60 mb-4">
                   <div className="flex justify-between">
                     <span>Agent ID</span>
                     <span className="text-white/80">#{data.agentId}</span>
@@ -98,7 +98,7 @@ export default function AgentTrustBadge() {
                   </div>
                 </div>
 
-                <p className="text-white/35 leading-relaxed mb-3 text-[10px]">
+                <p className="text-white/50 leading-relaxed mb-3 text-xs">
                   ERC-8004 is an open standard for trustless AI agents. DrHobbs is
                   registered on-chain — any agent can verify its identity and
                   reputation before trading, without needing a human introduction.
@@ -109,7 +109,7 @@ export default function AgentTrustBadge() {
                     href={data.profileUrl!}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-white/50 hover:text-white transition-colors"
+                    className="text-white/60 hover:text-white transition-colors"
                     onClick={() => setTip(false)}
                   >
                     View on 8004scan →
@@ -118,7 +118,7 @@ export default function AgentTrustBadge() {
                     href="https://eips.ethereum.org/EIPS/eip-8004"
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-white/30 hover:text-white/60 transition-colors"
+                    className="text-white/50 hover:text-white/80 transition-colors"
                     onClick={() => setTip(false)}
                   >
                     EIP-8004 ↗
@@ -126,7 +126,7 @@ export default function AgentTrustBadge() {
                 </div>
               </>
             ) : (
-              <div className="text-white/40">
+              <div className="text-white/60">
                 Registry read unavailable. Check back shortly.
               </div>
             )}

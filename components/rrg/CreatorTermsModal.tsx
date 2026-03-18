@@ -19,13 +19,13 @@ export default function CreatorTermsModal({ open, onAccept, onClose }: CreatorTe
       <div className="bg-[#111] border border-white/20 w-full max-w-2xl max-h-[85vh] flex flex-col">
         {/* Header */}
         <div className="px-6 py-4 border-b border-white/10 shrink-0">
-          <h2 className="text-lg font-medium">Creator Terms & Conditions</h2>
-          <p className="text-xs font-mono text-white/40 mt-1">Version {CREATOR_TC_VERSION}</p>
+          <h2 className="text-xl font-medium">Creator Terms & Conditions</h2>
+          <p className="text-sm font-mono text-white/50 mt-1">Version {CREATOR_TC_VERSION}</p>
         </div>
 
         {/* Scrollable T&C text */}
         <div className="flex-1 overflow-y-auto px-6 py-5">
-          <div className="text-sm text-white/60 leading-relaxed whitespace-pre-line">
+          <div className="text-base text-white/70 leading-relaxed whitespace-pre-line">
             {CREATOR_TC_TEXT}
           </div>
         </div>
@@ -39,7 +39,7 @@ export default function CreatorTermsModal({ open, onAccept, onClose }: CreatorTe
               onChange={(e) => setChecked(e.target.checked)}
               className="accent-white mt-1 shrink-0"
             />
-            <span className="text-sm text-white/80">
+            <span className="text-base text-white/80">
               I have read and accept the RRG Creator Terms & Conditions (v{CREATOR_TC_VERSION}).
             </span>
           </label>
@@ -48,14 +48,14 @@ export default function CreatorTermsModal({ open, onAccept, onClose }: CreatorTe
             <button
               onClick={onAccept}
               disabled={!checked}
-              className="px-6 py-2.5 bg-white text-black text-sm font-medium
+              className="px-6 py-2.5 bg-white text-black text-base font-medium
                          hover:bg-white/90 disabled:opacity-30 disabled:cursor-not-allowed transition-all"
             >
               Accept Terms
             </button>
             <button
               onClick={onClose}
-              className="text-sm text-white/30 hover:text-white transition-colors"
+              className="text-base text-white/50 hover:text-white transition-colors"
             >
               Close
             </button>

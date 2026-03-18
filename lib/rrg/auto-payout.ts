@@ -11,8 +11,8 @@
  */
 
 import { db } from '@/lib/rrg/db';
-import { transferUsdc, getDeployerSigner } from '@/lib/rrg/contract';
-import { type SplitResult } from '@/lib/rrg/splits';
+import { transferUsdc, getPlatformSigner } from '@/lib/rrg/contract';
+import { type SplitResult, getBrandPct } from '@/lib/rrg/splits';
 
 export interface AutoPayoutInput {
   purchaseId: string;
@@ -65,6 +65,30 @@ export async function insertDistributionAndPay(
 
   result.distributionId = dist.id;
 
+  // ── 1b. Write audit columns on the purchase record ─────────────────
+  const splitModel = split.splitType === 'brand_product_tiered'
+    ? 'tiered_brand'
+    : split.splitType === 'legacy_70_30'
+    ? 'fixed_legacy'
+    : 'fixed_co_created';
+  const brandPctApplied = split.splitType === 'brand_product_tiered'
+    ? getBrandPct(split.totalUsdc)
+    : split.splitType === 'challenge_35_35_30'
+    ? 35
+    : split.splitType === 'legacy_70_30'
+    ? 0
+    : split.brandUsdc > 0 ? parseFloat((split.brandUsdc / split.totalUsdc * 100).toFixed(2)) : 0;
+
+  await db.from('rrg_purchases')
+    .update({
+      split_creator_usdc:  split.creatorUsdc,
+      split_brand_usdc:    split.brandUsdc,
+      split_platform_usdc: split.platformUsdc,
+      brand_pct_applied:   parseFloat(brandPctApplied.toFixed(2)),
+      split_model:         splitModel,
+    })
+    .eq('id', purchaseId);
+
   // ── 2. Legacy splits: on-chain 70/30, no off-chain payout ───────────
   if (split.splitType === 'legacy_70_30') {
     await db.from('rrg_distributions')
@@ -75,8 +99,8 @@ export async function insertDistributionAndPay(
 
   // ── 3. Execute USDC transfers ───────────────────────────────────────
   try {
-    const signer = getDeployerSigner();
-    let nonce = await signer.getNonce('latest');
+    const signer = getPlatformSigner();
+    let nonce = await signer.getNonce('pending');
     const txHashes: string[] = [];
 
     // Creator payout

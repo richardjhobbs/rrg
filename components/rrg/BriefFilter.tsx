@@ -36,12 +36,12 @@ export default function BriefFilter({
     <select
       value={selected}
       onChange={handleChange}
-      className="bg-transparent border border-white/20 text-white/60 text-xs font-mono
+      className="bg-transparent border border-white/20 text-white/80 text-sm font-mono
                  px-3 py-1.5 rounded-none appearance-none cursor-pointer
                  hover:border-white/40 focus:border-white/50 focus:outline-none
-                 transition-colors"
+                 transition-colors max-w-[200px] truncate"
       style={{
-        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(255,255,255,0.4)' stroke-width='1.5'/%3E%3C/svg%3E")`,
+        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' fill='none'%3E%3Cpath d='M1 1l4 4 4-4' stroke='rgba(255,255,255,0.6)' stroke-width='1.5'/%3E%3C/svg%3E")`,
         backgroundRepeat: 'no-repeat',
         backgroundPosition: 'right 10px center',
         paddingRight: '28px',

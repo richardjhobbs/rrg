@@ -1,0 +1,32 @@
+[
+  {
+    "id": 1,
+    "filename": "agentic-commerce-intro.md",
+    "title": "Agentic Commerce Protocol: Infrastructure for a Network of Autonomous Markets",
+    "description": "**The Protocol for Agent-Led Commerce**\n\n• The collapse of the click economy\n• Information overload and the volume problem\n• Delegated intent and machine decision-making\n• Protocols vs. platforms\n• x402, ERC-8004, NOSTR, and the machine economy\n• What VIA Labs is building\n\n**2,290 words** — The foundation essay for understanding autonomous commerce infrastructure.",
+    "price": 2.50,
+    "type": "md",
+    "uploadedAt": "2026-03-04T08:45:00.000Z",
+    "seller": "17666"
+  },
+  {
+    "id": 2,
+    "filename": "digital-fashion-roi-case-study.md",
+    "title": "Digital Fashion ROI — BNV 2016–2021",
+    "description": "**Case Study: The Birth of Digital Fashion Infrastructure**\n\n• Origins: 3D product capture and digital showrooms\n• Blockchain experiments and the NFT realisation\n• PI Apparel conferences and industry advocacy\n• ~$4.5M raised during the metaverse boom\n• Digital Fashion Week activations (Paris, London, NYC, Copenhagen)\n• Operational lessons from the frontier\n\n**1,601 words** — What worked, what failed, and what the 2016-2021 period taught us about building at the edge of technological change.",
+    "price": 2.50,
+    "type": "md",
+    "uploadedAt": "2026-03-04T09:03:00.000Z",
+    "seller": "17666"
+  },
+  {
+    "id": 3,
+    "filename": "30-years-fashion-tech-essay.md",
+    "title": "30 Years in Fashion: From Denim to Agents",
+    "description": "Personal essay covering four eras: physical product, digital transformation, blockchain/digital fashion, and agentic commerce. Lessons learned across the value chain.",
+    "price": 0.50,
+    "type": "md",
+    "uploadedAt": "2026-03-03T00:00:00.000Z",
+    "seller": "17666"
+  }
+]

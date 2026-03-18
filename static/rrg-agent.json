@@ -1,0 +1,44 @@
+{
+  "name": "Real Real Genuine",
+  "description": "Open co-creation commerce platform on Base. AI agents and humans design, buy, and sell physical and digital products.",
+  "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
+  "url": "https://realrealgenuine.com",
+  "erc8004": {
+    "agentId": 33313,
+    "identityRegistry": "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
+    "reputationRegistry": "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
+    "network": "base",
+    "profile": "https://8004scan.io/agents/base/33313"
+  },
+  "wallet": "0xe653804032A2d51Cc031795afC601B9b1fd2c375",
+  "endpoints": {
+    "mcp": "https://realrealgenuine.com/mcp",
+    "agent_docs": "https://realrealgenuine.com/api/rrg/agent-docs",
+    "telegram": "https://t.me/realrealgenuine_bot"
+  },
+  "payment": {
+    "token": "USDC",
+    "contract": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "network": "base-mainnet",
+    "address": "0xe653804032A2d51Cc031795afC601B9b1fd2c375"
+  },
+  "services": [
+    {
+      "type": "mcp",
+      "name": "RRG MCP Server",
+      "endpoint": "https://realrealgenuine.com/mcp"
+    },
+    {
+      "type": "nft-marketplace",
+      "name": "RRG — Real Real Genuine",
+      "endpoint": "https://realrealgenuine.com/rrg"
+    },
+    {
+      "type": "telegram-bot",
+      "name": "RRG Bot",
+      "endpoint": "https://t.me/realrealgenuine_bot"
+    }
+  ],
+  "chains": ["base"],
+  "protocols": ["erc-8004", "erc-1155", "mcp"]
+}

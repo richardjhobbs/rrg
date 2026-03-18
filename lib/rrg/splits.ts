@@ -9,7 +9,7 @@
  *   legacy_70_30        — pre-multi-brand RRG drops (on-chain 70/30, no off-chain dist)
  *   rrg_challenge_35_65 — RRG-as-brand challenge (35% creator / 65% RRG)
  *   challenge_35_35_30  — external brand challenge (35% creator / 35% brand / 30% platform)
- *   brand_product_70_30 — brand self-listed product (70% brand / 30% platform)
+ *   brand_product_tiered — brand self-listed product (tiered sliding split)
  */
 
 export const RRG_BRAND_ID = '00000000-0000-4000-8000-000000000001';
@@ -18,7 +18,7 @@ export type SplitType =
   | 'legacy_70_30'
   | 'rrg_challenge_35_65'
   | 'challenge_35_35_30'
-  | 'brand_product_70_30';
+  | 'brand_product_tiered';
 
 export interface SplitInput {
   totalUsdc: number;
@@ -43,7 +43,14 @@ export interface SplitResult {
 }
 
 const PLATFORM_WALLET = process.env.NEXT_PUBLIC_PLATFORM_WALLET
-  ?? '0xe653804032A2d51Cc031795afC601B9b1fd2c375';
+  ?? '0xbfd71eA27FFc99747dA2873372f84346d9A8b7ed';
+
+/**
+ * Round to 6 decimal places (USDC standard precision).
+ */
+function round6(n: number): number {
+  return parseFloat(n.toFixed(6));
+}
 
 /**
  * Round to 2 decimal places using banker's rounding to avoid penny drifts.
@@ -51,6 +58,53 @@ const PLATFORM_WALLET = process.env.NEXT_PUBLIC_PLATFORM_WALLET
  */
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
+}
+
+// ── Tiered brand split (brand-created drops only) ──────────────────────
+
+/**
+ * Returns the brand percentage for a brand-created drop based on sale price.
+ * Scales continuously across tiers — not step jumps.
+ *
+ * $0–$9.99:   70%  (fixed)
+ * $10–$50:    70% → 85%  (linear)
+ * $50–$100:   85% → 95%  (linear)
+ * $100–$200:  95% → 97.5% (linear)
+ * $200+:      97.5% (fixed cap)
+ */
+export function getBrandPct(priceUsdc: number): number {
+  if (priceUsdc < 10)  return 70;
+  if (priceUsdc <= 50)  return 70 + (priceUsdc - 10) / 40 * 15;
+  if (priceUsdc <= 100) return 85 + (priceUsdc - 50) / 50 * 10;
+  if (priceUsdc <= 200) return 95 + (priceUsdc - 100) / 100 * 2.5;
+  return 97.5;
+}
+
+/**
+ * Compute the revenue split for any drop type.
+ * For brand_created drops, uses the tiered sliding scale.
+ * For co-created drops, uses the fixed 35/35/30 split.
+ */
+export function computeSplit(
+  priceUsdc: number,
+  dropType: 'brand_created' | 'co_created',
+): { creator: number; brand: number; platform: number } {
+  if (dropType !== 'brand_created') {
+    // Co-created drop — fixed split
+    return {
+      creator:  round6(priceUsdc * 0.35),
+      brand:    round6(priceUsdc * 0.35),
+      platform: round6(priceUsdc * 0.30),
+    };
+  }
+  // Brand-created drop — tiered split
+  const brandPct    = getBrandPct(priceUsdc);
+  const platformPct = 100 - brandPct;
+  return {
+    creator:  0,
+    brand:    round6(priceUsdc * brandPct / 100),
+    platform: round6(priceUsdc * platformPct / 100),
+  };
 }
 
 export function calculateSplit(input: SplitInput): SplitResult {
@@ -72,16 +126,15 @@ export function calculateSplit(input: SplitInput): SplitResult {
     };
   }
 
-  // ── Brand self-listed product: 70% brand / 30% platform ──
+  // ── Brand self-listed product: tiered sliding split ──
   if (isBrandProduct) {
-    const brandUsdc    = round2(totalUsdc * 0.70);
-    const platformUsdc = round2(totalUsdc - brandUsdc);
+    const tiered       = computeSplit(totalUsdc, 'brand_created');
     return {
-      splitType:      'brand_product_70_30',
+      splitType:      'brand_product_tiered',
       totalUsdc,
       creatorUsdc:    0,
-      brandUsdc,
-      platformUsdc,
+      brandUsdc:      round2(tiered.brand),
+      platformUsdc:   round2(tiered.platform),
       creatorWallet,
       brandWallet:    brandWallet ?? creatorWallet,
       onChainCreator: PLATFORM_WALLET, // 100% to platform, distributed off-chain

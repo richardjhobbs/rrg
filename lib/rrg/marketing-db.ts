@@ -14,7 +14,7 @@ export type CandidateTier = 'hot' | 'warm' | 'cold' | 'disqualified';
 export type DiscoverySource =
   | 'chain_scan' | 'mcp_log' | 'manual' | 'referral' | 'registry'
   | 'mcp_registry' | 'olas_registry' | 'a2a_crawl' | 'astrasync'
-  | 'rnwy' | 'agentscan' | 'virtuals';
+  | 'rnwy' | 'agentscan' | 'virtuals' | 'ag0_sdk' | 'clawplaza';
 export type OutreachChannel = 'x402_ping' | 'a2a' | 'mcp' | 'email' | 'manual';
 export type OutreachStatus = 'pending' | 'contacted' | 'engaged' | 'converted' | 'declined' | 'unresponsive';
 export type MessageType = 'intro' | 'follow_up' | 'offer' | 'reminder';
@@ -219,9 +219,9 @@ export async function getCandidatesForOutreach(
 
 export async function upsertCandidate(
   candidate: Partial<MktCandidate> & { wallet_address?: string; erc8004_id?: number },
-): Promise<MktCandidate | null> {
+): Promise<{ data: MktCandidate | null; error: string | null }> {
   const now = new Date().toISOString();
-  const { data } = await db
+  const { data, error } = await db
     .from('mkt_candidates')
     .upsert(
       {
@@ -233,7 +233,10 @@ export async function upsertCandidate(
     )
     .select()
     .single();
-  return data ?? null;
+  return {
+    data: data ?? null,
+    error: error ? `upsert failed: ${error.message} (code: ${error.code})` : null,
+  };
 }
 
 export async function getCandidatesPaginated(
@@ -313,6 +316,48 @@ export async function getRecentDiscoveryRuns(limit = 10): Promise<MktDiscoveryRu
     .order('created_at', { ascending: false })
     .limit(limit);
   return data ?? [];
+}
+
+/**
+ * Prune old discovery runs — keep only the most recent N per source.
+ * Prevents unbounded table growth.
+ */
+export async function pruneDiscoveryRuns(keepPerSource = 50): Promise<number> {
+  // Get all distinct sources
+  const { data: sources } = await db
+    .from('mkt_discovery_runs')
+    .select('source')
+    .limit(100);
+
+  if (!sources) return 0;
+
+  const uniqueSources = [...new Set(sources.map(s => s.source))];
+  let totalDeleted = 0;
+
+  for (const source of uniqueSources) {
+    // Get the Nth newest run for this source (the cutoff)
+    const { data: cutoffRuns } = await db
+      .from('mkt_discovery_runs')
+      .select('created_at')
+      .eq('source', source)
+      .order('created_at', { ascending: false })
+      .range(keepPerSource - 1, keepPerSource - 1);
+
+    if (!cutoffRuns || cutoffRuns.length === 0) continue;
+
+    const cutoffDate = cutoffRuns[0].created_at;
+
+    // Delete runs older than the cutoff
+    const { count } = await db
+      .from('mkt_discovery_runs')
+      .delete({ count: 'exact' })
+      .eq('source', source)
+      .lt('created_at', cutoffDate);
+
+    totalDeleted += count ?? 0;
+  }
+
+  return totalDeleted;
 }
 
 // ── Outreach helpers ───────────────────────────────────────────────────────
@@ -470,20 +515,33 @@ export async function getMarketingDashboardStats(): Promise<{
   totalCommissionUsdc: number;
   pendingCommissionUsdc: number;
 }> {
-  // Candidates by tier
-  const { data: candidates } = await db
+  // Total candidates (exact count, no row limit)
+  const { count: totalCandidates } = await db
     .from('mkt_candidates')
-    .select('tier, outreach_status');
+    .select('id', { count: 'exact', head: true });
 
+  // Count per tier using exact counts (avoids Supabase 1000-row cap)
+  const tiers: CandidateTier[] = ['hot', 'warm', 'cold', 'disqualified'];
   const byTier: Record<CandidateTier, number> = { hot: 0, warm: 0, cold: 0, disqualified: 0 };
+  for (const tier of tiers) {
+    const { count } = await db
+      .from('mkt_candidates')
+      .select('id', { count: 'exact', head: true })
+      .eq('tier', tier);
+    byTier[tier] = count ?? 0;
+  }
+
+  // Count per outreach status
+  const statuses: OutreachStatus[] = ['pending', 'contacted', 'engaged', 'converted', 'declined', 'unresponsive'];
   const byOutreachStatus: Record<OutreachStatus, number> = {
     pending: 0, contacted: 0, engaged: 0, converted: 0, declined: 0, unresponsive: 0,
   };
-
-  for (const c of candidates ?? []) {
-    byTier[c.tier as CandidateTier] = (byTier[c.tier as CandidateTier] ?? 0) + 1;
-    byOutreachStatus[c.outreach_status as OutreachStatus] =
-      (byOutreachStatus[c.outreach_status as OutreachStatus] ?? 0) + 1;
+  for (const status of statuses) {
+    const { count } = await db
+      .from('mkt_candidates')
+      .select('id', { count: 'exact', head: true })
+      .eq('outreach_status', status);
+    byOutreachStatus[status] = count ?? 0;
   }
 
   // Outreach count
@@ -512,7 +570,7 @@ export async function getMarketingDashboardStats(): Promise<{
   }
 
   return {
-    totalCandidates: (candidates ?? []).length,
+    totalCandidates: totalCandidates ?? 0,
     byTier,
     byOutreachStatus,
     totalOutreachSent: totalOutreachSent ?? 0,

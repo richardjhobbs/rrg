@@ -12,8 +12,11 @@ import { isAdminFromCookies } from '@/lib/rrg/auth';
 import {
   scanRnwy,
   scanMcpRegistry,
+  scanAg0,
+  scanClawPlaza,
   ORACLE_CONFIGS,
 } from '@/lib/rrg/marketing-oracles';
+import { pruneDiscoveryRuns } from '@/lib/rrg/marketing-db';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,9 +59,33 @@ export async function POST(req: Request) {
         break;
       }
 
+      case 'ag0_sdk': {
+        const chain = body.chain ?? 'all';
+        const limit = Math.min(body.limit ?? 100, 500);
+        const filters: Record<string, unknown> = {};
+        if (body.name) filters.name = body.name;
+        if (body.active !== undefined) filters.active = body.active;
+        if (body.mcp_tools) filters.mcpTools = body.mcp_tools;
+        if (body.a2a_skills) filters.a2aSkills = body.a2a_skills;
+        if (body.x402support !== undefined) filters.x402support = body.x402support;
+        if (body.min_feedback) filters.minFeedback = body.min_feedback;
+        result = await scanAg0(chain, limit, Object.keys(filters).length > 0 ? filters as never : undefined);
+        break;
+      }
+
+      case 'clawplaza': {
+        const maxJobs = Math.min(body.max_jobs ?? 200, 1000);
+        const startFromEnd = body.start_from_end !== false;
+        result = await scanClawPlaza(maxJobs, startFromEnd);
+        break;
+      }
+
       default:
         return NextResponse.json({ error: `Oracle "${oracle}" not yet implemented` }, { status: 400 });
     }
+
+    // Auto-prune old discovery runs (keep 50 per source)
+    const pruned = await pruneDiscoveryRuns(50).catch(() => 0);
 
     return NextResponse.json({
       ok: true,
@@ -70,6 +97,7 @@ export async function POST(req: Request) {
       updated_candidates: result.updatedCandidates,
       errors: result.errors.length,
       error_details: result.errors.slice(0, 10),
+      pruned_runs: pruned,
     });
   } catch (err) {
     console.error('[marketing/oracles] scan failed:', err);

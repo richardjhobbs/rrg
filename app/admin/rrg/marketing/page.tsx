@@ -659,6 +659,14 @@ function OraclesTab() {
   const [mcpSearch, setMcpSearch] = useState('image art creative design generate');
   const [mcpLimit, setMcpLimit] = useState(50);
 
+  // ag0 controls
+  const [ag0Chain, setAg0Chain] = useState('all');
+  const [ag0Limit, setAg0Limit] = useState(100);
+  const [ag0Name, setAg0Name] = useState('');
+
+  // ClawPlaza controls
+  const [clawMaxJobs, setClawMaxJobs] = useState(200);
+
   useEffect(() => {
     fetch('/api/rrg/admin/marketing/oracles')
       .then((r) => r.json())
@@ -680,6 +688,12 @@ function OraclesTab() {
       } else if (oracleId === 'mcp_registry') {
         body.search = mcpSearch;
         body.limit = mcpLimit;
+      } else if (oracleId === 'ag0_sdk') {
+        body.chain = ag0Chain;
+        body.limit = ag0Limit;
+        if (ag0Name.trim()) body.name = ag0Name.trim();
+      } else if (oracleId === 'clawplaza') {
+        body.max_jobs = clawMaxJobs;
       }
 
       const res = await fetch('/api/rrg/admin/marketing/oracles', {
@@ -803,6 +817,88 @@ function OraclesTab() {
             className="px-4 py-1.5 border border-cyan-500/40 text-xs font-mono uppercase text-cyan-400 hover:bg-cyan-500/10 disabled:opacity-30 transition-colors cursor-pointer disabled:cursor-default"
           >
             {scanning ? 'Scanning…' : 'Scan MCP'}
+          </button>
+        </div>
+      </section>
+
+      {/* ag0 Subgraph */}
+      <section className="border border-white/10 p-4 space-y-3">
+        <div>
+          <h3 className="text-sm font-mono text-white">ag0 Subgraph</h3>
+          <p className="text-xs text-white/40 font-mono mt-1">
+            Multi-chain ERC-8004 agent search via The Graph. Filters by name, active status, MCP tools, A2A skills.
+          </p>
+        </div>
+        <div className="flex gap-3 items-end flex-wrap">
+          <div>
+            <label className="block text-[10px] font-mono text-white/30 uppercase mb-1">Chain</label>
+            <select
+              value={ag0Chain}
+              onChange={(e) => setAg0Chain(e.target.value)}
+              className="bg-black border border-white/20 text-white text-xs font-mono px-2 py-1"
+            >
+              <option value="all">All Chains</option>
+              <option value="base">Base</option>
+              <option value="ethereum">Ethereum</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-[10px] font-mono text-white/30 uppercase mb-1">Limit</label>
+            <input
+              type="number"
+              value={ag0Limit}
+              onChange={(e) => setAg0Limit(parseInt(e.target.value) || 100)}
+              min={10}
+              max={500}
+              className="bg-black border border-white/20 text-white text-xs font-mono px-2 py-1 w-20"
+            />
+          </div>
+          <div>
+            <label className="block text-[10px] font-mono text-white/30 uppercase mb-1">Name Filter</label>
+            <input
+              type="text"
+              value={ag0Name}
+              onChange={(e) => setAg0Name(e.target.value)}
+              placeholder="optional"
+              className="bg-black border border-white/20 text-white text-xs font-mono px-2 py-1 w-32"
+            />
+          </div>
+          <button
+            onClick={() => runOracle('ag0_sdk')}
+            disabled={scanning}
+            className="px-4 py-1.5 border border-green-500/40 text-xs font-mono uppercase text-green-400 hover:bg-green-500/10 disabled:opacity-30 transition-colors cursor-pointer disabled:cursor-default"
+          >
+            {scanning ? 'Scanning…' : 'Scan ag0'}
+          </button>
+        </div>
+      </section>
+
+      {/* ClawPlaza / IACP */}
+      <section className="border border-white/10 p-4 space-y-3">
+        <div>
+          <h3 className="text-sm font-mono text-white">ClawPlaza / IACP</h3>
+          <p className="text-xs text-white/40 font-mono mt-1">
+            ERC-8183 bounty marketplace on Base. Scans on-chain jobs for active creative providers and clients.
+          </p>
+        </div>
+        <div className="flex gap-3 items-end flex-wrap">
+          <div>
+            <label className="block text-[10px] font-mono text-white/30 uppercase mb-1">Max Jobs</label>
+            <input
+              type="number"
+              value={clawMaxJobs}
+              onChange={(e) => setClawMaxJobs(parseInt(e.target.value) || 200)}
+              min={10}
+              max={1000}
+              className="bg-black border border-white/20 text-white text-xs font-mono px-2 py-1 w-20"
+            />
+          </div>
+          <button
+            onClick={() => runOracle('clawplaza')}
+            disabled={scanning}
+            className="px-4 py-1.5 border border-amber-500/40 text-xs font-mono uppercase text-amber-400 hover:bg-amber-500/10 disabled:opacity-30 transition-colors cursor-pointer disabled:cursor-default"
+          >
+            {scanning ? 'Scanning…' : 'Scan ClawPlaza'}
           </button>
         </div>
       </section>

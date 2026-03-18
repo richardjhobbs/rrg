@@ -17,6 +17,7 @@ export interface CreatorProfile {
   userId: string;
   walletAddress: string;
   displayName: string | null;
+  avatarUrl: string | null;
   creatorType: 'human' | 'agent';
   role: string;
   email: string;
@@ -42,11 +43,21 @@ export async function getCreatorProfile(userId: string): Promise<CreatorProfile 
 
   if (error || !data) return null;
 
+  // Resolve avatar storage path → signed URL
+  let avatarUrl: string | null = data.avatar_url ?? null;
+  if (avatarUrl && !avatarUrl.startsWith('http')) {
+    const { data: signed } = await db.storage
+      .from('rrg-submissions')
+      .createSignedUrl(avatarUrl, 7 * 24 * 60 * 60); // 7 days
+    avatarUrl = signed?.signedUrl ?? null;
+  }
+
   return {
     id:            data.id,
     userId:        data.user_id,
     walletAddress: data.wallet_address,
     displayName:   data.display_name,
+    avatarUrl,
     creatorType:   data.creator_type,
     role:          data.role,
     email:         '', // filled by caller from auth user

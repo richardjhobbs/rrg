@@ -196,7 +196,7 @@ This is a key section. Please read it carefully.
 
 5.1. Revenue from sales of approved works on the RRG platform is split as follows: 30% RRG Platform, 35% Brand, 35% Creator.
 
-5.2. For products you create and list directly (not via a creator brief), the split is 70% Brand / 30% RRG Platform.
+5.2. For products you create and list directly (not via a creator brief), RRG uses a sliding platform fee based on sale price: 30% platform fee on sales under $10; sliding to 15% at $50; 5% at $100; and 2.5% on sales above $200. Fees are calculated continuously on a sliding scale within each band, not as step jumps. All splits are executed automatically on-chain at point of sale.
 
 5.3. All payments are processed via smart contract and paid directly to the wallet address registered to your brand account. It is your responsibility to ensure your wallet address is correct and accessible.
 

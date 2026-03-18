@@ -61,6 +61,9 @@ export async function POST(
     const contactEmail  = formData.get('contact_email') as string | null;
     const jpeg          = formData.get('jpeg') as File | null;
 
+    // Voucher template
+    const voucherTemplateId      = formData.get('voucher_template_id') as string | null;
+
     // Physical product fields
     const isPhysicalProduct      = formData.get('is_physical_product') === '1';
     const physicalDescription    = formData.get('physical_description') as string | null;
@@ -149,6 +152,20 @@ export async function POST(
 
       if (physicalImageFiles.length > 4) {
         return NextResponse.json({ error: 'Maximum 4 physical product images' }, { status: 400 });
+      }
+    }
+
+    // Validate voucher template belongs to this brand
+    if (voucherTemplateId) {
+      const { data: vt } = await db
+        .from('rrg_voucher_templates')
+        .select('id')
+        .eq('id', voucherTemplateId)
+        .eq('brand_id', brandId)
+        .eq('status', 'active')
+        .single();
+      if (!vt) {
+        return NextResponse.json({ error: 'Invalid or inactive voucher template' }, { status: 400 });
       }
     }
 
@@ -260,6 +277,9 @@ export async function POST(
         refund_commitment:         isPhysicalProduct ? refundCommitment : false,
         collection_in_person:      isPhysicalProduct ? collectionInPerson?.trim() || null : null,
         trust_behavior_accepted:   isPhysicalProduct ? trustBehaviorAccepted : false,
+        // Voucher
+        has_voucher:               !!voucherTemplateId,
+        voucher_template_id:       voucherTemplateId || null,
       });
 
     if (insertError) throw insertError;
