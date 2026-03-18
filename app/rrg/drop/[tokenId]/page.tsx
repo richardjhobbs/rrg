@@ -142,7 +142,7 @@ export default async function DropPage({ params }: Props) {
         href="/rrg"
         className="text-sm font-mono text-white/50 hover:text-white transition-colors mb-10 inline-block"
       >
-        ← Gallery
+        ← Store
       </Link>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start">

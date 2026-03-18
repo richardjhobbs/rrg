@@ -89,10 +89,11 @@ export async function POST(req: NextRequest) {
     try {
       const testTxHash = '0x' + '0'.repeat(62) + 'test'; // dummy hash for test
       const signalHash = await postReputationSignal({
-        buyerWallet: '0x0000000000000000000000000000000000000001',
-        priceUsdc:   '1.00',
-        tokenId:     1,
-        txHash:      testTxHash,
+        buyerAgentId: DRHOBBS_AGENT_ID,
+        buyerWallet:  '0x0000000000000000000000000000000000000001',
+        priceUsdc:    '1.00',
+        tokenId:      1,
+        txHash:       testTxHash,
       });
       results.liveSignal = { ok: true, signalTxHash: signalHash };
     } catch (err) {

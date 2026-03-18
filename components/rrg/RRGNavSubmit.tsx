@@ -11,7 +11,7 @@ export default function RRGNavSubmit() {
 
   return (
     <Link href={href} className="hover:text-white transition-colors">
-      Submit
+      Create
     </Link>
   );
 }

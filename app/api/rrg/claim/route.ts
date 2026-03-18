@@ -6,7 +6,7 @@ import { getSignedUrl } from '@/lib/rrg/storage';
 import { uploadToIpfsInBackground } from '@/lib/rrg/ipfs';
 import { getRRGContract } from '@/lib/rrg/contract';
 import { autopostSale } from '@/lib/rrg/autopost';
-import { postReputationSignal, postBuyerReputationSignal, fireVoucherSignal, DRHOBBS_AGENT_ID } from '@/lib/rrg/erc8004';
+import { postReputationSignal, postBuyerReputationSignal, fireVoucherSignal, lookupAgentIdByWallet } from '@/lib/rrg/erc8004';
 import { randomBytes } from 'crypto';
 import { calculateSplit } from '@/lib/rrg/splits';
 import { insertDistributionAndPay } from '@/lib/rrg/auto-payout';
@@ -270,28 +270,30 @@ export async function POST(req: NextRequest) {
 
     // Marketing attribution moved below — after split calculation (uses platformUsdc)
 
-    // ── ERC-8004 reputation signal (sequential — after mint to avoid nonce collision) ─
+    // ── ERC-8004 reputation signals (sequential — after mint to avoid nonce collision) ─
     // Both operatorMint and giveFeedback use the same deployer wallet signer.
     // Must be sequential to prevent nonce race conditions.
+    // Signal: platform (deployer) gives positive feedback ABOUT the buyer agent.
+    // Self-feedback (agentId = platform's own agentId) is blocked by the contract.
     let reputationTxHash: string | null = null;
     try {
-      reputationTxHash = await postReputationSignal({
-        buyerWallet: buyerWallet.toLowerCase(),
-        priceUsdc:   submission.price_usdc ?? '0',
-        tokenId,
-        txHash,
-      });
-      console.log(`[/api/rrg/claim] ERC-8004 seller signal posted: ${reputationTxHash?.slice(0, 10)}…`);
-
-      // ── Buyer agent signal — if buyer is a known ERC-8004 agent ──────────
-      // Auto-detect DrHobbs by wallet; or accept explicit buyerAgentId from request body.
-      const DRHOBBS_WALLET = '0xe653804032a2d51cc031795afc601b9b1fd2c375';
+      // Resolve buyer's ERC-8004 agentId — from request body, or by registry lookup
       const resolvedBuyerAgentId: bigint | null =
         buyerAgentId ? BigInt(buyerAgentId)
-        : buyerWallet.toLowerCase() === DRHOBBS_WALLET ? DRHOBBS_AGENT_ID
-        : null;
+        : await lookupAgentIdByWallet(buyerWallet.toLowerCase());
 
       if (resolvedBuyerAgentId) {
+        // Signal 1: platform attests buyer completed a verified purchase (tag: purchase/rrg)
+        reputationTxHash = await postReputationSignal({
+          buyerAgentId: resolvedBuyerAgentId,
+          buyerWallet:  buyerWallet.toLowerCase(),
+          priceUsdc:    submission.price_usdc ?? '0',
+          tokenId,
+          txHash,
+        });
+        console.log(`[/api/rrg/claim] ERC-8004 platform→buyer signal posted (agent #${resolvedBuyerAgentId}): ${reputationTxHash?.slice(0, 10)}…`);
+
+        // Signal 2: buyer agent reputation signal (tag: purchase/buyer)
         const buyerSignalHash = await postBuyerReputationSignal({
           buyerAgentId: resolvedBuyerAgentId,
           buyerWallet:  buyerWallet.toLowerCase(),
@@ -300,6 +302,8 @@ export async function POST(req: NextRequest) {
           txHash,
         });
         console.log(`[/api/rrg/claim] ERC-8004 buyer signal posted (agent #${resolvedBuyerAgentId}): ${buyerSignalHash.slice(0, 10)}…`);
+      } else {
+        console.log('[/api/rrg/claim] Buyer has no ERC-8004 registration — skipping reputation signals');
       }
     } catch (repErr) {
       // Non-fatal — purchase + mint still succeeded

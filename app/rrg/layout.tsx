@@ -20,7 +20,7 @@ export default function RRGLayout({ children }: { children: React.ReactNode }) {
         </Link>
         <nav className="flex gap-6 items-center text-base text-white/80">
           <Link href="/rrg" className="hover:text-white transition-colors">
-            Gallery
+            Store
           </Link>
           <RRGNavSubmit />
           <LoginButton />

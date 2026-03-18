@@ -34,10 +34,10 @@ export default async function BrandPublicLayout({ children, params }: Props) {
         </Link>
         <nav className="flex gap-6 text-base text-white/80">
           <Link href={`/brand/${slug}`} className="hover:text-white transition-colors">
-            Gallery
+            Store
           </Link>
           <Link href={`/brand/${slug}/submit`} className="hover:text-white transition-colors">
-            Submit
+            Create
           </Link>
           <Link href="/rrg" className="hover:text-white transition-colors">
             Home

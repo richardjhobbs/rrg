@@ -583,7 +583,7 @@ function DashboardPage({
               href="/rrg"
               className="text-sm font-mono text-white/50 hover:text-white/80 transition-colors"
             >
-              Gallery
+              Store
             </a>
             <button
               onClick={handleLogout}

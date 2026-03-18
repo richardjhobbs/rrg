@@ -191,20 +191,20 @@ export default function ReferralPartnerTab({ wallet }: { wallet: string }) {
 
         <div>
           <p className="text-sm font-mono text-white/50 mb-2">Generate Links</p>
-          {/* Gallery link */}
+          {/* Store link */}
           <div className="flex items-center gap-2 mb-2">
-            <span className="text-sm text-white/60 w-24 shrink-0">Gallery:</span>
+            <span className="text-sm text-white/60 w-24 shrink-0">Store:</span>
             <code className="text-sm font-mono text-white/70 truncate flex-1">
               {linkTemplate.replace('/drop/{tokenId}', '')}
             </code>
             <button
               onClick={() => copyLink(
                 linkTemplate.replace('/drop/{tokenId}', ''),
-                'gallery',
+                'store',
               )}
               className="text-sm font-mono text-white/50 hover:text-white transition-colors shrink-0"
             >
-              {copied === 'gallery' ? 'Copied!' : 'Copy'}
+              {copied === 'store' ? 'Copied!' : 'Copy'}
             </button>
           </div>
           {/* Per-drop links */}

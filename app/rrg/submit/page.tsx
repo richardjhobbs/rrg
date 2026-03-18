@@ -28,7 +28,7 @@ export default async function BriefSelectionPage() {
             href="/rrg"
             className="mt-6 inline-block text-white/60 hover:text-white transition-colors"
           >
-            &larr; Back to Gallery
+            &larr; Back to Store
           </Link>
         </div>
       ) : (

@@ -35,6 +35,8 @@ const IDENTITY_ABI = [
   'function tokenURI(uint256 tokenId) external view returns (string)',
   'function setAgentURI(uint256 agentId, string calldata newURI) external',
   'function ownerOf(uint256 tokenId) external view returns (address)',
+  'function balanceOf(address owner) external view returns (uint256)',
+  'function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256)',
 ] as const;
 
 // ABI confirmed from deployed contract bytecode (EIP-1967 proxy impl 0x16e0fa7f...):
@@ -83,29 +85,48 @@ export async function updateAgentUri(
   return receipt!.hash;
 }
 
+// ── Identity lookup ───────────────────────────────────────────────────────
+
+/**
+ * Look up the ERC-8004 agentId registered to a given wallet address.
+ * Returns null if the wallet has no ERC-8004 registration.
+ */
+export async function lookupAgentIdByWallet(wallet: string): Promise<bigint | null> {
+  try {
+    const provider = getBaseMainnetProvider();
+    const contract = new ethers.Contract(IDENTITY_REGISTRY_ADDR, IDENTITY_ABI, provider);
+    const balance = await (contract.balanceOf as (owner: string) => Promise<bigint>)(wallet);
+    if (balance === 0n) return null;
+    const agentId = await (contract.tokenOfOwnerByIndex as (owner: string, index: bigint) => Promise<bigint>)(wallet, 0n);
+    return agentId;
+  } catch {
+    return null;
+  }
+}
+
 // ── Reputation Registry ───────────────────────────────────────────────────
 
 export interface ReputationSignalParams {
-  agentId?:    bigint;   // defaults to DRHOBBS_AGENT_ID
-  buyerWallet: string;   // logged in feedbackURI for traceability
-  priceUsdc:   string;   // e.g. "1.00"
-  tokenId:     number;   // RRG drop token ID → feedbackURI links to drop page
-  txHash:      string;   // purchase tx hash → becomes feedbackHash
+  buyerAgentId: bigint;  // The buyer's ERC-8004 agent ID — who the signal is ABOUT
+  buyerWallet:  string;  // logged in feedbackURI for traceability
+  priceUsdc:    string;  // e.g. "1.00"
+  tokenId:      number;  // RRG drop token ID → feedbackURI links to drop page
+  txHash:       string;  // purchase tx hash → becomes feedbackHash
 }
 
 /**
- * Post a verified-purchase reputation signal to the ERC-8004 Reputation Registry
- * on Base mainnet. Called fire-and-forget after a confirmed RRG sale.
+ * Post a verified-purchase reputation signal to the ERC-8004 Reputation Registry.
+ * The RRG PLATFORM (agent #33313) attests that the BUYER made a verified purchase.
+ * Signal: giveFeedback(buyerAgentId, ...) — about the BUYER, signed by DEPLOYER.
  *
- * NOTE: msg.sender here is the platform wallet, which is also the registered
- * agentWallet for DrHobbs. This means the platform is attesting to the
- * transaction on behalf of the marketplace rather than the buyer submitting
- * direct feedback. The feedbackHash ties the signal to the on-chain purchase tx.
+ * IMPORTANT: The DEPLOYER wallet owns agent #33313. The contract blocks self-feedback
+ * (giveFeedback where caller = owner of agentId). So this MUST use the BUYER's agentId,
+ * not the platform's own agentId. The buyer's agentId is resolved before calling this.
  *
  * Returns the tx hash of the reputation signal.
  */
 export async function postReputationSignal(p: ReputationSignalParams): Promise<string> {
-  const agentId = p.agentId ?? (RRG_AGENT_ID > 0n ? RRG_AGENT_ID : DRHOBBS_AGENT_ID);
+  const agentId = p.buyerAgentId;
   const signer  = getPlatformSigner();
   const contract = new ethers.Contract(REPUTATION_REGISTRY_ADDR, REPUTATION_ABI, signer);
 
@@ -272,12 +293,19 @@ export async function postBuyerReputationSignal(p: BuyerReputationSignalParams):
 
 /**
  * Non-blocking wrapper — call after a confirmed purchase.
- * Posts a reputation signal to the ERC-8004 Reputation Registry on Base mainnet.
+ * Looks up buyerAgentId from the Identity Registry, then posts both
+ * the platform→buyer reputation signal and the buyer signal.
+ * Skips gracefully if buyer has no ERC-8004 registration.
  */
 export function fireReputationSignal(
-  params: Omit<ReputationSignalParams, 'agentId'>,
+  params: Omit<ReputationSignalParams, 'buyerAgentId'>,
 ): void {
-  postReputationSignal(params).then((hash) => {
+  lookupAgentIdByWallet(params.buyerWallet).then(async (buyerAgentId) => {
+    if (!buyerAgentId) {
+      console.log('[erc8004] buyer has no ERC-8004 registration — skipping reputation signal');
+      return;
+    }
+    const hash = await postReputationSignal({ ...params, buyerAgentId });
     console.log('[erc8004] reputation signal posted:', hash);
   }).catch((err) => {
     console.error('[erc8004] reputation signal failed:', err);
