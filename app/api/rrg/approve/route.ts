@@ -27,8 +27,8 @@ export async function POST(req: NextRequest) {
     if (!editionSize || editionSize < 1 || editionSize > 50) {
       return NextResponse.json({ error: 'edition_size must be 1–50' }, { status: 400 });
     }
-    if (!priceUsdc || priceUsdc < 0.5 || priceUsdc > 500) {
-      return NextResponse.json({ error: 'price_usdc must be 0.50–500.00' }, { status: 400 });
+    if (!priceUsdc || priceUsdc < 0.1 || priceUsdc > 500) {
+      return NextResponse.json({ error: 'price_usdc must be 0.10–500.00' }, { status: 400 });
     }
 
     const submission = await getSubmissionById(submissionId);

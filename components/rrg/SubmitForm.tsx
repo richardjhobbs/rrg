@@ -201,8 +201,8 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
             </label>
             <input
               type="number"
-              min={0.5}
-              step={0.5}
+              min={0.1}
+              step={0.01}
               placeholder="e.g. 15"
               value={form.suggested_price_usdc}
               onChange={(e) => setForm({ ...form, suggested_price_usdc: e.target.value })}

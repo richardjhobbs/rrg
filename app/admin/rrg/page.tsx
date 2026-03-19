@@ -692,7 +692,7 @@ function SubmissionsTab() {
                   <div>
                     <label className="text-sm font-mono text-white/60 block mb-1">Price USDC</label>
                     <input
-                      type="number" required min={0.5} max={500} step={0.5}
+                      type="number" required min={0.1} max={500} step={0.01}
                       value={approveForm.price_usdc}
                       onChange={(e) => setApproveForm({ ...approveForm, price_usdc: e.target.value })}
                       className="w-24 bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none"
@@ -953,7 +953,7 @@ function DropsTab() {
                     <div>
                       <label className="text-sm font-mono text-white/60 block mb-1">Price USDC</label>
                       <input
-                        type="number" required min={0.5} max={500} step={0.5}
+                        type="number" required min={0.1} max={500} step={0.01}
                         value={editForm.price_usdc}
                         onChange={(e) => setEditForm({ ...editForm, price_usdc: e.target.value })}
                         className="w-full bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none"
