@@ -5,6 +5,7 @@ import { getRRGContract, toUsdc6dp } from '@/lib/rrg/contract';
 import { sendApprovalNotification } from '@/lib/rrg/email';
 import { getSignedUrl } from '@/lib/rrg/storage';
 import { autopostApproval } from '@/lib/rrg/autopost';
+import { sendInstagramNotification } from '@/lib/rrg/instagram';
 import { calculateSplit } from '@/lib/rrg/splits';
 
 export const dynamic = 'force-dynamic';
@@ -104,12 +105,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── Autopost new listing (non-blocking) ─────────────────────────────
+    // ── Autopost + Instagram notify (non-blocking) ───────────────────────
     getCurrentBrief().then(async (brief) => {
       const imageUrl = submission.jpeg_storage_path
         ? await getSignedUrl(submission.jpeg_storage_path, 300).catch(() => null)
         : null;
-      return autopostApproval({
+
+      await autopostApproval({
         title:       submission.title,
         tokenId,
         editionSize,
@@ -119,6 +121,18 @@ export async function POST(req: NextRequest) {
         briefTitle:  brief?.title ?? null,
         imageUrl,
       });
+
+      // Instagram notification email
+      sendInstagramNotification({
+        trigger:       'new_drop',
+        title:         submission.title,
+        tokenId,
+        creatorHandle: submission.creator_handle ?? null,
+        creatorType:   (submission.creator_type as 'human' | 'agent') ?? 'human',
+        briefName:     brief?.title ?? null,
+        brandName:     brand?.name ?? null,
+        imageUrl,
+      }).catch((err) => console.error('[approve] instagram notify failed:', err));
     }).catch((err) => console.error('[approve] autopost failed:', err));
 
     return NextResponse.json({

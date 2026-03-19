@@ -6,6 +6,7 @@ import { getSignedUrl } from '@/lib/rrg/storage';
 import { uploadToIpfsInBackground } from '@/lib/rrg/ipfs';
 import { getRRGContract } from '@/lib/rrg/contract';
 import { autopostSale } from '@/lib/rrg/autopost';
+import { sendInstagramNotification } from '@/lib/rrg/instagram';
 import { postReputationSignal, postBuyerReputationSignal, fireVoucherSignal, lookupAgentIdByWallet } from '@/lib/rrg/erc8004';
 import { randomBytes } from 'crypto';
 import { calculateSplit } from '@/lib/rrg/splits';
@@ -340,6 +341,19 @@ export async function POST(req: NextRequest) {
           creatorBio:  (sub.creator_bio as string) ?? null,
           imageUrl,
         });
+
+        // Instagram notification (non-fatal)
+        sendInstagramNotification({
+          trigger:       'sale',
+          title:         sub.title as string,
+          tokenId,
+          creatorHandle: (sub.creator_handle as string) ?? null,
+          creatorType:   (sub.creator_type as 'human' | 'agent') ?? 'human',
+          briefName:     null,   // brief not fetched in claim route
+          brandName:     null,
+          buyerType:     'agent',
+          imageUrl,
+        }).catch((err) => console.error('[/api/rrg/claim] instagram notify failed:', err));
       } catch (err) {
         console.error('[/api/rrg/claim] autopost failed:', err);
       }

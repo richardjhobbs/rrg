@@ -7,6 +7,7 @@ import { uploadToIpfsInBackground } from '@/lib/rrg/ipfs';
 import { sendFileDeliveryEmail, sendPhysicalOrderToBrand, sendPhysicalPurchaseToBuyer } from '@/lib/rrg/email';
 import { randomBytes } from 'crypto';
 import { autopostSale } from '@/lib/rrg/autopost';
+import { sendInstagramNotification } from '@/lib/rrg/instagram';
 import { postReputationSignal, postBuyerReputationSignal, fireVoucherSignal, lookupAgentIdByWallet } from '@/lib/rrg/erc8004';
 import { calculateSplit } from '@/lib/rrg/splits';
 import { insertDistributionAndPay } from '@/lib/rrg/auto-payout';
@@ -137,6 +138,19 @@ export async function POST(req: NextRequest) {
           creatorBio:  drop.creator_bio ?? null,
           imageUrl,
         });
+
+        // Instagram notification (non-fatal)
+        sendInstagramNotification({
+          trigger:       'sale',
+          title:         drop.title,
+          tokenId:       parseInt(tokenId),
+          creatorHandle: drop.creator_handle ?? null,
+          creatorType:   (drop.creator_type as 'human' | 'agent') ?? 'human',
+          briefName:     null,
+          brandName:     null,
+          buyerType:     'human',
+          imageUrl,
+        }).catch((err) => console.error('[confirm] instagram notify failed:', err));
       } catch (err) {
         console.error('[confirm] autopost failed:', err);
       }
