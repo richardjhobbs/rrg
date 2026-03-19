@@ -34,8 +34,8 @@ export interface InstagramNotifyParams {
 // ── Caption generation via Anthropic ──────────────────────────────────────
 
 async function generateCaption(p: InstagramNotifyParams): Promise<string> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) throw new Error('ANTHROPIC_API_KEY not set');
+  const apiKey = process.env.TOGETHER_API_KEY;
+  if (!apiKey) throw new Error('TOGETHER_API_KEY not set');
 
   const triggerLine = p.trigger === 'sale'
     ? `This is a sale announcement. The work just sold${p.buyerType === 'agent' ? ' to an AI agent' : ''}.`
@@ -66,15 +66,14 @@ Rules:
 
 Reply with ONLY the caption text and hashtags. Nothing else.`;
 
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
+  const res = await fetch('https://api.together.xyz/v1/chat/completions', {
     method:  'POST',
     headers: {
-      'x-api-key':         apiKey,
-      'anthropic-version': '2023-06-01',
-      'content-type':      'application/json',
+      Authorization:  `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({
-      model:      'claude-haiku-4-5',
+      model:      'meta-llama/Llama-3.3-70B-Instruct-Turbo',
       max_tokens: 300,
       messages: [{ role: 'user', content: prompt }],
     }),
@@ -82,11 +81,11 @@ Reply with ONLY the caption text and hashtags. Nothing else.`;
 
   if (!res.ok) {
     const t = await res.text();
-    throw new Error(`Anthropic error ${res.status}: ${t}`);
+    throw new Error(`Together AI error ${res.status}: ${t}`);
   }
 
-  const data = await res.json() as { content: Array<{ type: string; text: string }> };
-  return data.content.find((b) => b.type === 'text')?.text.trim() ?? '';
+  const data = await res.json() as { choices: Array<{ message: { content: string } }> };
+  return data.choices[0]?.message?.content?.trim() ?? '';
 }
 
 // ── Email via Resend (with attachment) ────────────────────────────────────
