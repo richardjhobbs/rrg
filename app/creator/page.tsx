@@ -220,6 +220,12 @@ function AuthPage({ onLogin }: { onLogin: (p: CreatorProfile) => void }) {
   const [legacyEmail, setLegacyEmail] = useState('');
   const [legacyPass,  setLegacyPass]  = useState('');
 
+  // Email/password registration (alternative to Google)
+  const [showEmailRegister, setShowEmailRegister] = useState(false);
+  const [regEmail,      setRegEmail]      = useState('');
+  const [regPass,       setRegPass]       = useState('');
+  const [emailRegWallet, setEmailRegWallet] = useState(''); // only used when walletMode === 'new'
+
   // ── Thirdweb connected: auto-login or auto-register ──
   const handleGoogleAuth = useCallback(async (wallet: string, email: string) => {
     if (submittedRef.current || loading) return;
@@ -311,6 +317,57 @@ function AuthPage({ onLogin }: { onLogin: (p: CreatorProfile) => void }) {
     setLoading(false);
   }, [mode, walletMode, ownWallet, displayName, creatorType, loading, onLogin]);
 
+  // ── Email/password registration ──
+  const handleEmailRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!displayName.trim()) {
+      setErr('Please enter a display name first');
+      return;
+    }
+    const effectiveWallet = walletMode === 'own' ? ownWallet.trim() : emailRegWallet.trim();
+    if (!effectiveWallet) {
+      setErr('Please enter a wallet address');
+      return;
+    }
+    setErr('');
+    setLoading(true);
+    submittedRef.current = true;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    let res: Response;
+    try {
+      res = await fetch('/api/creator/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: regEmail,
+          password: regPass,
+          wallet: effectiveWallet,
+          displayName: displayName.trim(),
+          creatorType,
+        }),
+        signal: controller.signal,
+      });
+    } catch {
+      clearTimeout(timeout);
+      setErr('Registration timed out — please refresh and try again.');
+      setLoading(false);
+      submittedRef.current = false;
+      return;
+    }
+    clearTimeout(timeout);
+    const data = await res.json();
+    setLoading(false);
+
+    if (res.ok && data.profile) {
+      onLogin(data.profile);
+    } else {
+      setErr(data.error || 'Registration failed');
+      submittedRef.current = false;
+    }
+  };
+
   // ── Legacy email/password login ──
   const handleLegacyLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -338,6 +395,10 @@ function AuthPage({ onLogin }: { onLogin: (p: CreatorProfile) => void }) {
     setWalletMode('choose');
     setErr('');
     setShowLegacy(false);
+    setShowEmailRegister(false);
+    setRegEmail('');
+    setRegPass('');
+    setEmailRegWallet('');
     submittedRef.current = false;
   };
 
@@ -526,7 +587,68 @@ function AuthPage({ onLogin }: { onLogin: (p: CreatorProfile) => void }) {
               />
             </div>
 
-            {loading && (
+            {/* Email/password alternative */}
+            <div className="relative flex items-center gap-3">
+              <div className="flex-1 border-t border-white/10" />
+              <span className="text-xs font-mono text-white/30">or</span>
+              <div className="flex-1 border-t border-white/10" />
+            </div>
+
+            {showEmailRegister ? (
+              <form onSubmit={handleEmailRegister} className="space-y-3">
+                <div>
+                  <label className="text-sm font-mono text-white/60 block mb-1">Email</label>
+                  <input
+                    type="email" required value={regEmail}
+                    onChange={(e) => { setRegEmail(e.target.value); setErr(''); }}
+                    className="w-full bg-transparent border border-white/20 px-4 py-3 text-base
+                               focus:border-white outline-none transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-mono text-white/60 block mb-1">Password</label>
+                  <input
+                    type="password" required minLength={8} value={regPass}
+                    onChange={(e) => { setRegPass(e.target.value); setErr(''); }}
+                    className="w-full bg-transparent border border-white/20 px-4 py-3 text-base
+                               focus:border-white outline-none transition-colors"
+                    placeholder="Min 8 characters"
+                  />
+                </div>
+                {walletMode === 'new' && (
+                  <div>
+                    <label className="text-sm font-mono text-white/60 block mb-1">Wallet Address</label>
+                    <input
+                      type="text" required value={emailRegWallet}
+                      onChange={(e) => { setEmailRegWallet(e.target.value); setErr(''); }}
+                      className="w-full bg-transparent border border-white/20 px-4 py-3 text-base font-mono
+                                 focus:border-white outline-none transition-colors"
+                      placeholder="0x…"
+                      spellCheck={false}
+                      autoComplete="off"
+                    />
+                    <p className="text-xs text-white/30 mt-1">Your earnings and NFTs will be sent here</p>
+                  </div>
+                )}
+                <button
+                  type="submit" disabled={loading}
+                  className="w-full py-3 border border-white/20 text-base text-white/80 hover:text-white
+                             hover:border-white/40 disabled:opacity-40 transition-all"
+                >
+                  {loading ? 'Creating account…' : 'Register →'}
+                </button>
+              </form>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setShowEmailRegister(true)}
+                className="w-full text-sm font-mono text-white/40 hover:text-white/60 transition-colors text-center"
+              >
+                Register with email/password instead →
+              </button>
+            )}
+
+            {loading && !showEmailRegister && (
               <p className="text-sm font-mono text-white/50 animate-pulse">Creating account…</p>
             )}
 

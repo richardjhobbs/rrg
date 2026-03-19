@@ -39,6 +39,12 @@ function BrandLoginInner() {
   const [legacyEmail, setLegacyEmail] = useState('');
   const [legacyPass,  setLegacyPass]  = useState('');
 
+  // Email/password registration (alternative to Google)
+  const [showEmailRegister, setShowEmailRegister] = useState(false);
+  const [regEmail,       setRegEmail]       = useState('');
+  const [regPass,        setRegPass]        = useState('');
+  const [emailRegWallet, setEmailRegWallet] = useState(''); // only used when walletMode === 'new'
+
   // Forgot/reset password
   const [email,   setEmail]   = useState('');
   const [newPass, setNewPass] = useState('');
@@ -158,6 +164,58 @@ function BrandLoginInner() {
     setLoading(false);
   }, [mode, walletMode, ownWallet, brandName, appText, loading, router]);
 
+  // ── Email/password registration ─────────────────────────────────────
+  const handleEmailRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!brandName.trim()) {
+      setErr('Please enter your brand name');
+      return;
+    }
+    const effectiveWallet = walletMode === 'own' ? ownWallet.trim() : emailRegWallet.trim();
+    if (!effectiveWallet) {
+      setErr('Please enter a wallet address');
+      return;
+    }
+    setErr('');
+    setLoading(true);
+    submittedRef.current = true;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+    let res: Response;
+    try {
+      res = await fetch('/api/brand/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: regEmail,
+          password: regPass,
+          wallet: effectiveWallet,
+          brandName: brandName.trim(),
+          applicationText: appText.trim(),
+        }),
+        signal: controller.signal,
+      });
+    } catch {
+      clearTimeout(timeout);
+      setErr('Registration timed out — please refresh and try again.');
+      setLoading(false);
+      submittedRef.current = false;
+      return;
+    }
+    clearTimeout(timeout);
+    const data = await res.json();
+    setLoading(false);
+
+    if (res.ok && data.brand) {
+      setPendingBrand(data.brand);
+      setMode('pending');
+    } else {
+      setErr(data.error || 'Registration failed');
+      submittedRef.current = false;
+    }
+  };
+
   // ── Legacy email/password login ─────────────────────────────────────
   const handleLegacyLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -235,6 +293,10 @@ function BrandLoginInner() {
     setErr('');
     setMsg('');
     setShowLegacy(false);
+    setShowEmailRegister(false);
+    setRegEmail('');
+    setRegPass('');
+    setEmailRegWallet('');
     submittedRef.current = false;
   };
 
@@ -454,7 +516,68 @@ function BrandLoginInner() {
             />
           </div>
 
-          {loading && (
+          {/* Email/password alternative */}
+          <div className="relative flex items-center gap-3">
+            <div className="flex-1 border-t border-white/10" />
+            <span className="text-xs font-mono text-white/30">or</span>
+            <div className="flex-1 border-t border-white/10" />
+          </div>
+
+          {showEmailRegister ? (
+            <form onSubmit={handleEmailRegister} className="space-y-3">
+              <div>
+                <label className="text-sm font-mono text-white/60 block mb-1">Email</label>
+                <input
+                  type="email" required value={regEmail}
+                  onChange={(e) => { setRegEmail(e.target.value); setErr(''); }}
+                  className="w-full bg-transparent border border-white/20 px-4 py-3 text-base
+                             focus:border-white outline-none transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-mono text-white/60 block mb-1">Password</label>
+                <input
+                  type="password" required minLength={8} value={regPass}
+                  onChange={(e) => { setRegPass(e.target.value); setErr(''); }}
+                  className="w-full bg-transparent border border-white/20 px-4 py-3 text-base
+                             focus:border-white outline-none transition-colors"
+                  placeholder="Min 8 characters"
+                />
+              </div>
+              {walletMode === 'new' && (
+                <div>
+                  <label className="text-sm font-mono text-white/60 block mb-1">Wallet Address</label>
+                  <input
+                    type="text" required value={emailRegWallet}
+                    onChange={(e) => { setEmailRegWallet(e.target.value); setErr(''); }}
+                    className="w-full bg-transparent border border-white/20 px-4 py-3 text-base font-mono
+                               focus:border-white outline-none transition-colors"
+                    placeholder="0x…"
+                    spellCheck={false}
+                    autoComplete="off"
+                  />
+                  <p className="text-xs text-white/30 mt-1">Your revenue share will be sent here</p>
+                </div>
+              )}
+              <button
+                type="submit" disabled={loading}
+                className="w-full py-3 border border-white/20 text-base text-white/80 hover:text-white
+                           hover:border-white/40 disabled:opacity-40 transition-all"
+              >
+                {loading ? 'Submitting application…' : 'Apply →'}
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setShowEmailRegister(true)}
+              className="w-full text-sm font-mono text-white/40 hover:text-white/60 transition-colors text-center"
+            >
+              Apply with email/password instead →
+            </button>
+          )}
+
+          {loading && !showEmailRegister && (
             <p className="text-sm font-mono text-white/50 animate-pulse">Submitting application…</p>
           )}
 
