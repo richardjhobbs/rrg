@@ -587,7 +587,9 @@ function AuthPage({ onLogin }: { onLogin: (p: CreatorProfile) => void }) {
               />
             </div>
 
-            {/* Email/password alternative */}
+            {/* Email/password alternative — only for 'own wallet' path (Google creates the wallet for 'new') */}
+            {walletMode === 'own' && (
+            <>
             <div className="relative flex items-center gap-3">
               <div className="flex-1 border-t border-white/10" />
               <span className="text-xs font-mono text-white/30">or</span>
@@ -615,21 +617,6 @@ function AuthPage({ onLogin }: { onLogin: (p: CreatorProfile) => void }) {
                     placeholder="Min 8 characters"
                   />
                 </div>
-                {walletMode === 'new' && (
-                  <div>
-                    <label className="text-sm font-mono text-white/60 block mb-1">Wallet Address</label>
-                    <input
-                      type="text" required value={emailRegWallet}
-                      onChange={(e) => { setEmailRegWallet(e.target.value); setErr(''); }}
-                      className="w-full bg-transparent border border-white/20 px-4 py-3 text-base font-mono
-                                 focus:border-white outline-none transition-colors"
-                      placeholder="0x…"
-                      spellCheck={false}
-                      autoComplete="off"
-                    />
-                    <p className="text-xs text-white/30 mt-1">Your earnings and NFTs will be sent here</p>
-                  </div>
-                )}
                 <button
                   type="submit" disabled={loading}
                   className="w-full py-3 border border-white/20 text-base text-white/80 hover:text-white
@@ -646,6 +633,8 @@ function AuthPage({ onLogin }: { onLogin: (p: CreatorProfile) => void }) {
               >
                 Register with email/password instead →
               </button>
+            )}
+            </>
             )}
 
             {loading && !showEmailRegister && (
