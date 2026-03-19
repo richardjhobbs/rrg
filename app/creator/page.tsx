@@ -360,10 +360,9 @@ function AuthPage({ onLogin }: { onLogin: (p: CreatorProfile) => void }) {
               Create an account →
             </button>
 
-            <div className="relative flex items-center gap-3 py-1">
-              <div className="flex-1 border-t border-white/10" />
-              <span className="text-sm font-mono text-white/30">already registered?</span>
-              <div className="flex-1 border-t border-white/10" />
+            <div className="flex flex-col items-center gap-1 py-2">
+              <span className="text-sm font-mono text-white/70">Are you already registered?</span>
+              <span className="text-white/50 text-base">↓</span>
             </div>
 
             {/* Thirdweb Google embed — for existing users only */}
