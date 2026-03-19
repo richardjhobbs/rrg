@@ -90,17 +90,30 @@ function BrandLoginInner() {
           return;
         }
 
-        const res = await fetch('/api/brand/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email: authEmail,
-            wallet: effectiveWallet,
-            brandName: brandName.trim(),
-            applicationText: appText.trim(),
-            oauthRegistration: true,
-          }),
-        });
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20000);
+        let res: Response;
+        try {
+          res = await fetch('/api/brand/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: authEmail,
+              wallet: effectiveWallet,
+              brandName: brandName.trim(),
+              applicationText: appText.trim(),
+              oauthRegistration: true,
+            }),
+            signal: controller.signal,
+          });
+        } catch {
+          clearTimeout(timeout);
+          setErr('Registration timed out — please refresh the page and try again.');
+          setLoading(false);
+          submittedRef.current = false;
+          return;
+        }
+        clearTimeout(timeout);
         const data = await res.json();
 
         if (res.ok && data.brand) {
@@ -128,6 +141,11 @@ function BrandLoginInner() {
           setMode('pending');
         } else if (res.ok && data.brands?.length > 0) {
           router.push(`/brand/${data.brands[0].brandSlug}/admin`);
+        } else if (res.status === 403) {
+          // No brand account found — auto-switch to register
+          submittedRef.current = false;
+          switchMode('register');
+          setErr('No account found — please register below.');
         } else {
           setErr(data.error || 'Login failed');
           submittedRef.current = false;
@@ -256,9 +274,20 @@ function BrandLoginInner() {
       {/* ── LOGIN MODE ── */}
       {mode === 'login' && (
         <div className="space-y-4">
-          <p className="text-sm font-mono text-white/50 mb-2">
-            Sign in with Google to access your brand dashboard.
-          </p>
+          {/* Register CTA — most prominent, first in view */}
+          <button
+            type="button"
+            onClick={() => switchMode('register')}
+            className="w-full py-4 bg-white text-black text-base font-medium hover:bg-white/90 transition-all"
+          >
+            Apply as a brand partner →
+          </button>
+
+          <div className="relative flex items-center gap-3 py-1">
+            <div className="flex-1 border-t border-white/10" />
+            <span className="text-sm font-mono text-white/30">already registered?</span>
+            <div className="flex-1 border-t border-white/10" />
+          </div>
 
           <GoogleAuthEmbed
             onAuthenticated={handleGoogleAuth}
@@ -269,7 +298,7 @@ function BrandLoginInner() {
             <p className="text-sm font-mono text-white/50 animate-pulse">Signing in…</p>
           )}
 
-          {err && <p className="text-red-400 text-sm font-mono">{err}</p>}
+          {err && <p className="text-amber-400 text-sm font-mono">{err}</p>}
 
           {/* Legacy email/password — hidden by default */}
           {showLegacy ? (
@@ -316,16 +345,6 @@ function BrandLoginInner() {
               Login with email/password →
             </button>
           )}
-
-          <div className="pt-2">
-            <button
-              type="button"
-              onClick={() => switchMode('register')}
-              className="w-full text-sm text-white/50 hover:text-white/80 transition-colors font-mono"
-            >
-              Apply as a brand partner →
-            </button>
-          </div>
         </div>
       )}
 

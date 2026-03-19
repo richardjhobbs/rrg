@@ -248,17 +248,30 @@ function AuthPage({ onLogin }: { onLogin: (p: CreatorProfile) => void }) {
           return;
         }
 
-        const res = await fetch('/api/creator/auth/register', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            email,
-            wallet: effectiveWallet,
-            displayName: displayName.trim(),
-            creatorType,
-            oauthRegistration: true,
-          }),
-        });
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 20000); // 20s timeout
+        let res: Response;
+        try {
+          res = await fetch('/api/creator/auth/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email,
+              wallet: effectiveWallet,
+              displayName: displayName.trim(),
+              creatorType,
+              oauthRegistration: true,
+            }),
+            signal: controller.signal,
+          });
+        } catch (fetchErr) {
+          clearTimeout(timeout);
+          setErr('Registration timed out — please refresh the page and try again.');
+          setLoading(false);
+          submittedRef.current = false;
+          return;
+        }
+        clearTimeout(timeout);
         const data = await res.json();
 
         if (res.ok && data.profile) {
@@ -278,6 +291,14 @@ function AuthPage({ onLogin }: { onLogin: (p: CreatorProfile) => void }) {
 
         if (res.ok && data.profile) {
           onLogin(data.profile);
+        } else if (res.status === 403) {
+          // No account found — this is a new user who clicked "Sign in" instead of "Register".
+          // Slide them into registration mode; their thirdweb session is still active so
+          // clicking Register with Google will fire immediately.
+          submittedRef.current = false;
+          setMode('register');
+          setWalletMode('choose');
+          setErr('No account found — please register below.');
         } else {
           setErr(data.error || 'Login failed');
           submittedRef.current = false;
@@ -330,11 +351,22 @@ function AuthPage({ onLogin }: { onLogin: (p: CreatorProfile) => void }) {
         {mode === 'login' ? (
           /* ── LOGIN MODE ── */
           <div className="space-y-4">
-            <p className="text-sm font-mono text-white/50 mb-2">
-              Sign in with Google to access your dashboard.
-            </p>
+            {/* Register CTA — most prominent, first in view */}
+            <button
+              type="button"
+              onClick={() => switchMode('register')}
+              className="w-full py-4 bg-white text-black text-base font-medium hover:bg-white/90 transition-all"
+            >
+              Create an account →
+            </button>
 
-            {/* Thirdweb Google embed — connects wallet + gets email → auto-login */}
+            <div className="relative flex items-center gap-3 py-1">
+              <div className="flex-1 border-t border-white/10" />
+              <span className="text-sm font-mono text-white/30">already registered?</span>
+              <div className="flex-1 border-t border-white/10" />
+            </div>
+
+            {/* Thirdweb Google embed — for existing users only */}
             <GoogleAuthEmbed
               onAuthenticated={handleGoogleAuth}
               buttonLabel="Sign in with Google"
@@ -344,7 +376,7 @@ function AuthPage({ onLogin }: { onLogin: (p: CreatorProfile) => void }) {
               <p className="text-sm font-mono text-white/50 animate-pulse">Signing in…</p>
             )}
 
-            {err && <p className="text-red-400 text-sm font-mono">{err}</p>}
+            {err && <p className="text-amber-400 text-sm font-mono">{err}</p>}
 
             {/* Legacy email/password — hidden by default */}
             {showLegacy ? (
@@ -384,16 +416,6 @@ function AuthPage({ onLogin }: { onLogin: (p: CreatorProfile) => void }) {
                 Login with email/password →
               </button>
             )}
-
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => switchMode('register')}
-                className="w-full text-sm text-white/50 hover:text-white/80 transition-colors font-mono"
-              >
-                No account? Register →
-              </button>
-            </div>
           </div>
         ) : walletMode === 'choose' ? (
           /* ── REGISTER: WALLET CHOICE ── */
