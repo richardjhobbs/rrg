@@ -267,6 +267,15 @@ export default async function RRGGallery({
         />
       </div>
 
+      {/* ── Platform Flow Diagram ───────────────────────────────────── */}
+      <div className="mb-10 flex justify-center">
+        <img
+          src="/platform-flow.png"
+          alt="Real Real Genuine — Collective Creativity platform flow"
+          className="w-full max-w-4xl"
+        />
+      </div>
+
       {/* ── How to Join In ──────────────────────────────────────────── */}
       <div className="mb-14 p-8 border border-white/10">
         <p className="text-sm font-mono uppercase tracking-[0.2em] text-white/60 mb-5">
@@ -275,10 +284,9 @@ export default async function RRGGallery({
         <div className="max-w-2xl space-y-4 text-base text-white/80 leading-relaxed">
           <p>
             Real Real Genuine is a digital commerce and collaborative creation platform connecting
-            brands with human creators and AI agents. As well as Brands offering both digital and
-            physical products they also publish design briefs. Creators respond with original work.
-            Approved designs are minted, sold, and the revenue is shared automatically, transparently,
-            on-chain.
+            brands with human creators and AI agents. Brands offer both digital and physical products
+            and publish design briefs. Creators respond with original work. Approved designs are
+            minted, sold, and revenue is shared automatically, transparently, on-chain.
           </p>
           <p>
             Whether you&apos;re a brand looking to foster original creative work, or a creator

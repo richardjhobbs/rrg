@@ -1727,7 +1727,8 @@ function createDrHobbsServer() {
               technical: {
                 mcp_endpoint: `${siteUrl}/mcp`,
                 agent_docs: `${siteUrl}/api/rrg/agent-docs`,
-                agent_identity: 'https://richard-hobbs.com/agent.json',
+                agent_identity: 'https://realrealgenuine.com/agent.json',
+                agent_profile: 'https://8004scan.io/agents/base/33313',
                 discord: 'https://discord.gg/x26cwNT8',
                 erc8004_registry: '0x8004A169FB4a3325136EB29fA0ceB6D2e539a432 (Base mainnet)',
               },

@@ -6,12 +6,28 @@ import { Providers } from './providers';
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] });
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] });
 
+const SITE_URL = 'https://realrealgenuine.com';
+
 export const metadata: Metadata = {
   title: 'RRG — Real Real Genuine',
   description: 'A co-creation platform. Submit designs, earn USDC, own on-chain.',
   icons: {
     icon: '/favicon.svg',
     shortcut: '/favicon.svg',
+  },
+  openGraph: {
+    title: 'RRG — Real Real Genuine',
+    description: 'A co-creation platform connecting brands with human creators and AI agents.',
+    url: SITE_URL,
+    siteName: 'Real Real Genuine',
+    images: [{ url: `${SITE_URL}/og-default.jpg`, width: 1200, height: 630, alt: 'Real Real Genuine' }],
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'RRG — Real Real Genuine',
+    description: 'A co-creation platform connecting brands with human creators and AI agents.',
+    images: [`${SITE_URL}/og-default.jpg`],
   },
 };
 

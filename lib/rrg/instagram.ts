@@ -14,6 +14,8 @@
  * Non-blocking / non-fatal — called fire-and-forget.
  */
 
+import sharp from 'sharp';
+
 const RESEND_URL = 'https://api.resend.com/emails';
 const FROM       = process.env.FROM_EMAIL ?? 'deliver@richard-hobbs.com';
 const SITE_URL   = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://realrealgenuine.com';
@@ -183,23 +185,63 @@ async function sendInstagramEmail(p: InstagramNotifyParams, caption: string, ima
   }
 }
 
+// ── Banner overlay using sharp ─────────────────────────────────────────────
+
+async function addBanner(imgBuf: Buffer, trigger: 'new_drop' | 'sale'): Promise<Buffer> {
+  const label   = trigger === 'sale' ? 'SOLD' : 'NEW DROP';
+  // Site colours: lime (#d4ff22 / black text) for new drop, red (#dc2626 / white text) for sale
+  const bgColor = trigger === 'sale' ? '#dc2626' : '#d4ff22';
+  const fgColor = trigger === 'sale' ? '#ffffff' : '#000000';
+
+  const meta    = await sharp(imgBuf).metadata();
+  const w       = meta.width  ?? 1080;
+  const h       = meta.height ?? 1080;
+  const barH    = Math.round(h * 0.09);  // ~9% of image height
+  const fontSize = Math.round(barH * 0.45);
+  const letterSpacing = Math.round(fontSize * 0.18);
+
+  // SVG banner strip — bottom of image
+  const svg = `<svg width="${w}" height="${barH}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="${w}" height="${barH}" fill="${bgColor}"/>
+    <text
+      x="${w / 2}" y="${Math.round(barH * 0.68)}"
+      font-family="monospace, 'Courier New', Courier"
+      font-size="${fontSize}"
+      font-weight="700"
+      fill="${fgColor}"
+      text-anchor="middle"
+      letter-spacing="${letterSpacing}"
+    >${label}</text>
+  </svg>`;
+
+  return sharp(imgBuf)
+    .composite([{
+      input:     Buffer.from(svg),
+      top:       h - barH,
+      left:      0,
+    }])
+    .jpeg({ quality: 90 })
+    .toBuffer();
+}
+
 // ── Public entry point ─────────────────────────────────────────────────────
 
 export async function sendInstagramNotification(p: InstagramNotifyParams): Promise<void> {
   // 1. Generate caption
   const caption = await generateCaption(p);
 
-  // 2. Fetch image and base64 encode (if available)
+  // 2. Fetch image, add banner, base64 encode
   let imageBase64: string | null = null;
   if (p.imageUrl) {
     try {
       const imgRes = await fetch(p.imageUrl, { signal: AbortSignal.timeout(15_000) });
       if (imgRes.ok) {
-        const buf  = await imgRes.arrayBuffer();
-        imageBase64 = Buffer.from(buf).toString('base64');
+        const raw        = Buffer.from(await imgRes.arrayBuffer());
+        const withBanner = await addBanner(raw, p.trigger);
+        imageBase64      = withBanner.toString('base64');
       }
     } catch (err) {
-      console.error('[instagram] image fetch failed:', err);
+      console.error('[instagram] image fetch/banner failed:', err);
       // Continue without image — caption email still useful
     }
   }

@@ -6,28 +6,28 @@ const TABS = [
   {
     label: 'For Creators',
     content: [
-      'Browse open briefs from brands on the platform. Submit original work that responds to the brief — digital, hand-drawn, AI-assisted, or any combination.',
+      'Browse open briefs from brands on the platform. Submit original work that responds to the brief - digital, hand-drawn, AI-assisted, or any combination.',
       'Approved designs go live on the marketplace, minted on the Base blockchain when purchased.',
-      'Revenue is split automatically: 30% platform, 35% brand, 35% creator.',
+      'Revenue is split automatically: with 35% to the creator.',
       'Both human creators and AI agents are welcome to submit.',
     ],
   },
   {
     label: 'For Brands',
     content: [
-      'Register as a brand partner. Publish creative briefs describing what you want made. Creators and agents respond with original work.',
+      'Register as a brand partner. Publish creative briefs. Creators and agents respond with original work.',
       'You receive 35% of every sale from designs submitted to your briefs. Approved designs become part of your brand\'s IP and product catalogue.',
       'No listing fees. No subscription. No paid placement. Brands are ordered by activity, not budget.',
       'Create your own digital products for sale and connect to a physical version. Real Real Genuine connects you with both human and agent buyers. Add vouchers to product listings.',
-      'Platform fees slide with price — from 30% on small drops to 2.5% on premium listings.',
+      'Platform fees slide with price. As low as 2.5% on premium listings.',
     ],
   },
   {
     label: 'For Collectors',
     content: [
       'Purchase original designs with USDC on the Base blockchain. Each product is minted at the moment of sale.',
-      'Ownership is tokenised on-chain. Buyers also receive a download link for the design assets.',
-      'Both individuals and AI agents can discover, evaluate, and purchase designs through the platform.',
+      'Ownership is tokenised and tradeable. Buyers receive a download link for the design assets.',
+      'Both individuals and AI agents can discover, evaluate, and purchase.',
     ],
   },
 ] as const;
