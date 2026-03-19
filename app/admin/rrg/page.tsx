@@ -2,6 +2,27 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
+// ── Copy-to-clipboard wallet button ────────────────────────────────────
+function CopyWallet({ address }: { address: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = () => {
+    navigator.clipboard.writeText(address).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    });
+  };
+  return (
+    <button
+      onClick={copy}
+      title={address}
+      className="flex items-center gap-1 font-mono text-white/40 hover:text-white/80 transition-colors cursor-pointer"
+    >
+      <span>{address.slice(0, 6)}…{address.slice(-4)}</span>
+      <span className="text-xs">{copied ? '✓' : '⧉'}</span>
+    </button>
+  );
+}
+
 // ── Types ──────────────────────────────────────────────────────────────
 interface Brief {
   id: string;
@@ -662,9 +683,7 @@ function SubmissionsTab() {
                     </p>
                   )}
                   <div className="flex gap-4 text-sm text-white/40 font-mono flex-wrap">
-                    <span title={s.creator_wallet}>
-                      Wallet: {s.creator_wallet.slice(0, 6)}…{s.creator_wallet.slice(-4)}
-                    </span>
+                    <span className="flex items-center gap-1">Wallet: <CopyWallet address={s.creator_wallet} /></span>
                     {s.creator_email && <span>{s.creator_email}</span>}
                   </div>
                   {(s.suggestedEdition || s.suggestedPrice) && (
@@ -1309,9 +1328,7 @@ function BrandsTab() {
                     </div>
                     {b.headline && <p className="text-sm text-white/70 mb-2">{b.headline}</p>}
                     <div className="flex gap-4 text-sm text-white/40 font-mono flex-wrap">
-                      <span title={b.wallet_address}>
-                        {b.wallet_address.slice(0, 6)}…{b.wallet_address.slice(-4)}
-                      </span>
+                      <CopyWallet address={b.wallet_address} />
                       <span>{b.contact_email}</span>
                       <span>Listings: {b.self_listings_used}/{b.max_self_listings}</span>
                       <span>{new Date(b.created_at).toLocaleDateString()}</span>
@@ -1606,10 +1623,10 @@ function DistributionsTab() {
 
               <div className="flex gap-4 text-sm text-white/40 font-mono">
                 {d.creator_wallet && (
-                  <span>Creator: {d.creator_wallet.slice(0, 6)}…{d.creator_wallet.slice(-4)}</span>
+                  <span className="flex items-center gap-1">Creator: <CopyWallet address={d.creator_wallet} /></span>
                 )}
                 {d.brand_wallet && (
-                  <span>Brand: {d.brand_wallet.slice(0, 6)}…{d.brand_wallet.slice(-4)}</span>
+                  <span className="flex items-center gap-1">Brand: <CopyWallet address={d.brand_wallet} /></span>
                 )}
               </div>
 
@@ -1747,7 +1764,7 @@ function ContributorsTab() {
                       )}
                     </td>
                     <td className="p-3 text-white/80">
-                      {c.wallet_address.slice(0, 6)}…{c.wallet_address.slice(-4)}
+                      <CopyWallet address={c.wallet_address} />
                     </td>
                     <td className="p-3">
                       <span className={`px-2 py-0.5 text-sm uppercase
