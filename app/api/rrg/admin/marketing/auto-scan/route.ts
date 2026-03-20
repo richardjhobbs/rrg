@@ -105,7 +105,7 @@ export async function POST(req: NextRequest) {
   const results: OracleResult[] = [];
 
   // 1. 8004scan.io — ERC-8004 registered agents (primary oracle, runs first)
-  results.push(await runOracleSafe('8004scan', () => run8004ScanOracle(200, 1)));
+  results.push(await runOracleSafe('8004scan', () => run8004ScanOracle(100, 0)));
 
   // 2. RNWY Explorer — Base chain agents
   results.push(await runOracleSafe('rnwy_base', () => scanRnwy('base', 200, 1)));
