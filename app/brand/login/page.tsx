@@ -512,7 +512,7 @@ function BrandLoginInner() {
           <div className="pt-2">
             <GoogleAuthEmbed
               onAuthenticated={handleGoogleAuth}
-              buttonLabel="Apply with Google"
+              buttonLabel="Register with Google"
             />
           </div>
 
