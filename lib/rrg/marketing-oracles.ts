@@ -1310,6 +1310,261 @@ export async function scanClawPlaza(
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// 5. 8004scan.io — ERC-8004 Identity Registry index
+//    https://8004scan.io/api/v1/agents — 110K+ registered agents
+//    All agents here are guaranteed ERC-8004 registered (+20 baseline)
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface Agent8004 {
+  agent_id: number;
+  chain_id: number;
+  owner_address: string;
+  name: string | null;
+  description: string | null;
+  health_score: number | null;       // 0–100
+  capabilities: {
+    mcp: boolean;
+    a2a: boolean;
+    x402: boolean;
+    oasf: boolean;
+  } | null;
+}
+
+interface Agent8004Response {
+  agents: Agent8004[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+// Map 8004scan chain_id to our chain names (same mapping as RNWY)
+const CHAIN_8004_TO_NAME: Record<number, string> = {
+  8453: 'base',
+  1: 'ethereum',
+  56: 'bnb',
+  100: 'gnosis',
+  42220: 'celo',
+  42161: 'arbitrum',
+  10: 'optimism',
+  137: 'polygon',
+  43114: 'avalanche',
+  59144: 'linea',
+  534352: 'scroll',
+};
+
+function score8004Agent(agent: Agent8004): NormalisedCandidate {
+  let score = 0;
+  const parts: string[] = [];
+  const caps = agent.capabilities;
+  const allText = [agent.name ?? '', agent.description ?? ''].join(' ').toLowerCase();
+
+  // ERC-8004 registered — guaranteed baseline (+20, better than +15 for chain_scan)
+  score += 20;
+  parts.push('+20 erc8004_registered');
+
+  // Has name
+  if (agent.name && agent.name.trim().length > 1) {
+    score += 5;
+    parts.push('+5 named');
+  }
+
+  // Has description
+  if (agent.description && agent.description.length > 20) {
+    score += 5;
+    parts.push('+5 described');
+  }
+
+  // Health score from 8004scan (0–100)
+  if (agent.health_score != null) {
+    if (agent.health_score >= 80) {
+      score += 15;
+      parts.push(`+15 health(${agent.health_score})`);
+    } else if (agent.health_score >= 50) {
+      score += 8;
+      parts.push(`+8 health(${agent.health_score})`);
+    } else if (agent.health_score >= 20) {
+      score += 3;
+      parts.push(`+3 health(${agent.health_score})`);
+    }
+  }
+
+  // MCP support
+  const hasMcp = caps?.mcp === true;
+  if (hasMcp) {
+    score += 15;
+    parts.push('+15 mcp');
+  }
+
+  // A2A support
+  const hasA2a = caps?.a2a === true;
+  if (hasA2a) {
+    score += 10;
+    parts.push('+10 a2a');
+  }
+
+  // x402 payment support (great for commerce)
+  if (caps?.x402 === true) {
+    score += 8;
+    parts.push('+8 x402');
+  }
+
+  // Creative capability from name/description
+  const hasImageGen = detectCreative(allText);
+  if (hasImageGen) {
+    score += 10;
+    parts.push('+10 creative');
+  }
+
+  return {
+    chain: CHAIN_8004_TO_NAME[agent.chain_id] ?? `chain_${agent.chain_id}`,
+    erc8004_id: agent.agent_id,
+    wallet_address: agent.owner_address ?? null,
+    name: agent.name ?? null,
+    description: agent.description ?? null,
+    platform: '8004scan',
+    metadata_url: `https://8004scan.io/agents/${agent.agent_id}`,
+    score,
+    tier: tierFromScore(score),
+    scoring_notes: parts.join(', '),
+    has_wallet: !!agent.owner_address,
+    has_mcp: hasMcp,
+    has_a2a: hasA2a,
+    has_image_gen: hasImageGen,
+  };
+}
+
+/**
+ * Scan ERC-8004 registered agents via 8004scan.io API.
+ * All returned agents are guaranteed ERC-8004 registered.
+ */
+export async function run8004ScanOracle(
+  limit: number = 200,
+  page: number = 1,
+  minScore: number = 20,
+): Promise<OracleResult> {
+  const errors: string[] = [];
+  const drHobbs = await getMarketingAgentByWallet(DRHOBBS_WALLET);
+  if (!drHobbs) throw new Error('DrHobbs marketing agent not found');
+
+  const run = await createDiscoveryRun(drHobbs.id, '8004scan_oracle', 'multi-chain');
+  if (!run) throw new Error('Failed to create discovery run');
+
+  let agentsScanned = 0;
+  let newCandidates = 0;
+  let updatedCandidates = 0;
+
+  try {
+    const url = `https://8004scan.io/api/v1/agents?limit=${limit}&page=${page}`;
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(60_000),
+      headers: { Accept: 'application/json' },
+    });
+
+    if (!res.ok) {
+      throw new Error(`8004scan API returned ${res.status}: ${res.statusText}`);
+    }
+
+    const data: Agent8004Response = await res.json();
+    const agents: Agent8004[] = data.agents ?? [];
+
+    for (const agent of agents) {
+      // Skip our own agents
+      const chainName = CHAIN_8004_TO_NAME[agent.chain_id] ?? `chain_${agent.chain_id}`;
+      if (SKIP_ERC8004_IDS['base']?.has(agent.agent_id) && chainName === 'base') continue;
+
+      try {
+        agentsScanned++;
+        const scored = score8004Agent(agent);
+
+        // Skip below minimum score
+        if (scored.score < minScore) continue;
+
+        // Check if this (chain, erc8004_id) already exists
+        const { data: existing } = await db
+          .from('mkt_candidates')
+          .select('id, score')
+          .eq('erc8004_id', agent.agent_id)
+          .eq('chain', chainName)
+          .single();
+
+        if (existing) {
+          // Update — 8004scan data always enriches (adds erc8004_id, health_score, capabilities)
+          await db
+            .from('mkt_candidates')
+            .update({
+              name: scored.name ?? undefined,
+              wallet_address: scored.wallet_address ?? undefined,
+              description: scored.description ?? undefined,
+              platform: scored.platform ?? undefined,
+              metadata_url: scored.metadata_url ?? undefined,
+              score: Math.max(existing.score, scored.score),
+              tier: tierFromScore(Math.max(existing.score, scored.score)),
+              scoring_notes: scored.scoring_notes,
+              has_mcp: scored.has_mcp || undefined,
+              has_a2a: scored.has_a2a || undefined,
+              has_image_gen: scored.has_image_gen || undefined,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', existing.id);
+          updatedCandidates++;
+        } else {
+          const { error: insertErr } = await db
+            .from('mkt_candidates')
+            .insert({
+              chain: chainName,
+              erc8004_id: agent.agent_id,
+              wallet_address: scored.wallet_address,
+              name: scored.name,
+              description: scored.description,
+              platform: scored.platform,
+              metadata_url: scored.metadata_url,
+              discovered_by: drHobbs.id,
+              discovery_run: run.id,
+              discovery_source: '8004scan' as const,
+              score: scored.score,
+              tier: scored.tier,
+              scoring_notes: scored.scoring_notes,
+              has_wallet: scored.has_wallet,
+              has_mcp: scored.has_mcp,
+              has_a2a: scored.has_a2a,
+              has_image_gen: scored.has_image_gen,
+              on_chain_txns: 0,
+              outreach_status: 'pending' as const,
+              contact_count: 0,
+            });
+
+          if (insertErr) {
+            errors.push(`8004scan agent #${agent.agent_id}: ${insertErr.message}`);
+          } else {
+            newCandidates++;
+          }
+        }
+      } catch (err) {
+        errors.push(`8004scan agent #${agent.agent_id}: ${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+
+    await completeDiscoveryRun(run.id, {
+      agents_scanned: agentsScanned,
+      new_candidates: newCandidates,
+      updated_candidates: updatedCandidates,
+      notes: errors.length > 0
+        ? `${errors.length} errors: ${errors.slice(0, 5).join('; ')}`
+        : `8004scan page ${page} (${agents.length} agents, total: ${data.total ?? '?'})`,
+    });
+
+    await updateMarketingAgentStats(drHobbs.id, {
+      total_candidates_found: drHobbs.total_candidates_found + newCandidates,
+    });
+
+    return { runId: run.id, source: '8004scan', agentsScanned, newCandidates, updatedCandidates, errors };
+  } catch (err) {
+    await failDiscoveryRun(run.id, err instanceof Error ? err.message : String(err));
+    throw err;
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // Supported oracles — used by admin UI and API route
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -1324,6 +1579,15 @@ export interface OracleConfig {
 }
 
 export const ORACLE_CONFIGS: OracleConfig[] = [
+  {
+    id: '8004scan',
+    name: '8004scan.io',
+    description: 'ERC-8004 Identity Registry index — 110K+ verified agents with health scores + capabilities',
+    source: '8004scan',
+    supportsChain: false,
+    defaultChain: 'multi-chain',
+    rateLimit: 'generous',
+  },
   {
     id: 'rnwy',
     name: 'RNWY Explorer',

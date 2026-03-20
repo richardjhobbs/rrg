@@ -14,7 +14,7 @@ export type CandidateTier = 'hot' | 'warm' | 'cold' | 'disqualified';
 export type DiscoverySource =
   | 'chain_scan' | 'mcp_log' | 'manual' | 'referral' | 'registry'
   | 'mcp_registry' | 'olas_registry' | 'a2a_crawl' | 'astrasync'
-  | 'rnwy' | 'agentscan' | 'virtuals' | 'ag0_sdk' | 'clawplaza';
+  | 'rnwy' | 'agentscan' | 'virtuals' | 'ag0_sdk' | 'clawplaza' | '8004scan';
 export type OutreachChannel = 'x402_ping' | 'a2a' | 'mcp' | 'email' | 'manual';
 export type OutreachStatus = 'pending' | 'contacted' | 'engaged' | 'converted' | 'declined' | 'unresponsive';
 export type MessageType = 'intro' | 'follow_up' | 'offer' | 'reminder';

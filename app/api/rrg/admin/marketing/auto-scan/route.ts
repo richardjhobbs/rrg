@@ -19,6 +19,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { isAdminFromCookies } from '@/lib/rrg/auth';
 import {
+  run8004ScanOracle,
   scanRnwy,
   scanMcpRegistry,
   scanAg0,
@@ -103,24 +104,27 @@ export async function POST(req: NextRequest) {
   // ── Run all oracles sequentially (to avoid rate limit issues) ───────
   const results: OracleResult[] = [];
 
-  // 1. RNWY Explorer — Base chain agents
+  // 1. 8004scan.io — ERC-8004 registered agents (primary oracle, runs first)
+  results.push(await runOracleSafe('8004scan', () => run8004ScanOracle(200, 1)));
+
+  // 2. RNWY Explorer — Base chain agents
   results.push(await runOracleSafe('rnwy_base', () => scanRnwy('base', 200, 1)));
 
-  // 2. RNWY Explorer — Ethereum chain agents
+  // 3. RNWY Explorer — Ethereum chain agents
   results.push(await runOracleSafe('rnwy_ethereum', () => scanRnwy('ethereum', 100, 1)));
 
-  // 3. MCP Registry — creative/design tools
+  // 4. MCP Registry — creative/design tools
   results.push(await runOracleSafe('mcp_registry_creative', () =>
     scanMcpRegistry('image art creative design generate', 50)));
 
-  // 4. MCP Registry — commerce/marketplace tools
+  // 5. MCP Registry — commerce/marketplace tools
   results.push(await runOracleSafe('mcp_registry_commerce', () =>
     scanMcpRegistry('nft marketplace commerce token mint', 50)));
 
-  // 5. ag0 Subgraph — all chains
+  // 6. ag0 Subgraph — all chains
   results.push(await runOracleSafe('ag0_all', () => scanAg0('all', 200)));
 
-  // 6. ClawPlaza / IACP — recent jobs
+  // 7. ClawPlaza / IACP — recent jobs
   results.push(await runOracleSafe('clawplaza', () => scanClawPlaza(200, true)));
 
   // ── Auto-prune old discovery runs ───────────────────────────────────
@@ -204,7 +208,7 @@ export async function GET(req: NextRequest) {
       'x-admin-secret header',
       'admin_token cookie',
     ],
-    oracles: ['rnwy_base', 'rnwy_ethereum', 'mcp_registry_creative', 'mcp_registry_commerce', 'ag0_all', 'clawplaza'],
+    oracles: ['8004scan', 'rnwy_base', 'rnwy_ethereum', 'mcp_registry_creative', 'mcp_registry_commerce', 'ag0_all', 'clawplaza'],
     options: {
       skip_outreach: 'boolean — scan only, no outreach (default: false)',
       outreach_limit: 'number — max outreach per tier (default: 10, max: 50)',
