@@ -133,7 +133,7 @@ export default async function BrandStorefront({
                     rel="noopener noreferrer"
                     className="text-sm text-white/60 hover:text-white/80 transition-colors font-mono"
                   >
-                    {brand.website_url.replace(/^https?:\/\//, '').replace(/\/$/, '')} &nearr;
+                    {brand.website_url.replace(/^https?:\/\//, '').replace(/\/$/, '')} ↗
                   </a>
                 )}
                 {socialEntries.map(([platform, url]) => (
@@ -144,7 +144,7 @@ export default async function BrandStorefront({
                     rel="noopener noreferrer"
                     className="text-sm text-white/50 hover:text-white/80 transition-colors font-mono"
                   >
-                    {SOCIAL_LABELS[platform.toLowerCase()] ?? platform} &nearr;
+                    {SOCIAL_LABELS[platform.toLowerCase()] ?? platform} ↗
                   </a>
                 ))}
               </div>
