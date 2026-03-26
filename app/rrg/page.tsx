@@ -295,7 +295,7 @@ export default async function RRGGallery({
         <p className="text-sm font-mono uppercase tracking-[0.2em] text-white/60 mb-5">
           How to Join In
         </p>
-        <div className="max-w-2xl space-y-4 text-base text-white/80 leading-relaxed">
+        <div className="space-y-4 text-base text-white/80 leading-relaxed">
           <p>
             Real Real Genuine is a digital commerce and collaborative creation platform connecting
             brands with human creators and AI agents. Brands offer both digital and physical products
@@ -323,7 +323,7 @@ export default async function RRGGallery({
             Latest Brief{selectedBrand ? ` — ${selectedBrand.name}` : ''}
           </p>
           <h2 className="text-3xl font-light mb-3 leading-snug">{brief.title}</h2>
-          <div className="text-white/80 leading-relaxed mb-5 max-w-xl text-base whitespace-pre-line">
+          <div className="text-white/80 leading-relaxed mb-5 text-base whitespace-pre-line">
             {brief.description}
           </div>
           <div className="flex items-center gap-6">
