@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import CreatorTermsModal from '@/components/rrg/CreatorTermsModal';
-import { CREATOR_TC_VERSION } from '@/lib/rrg/terms';
+import { CREATOR_TC_VERSION, DFW_CREATOR_TC_VERSION, DFW_BRAND_ID } from '@/lib/rrg/terms';
 
 interface Brief {
   title: string;
@@ -29,8 +29,8 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
     description: '',
     creator_wallet: '',
     creator_email: '',
-    suggested_edition: '',
-    suggested_price_usdc: '',
+    suggested_edition: '20',
+    suggested_price_usdc: '1',
     creator_bio: '',
   });
   const [jpeg, setJpeg] = useState<File | null>(null);
@@ -65,7 +65,8 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
     if (form.suggested_price_usdc) fd.append('suggested_price_usdc', form.suggested_price_usdc);
     if (form.creator_bio)          fd.append('creator_bio', form.creator_bio);
     fd.append('tc_accepted', '1');
-    fd.append('tc_version', CREATOR_TC_VERSION);
+    const isDfw = brandId === DFW_BRAND_ID;
+    fd.append('tc_version', isDfw ? `DFW-${DFW_CREATOR_TC_VERSION}` : CREATOR_TC_VERSION);
     fd.append('jpeg', jpeg);
     if (additionalFiles) {
       for (let i = 0; i < additionalFiles.length; i++) {
@@ -188,7 +189,7 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
               type="number"
               min={1}
               max={50}
-              placeholder="e.g. 10"
+              placeholder="e.g. 20"
               value={form.suggested_edition}
               onChange={(e) => setForm({ ...form, suggested_edition: e.target.value })}
               className="w-full bg-transparent border border-white/20 px-4 py-3 text-base
@@ -203,7 +204,7 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
               type="number"
               min={0.1}
               step={0.01}
-              placeholder="e.g. 15"
+              placeholder="e.g. 1"
               value={form.suggested_price_usdc}
               onChange={(e) => setForm({ ...form, suggested_price_usdc: e.target.value })}
               className="w-full bg-transparent border border-white/20 px-4 py-3 text-base
@@ -306,7 +307,9 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
           <div className="p-4 border border-green-400/20 bg-green-400/5 flex items-center justify-between">
             <div>
               <p className="text-sm font-mono text-green-400/80">
-                Creator Terms & Conditions accepted (v{CREATOR_TC_VERSION})
+                {brandId === DFW_BRAND_ID
+                  ? `DFW Taipei Challenge Terms accepted (v${DFW_CREATOR_TC_VERSION})`
+                  : `Creator Terms & Conditions accepted (v${CREATOR_TC_VERSION})`}
               </p>
             </div>
             <button
@@ -365,6 +368,7 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
           setTermsAccepted(true);
           setTcModalOpen(false);
         }}
+        variant={brandId === DFW_BRAND_ID ? 'dfw' : 'standard'}
       />
     </div>
   );

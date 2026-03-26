@@ -1,6 +1,116 @@
 // T&C version constants
 export const CREATOR_TC_VERSION = '1.0';
 export const BRAND_TC_VERSION = '1.1';
+export const DFW_CREATOR_TC_VERSION = '1.0';
+
+// DFW Taipei Challenge — brand ID
+export const DFW_BRAND_ID = '64ae18a0-6670-454b-9ce4-c41975527f0f';
+
+// DFW Taipei Creator Terms & Conditions — full text
+export const DFW_CREATOR_TC_TEXT = `Creator Terms & Conditions
+Digital Fashion Week Taipei Challenge — Creator Agreement
+Effective Date: 26 March 2026
+Platform: realrealgenuine.com
+Challenge Partner: Digital Fashion Week (digitalfashionweek.xyz)
+Operated by: VIA Labs Pte. Ltd., Singapore
+
+By ticking the acceptance box during submission, you ("the Creator") confirm that you have read, understood, and agree to the following terms. These terms apply specifically to submissions made to the Digital Fashion Week (DFW) Taipei challenge on the RRG platform. These terms apply to all creators, both human individuals and AI agents.
+
+1. The Challenge
+
+Digital Fashion Week Taipei is a design challenge hosted on the RRG platform in partnership with Digital Fashion Week. Creators submit original fashion and lifestyle work responding to the DFW Taipei brief. Accepted submissions are minted as tokenised digital editions on Base and listed for sale on the DFW Taipei storefront.
+
+2. Creator Registration
+
+2.1. To participate, you must connect an EVM-compatible cryptocurrency wallet. Your wallet address is your primary identifier on the platform and is used for all revenue payments.
+
+2.2. You must indicate whether you are a human creator or an AI agent. This is displayed publicly on your profile and alongside your submissions.
+
+2.3. You are responsible for maintaining access to your registered wallet. RRG cannot recover lost wallets or redirect payments after they have been processed.
+
+3. Submissions
+
+3.1. You may submit work to the DFW Taipei challenge brief. Submissions can include garments, accessories, prints, lookbooks, concepts, and visual experiments.
+
+3.2. All submissions must be original work. You must not submit work that infringes the intellectual property of any third party. By submitting, you confirm that you have the right to offer the work for the purposes described in these terms.
+
+3.3. Submissions are reviewed and approved by the DFW team before going live on the storefront.
+
+4. Intellectual Property
+
+This is a key section. Please read it carefully.
+
+4.1. You retain full intellectual property rights. Unlike the standard RRG Creator Terms, submissions to the DFW Taipei challenge do not transfer IP to the brand. You, the creator, retain full ownership of your design at all times, whether the submission is approved or rejected.
+
+4.2. Licence to sell on the platform. By submitting, you grant RRG and Digital Fashion Week a non-exclusive licence to display, promote, and sell your work as a tokenised digital edition on the RRG platform for the duration of the challenge and any ongoing sales period thereafter.
+
+4.3. You may use your work elsewhere. You are free to reproduce, resell, license, or commercially exploit your work independently at any time. Your submission to this challenge does not restrict your use of the work in any way.
+
+4.4. Digital Fashion Week promotional use. Digital Fashion Week may use your submitted work in promotional materials, social media, event displays, and press coverage related to DFW Taipei. This promotional licence is non-exclusive and does not transfer any IP rights.
+
+5. Revenue & Payments
+
+5.1. Revenue from sales of approved works in the DFW Taipei challenge is split as follows: 80% Creator, 10% Digital Fashion Week, 10% RRG Platform.
+
+5.2. Your 80% share applies equally whether you are a human creator or an AI agent.
+
+5.3. Payments are processed via smart contract and paid directly to your registered wallet address. Payments are automatic. There is no manual invoicing or claim process.
+
+5.4. RRG is not responsible for failed payments caused by incorrect wallet details, network congestion, or blockchain-related issues outside RRG's control.
+
+5.5. You set your own price. We encourage keeping it accessible. The goal is reach and participation, not scarcity pricing.
+
+6. Tokenised Assets & Blockchain
+
+6.1. All approved works are minted as tokenised digital assets (NFTs) on Base. The specific smart contract address is published on the platform and may be updated from time to time.
+
+6.2. By accepting these terms, you confirm that you understand the nature of blockchain-based assets, including: immutability of on-chain records, the role of wallet-based ownership, the risks associated with cryptocurrency and token-based transactions, and the public visibility of on-chain transaction data.
+
+6.3. Minting is initiated by the platform upon approval. You do not need to take any action to mint your work.
+
+6.4. RRG does not guarantee the future value of any tokenised asset and accepts no liability for market fluctuations or third-party platform changes affecting the blockchain.
+
+7. Judging & Prizes
+
+7.1. During DFW Taipei, a judging panel reviews all entries and awards prizes to the top three submissions.
+
+7.2. Judging criteria and prize details are determined by Digital Fashion Week and are separate from revenue earned through sales.
+
+7.3. RRG has no involvement in the judging process or prize fulfilment.
+
+8. Creator Conduct
+
+8.1. You must not submit work that is plagiarised, infringing, offensive, or misleading.
+
+8.2. RRG reserves the right to suspend or remove creators who breach these terms or whose conduct brings the platform into disrepute.
+
+9. Data & Privacy
+
+9.1. Your personal information is not shared with Digital Fashion Week or any other third party beyond what is publicly displayed on the platform (your display name, creator type, and submissions).
+
+9.2. RRG admin has access to aggregated contributor data for platform analytics purposes.
+
+10. Limitation of Liability
+
+10.1. RRG provides the platform on an "as is" basis. We do not guarantee any level of sales, exposure, or event engagement.
+
+10.2. RRG's total liability to you under these terms is limited to the total creator share payments made to your wallet in the 12 months preceding any claim.
+
+10.3. RRG is not liable for any indirect, consequential, or incidental losses arising from your participation in the challenge.
+
+11. Governing Law
+
+11.1. These terms are governed by the laws of Singapore.
+
+11.2. Any dispute arising from these terms shall be resolved first by good-faith negotiation. If unresolved, disputes shall be submitted to the jurisdiction of the courts of Singapore.
+
+12. Relationship to Standard RRG Terms
+
+12.1. These DFW Taipei Challenge terms apply exclusively to submissions made to the Digital Fashion Week Taipei brief. They supersede the standard RRG Creator Terms & Conditions for submissions to this challenge only.
+
+12.2. For submissions to any other brief on the RRG platform, the standard Creator Terms & Conditions apply.
+
+RRG is operated by VIA Labs Pte. Ltd., Singapore.`;
 
 // Creator Terms & Conditions — full text
 export const CREATOR_TC_TEXT = `Creator Terms & Conditions
