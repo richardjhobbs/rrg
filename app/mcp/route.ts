@@ -27,6 +27,7 @@ import { getRRGContract, getRRGReadOnly, toUsdc6dp } from '@/lib/rrg/contract';
 import { calculateSplit, getBrandPct, computeSplit } from '@/lib/rrg/splits';
 import { insertDistributionAndPay } from '@/lib/rrg/auto-payout';
 import { fireSubmitAttribution, fireBrandAttribution } from '@/lib/rrg/marketing-attribution';
+import { fireMemoryAdd, searchMemory, getAgentMemories } from '@/lib/rrg/mem0';
 import {
   getMarketingAgentByWallet,
   getCommissionsByAgent,
@@ -589,6 +590,11 @@ function createRRGServer() {
       // Marketing attribution (fire-and-forget)
       fireSubmitAttribution(creator_wallet.trim().toLowerCase(), data.id);
 
+      // Mem0 memory (fire-and-forget)
+      fireMemoryAdd(creator_wallet.trim().toLowerCase(), [
+        { role: 'assistant', content: `Submitted design "${title.trim()}" to RRG. Submission ID: ${data.id}. Status: pending review.` },
+      ], { action: 'submit', submissionId: data.id, brandId: resolvedBrandId || '' });
+
       return {
         content: [{
           type: 'text',
@@ -1138,6 +1144,11 @@ function createRRGServer() {
 
       // Marketing attribution (fire-and-forget)
       fireBrandAttribution(walletLower, brand.id);
+
+      // Mem0 memory (fire-and-forget)
+      fireMemoryAdd(walletLower, [
+        { role: 'assistant', content: `Registered brand "${name}" on RRG. Slug: ${brand.slug}. Status: pending approval.` },
+      ], { action: 'register_brand', brandId: brand.id, slug: brand.slug });
 
       return {
         content: [{
@@ -1925,6 +1936,25 @@ function createRRGServer() {
             chainId:      8453,
             network:      'base',
             nextStep:     `Send exactly ${priceUsdc.toFixed(2)} USDC to ${platformWallet} on Base mainnet, then call confirm_agent_purchase with tokenId=${tokenId}, buyerWallet="${buyerWallet}", and your txHash.`,
+            paymentMethods: {
+              direct_usdc: {
+                payTo: platformWallet,
+                amount: priceUsdc.toFixed(2),
+                amountRaw,
+                chain: 'base',
+                token: 'USDC',
+                contract: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+              },
+              sponge_wallet: {
+                supported: true,
+                endpoint: 'POST https://api.wallet.paysponge.com/api/transfers/evm',
+                note: 'If you use Sponge Wallet, send USDC via their EVM transfer API to the payTo address above.',
+              },
+              x402: {
+                supported: true,
+                note: 'HTTP 402 micropayment flow also available — GET the drop content URL with x402 headers.',
+              },
+            },
           }, null, 2),
         }],
       };
@@ -1967,11 +1997,90 @@ function createRRGServer() {
         if (!resp.ok) {
           return { isError: true, content: [{ type: 'text' as const, text: `Purchase failed: ${data.error ?? resp.statusText}` }] };
         }
+
+        // Mem0 memory (fire-and-forget)
+        fireMemoryAdd(buyerWallet, [
+          { role: 'assistant', content: `Purchased "${data.title || `tokenId ${tokenId}`}" for ${data.priceUsdc || '?'} USDC on RRG. TX: ${txHash}` },
+        ], { action: 'purchase', tokenId: String(tokenId), txHash });
+
         return { content: [{ type: 'text' as const, text: JSON.stringify(data, null, 2) }] };
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         return { isError: true, content: [{ type: 'text' as const, text: `Error confirming purchase: ${msg}` }] };
       }
+    }
+  );
+
+  // ── Tool: get_my_preferences ────────────────────────────────────────────
+  server.tool(
+    'get_my_preferences',
+    [
+      '[PROFILE] View your personalised agent profile on RRG.',
+      '',
+      'Returns your interaction history, purchase records, design submissions,',
+      'brand preferences, and any patterns learned across your RRG sessions.',
+      'This is transparent — you can see exactly what RRG remembers about you.',
+    ].join('\n'),
+    {
+      agent_wallet: z.string().regex(/^0x[0-9a-fA-F]{40}$/).describe('Your wallet address'),
+      query:        z.string().optional().describe('Optional: specific aspect to search for (e.g. "favorite brands", "price range", "past purchases")'),
+    },
+    async ({ agent_wallet, query }) => {
+      const wallet = agent_wallet.toLowerCase();
+
+      // Pull Supabase data: purchases + submissions
+      const [purchaseResult, submissionResult, memories] = await Promise.all([
+        db.from('rrg_purchases')
+          .select('token_id, price_usdc, created_at, brand_id')
+          .eq('buyer_wallet', wallet)
+          .order('created_at', { ascending: false })
+          .limit(20),
+        db.from('rrg_submissions')
+          .select('id, title, status, created_at, brand_id')
+          .eq('creator_wallet', wallet)
+          .order('created_at', { ascending: false })
+          .limit(20),
+        query ? searchMemory(wallet, query, 10) : getAgentMemories(wallet),
+      ]);
+
+      const purchases = purchaseResult.data || [];
+      const submissions = submissionResult.data || [];
+
+      const profile = {
+        wallet,
+        purchases: {
+          total: purchases.length,
+          totalSpentUsdc: purchases.reduce((sum, p) => sum + (p.price_usdc || 0), 0),
+          recent: purchases.slice(0, 5).map(p => ({
+            tokenId: p.token_id,
+            priceUsdc: p.price_usdc,
+            date: p.created_at,
+          })),
+        },
+        submissions: {
+          total: submissions.length,
+          approved: submissions.filter(s => s.status === 'approved').length,
+          pending: submissions.filter(s => s.status === 'pending').length,
+          rejected: submissions.filter(s => s.status === 'rejected').length,
+          recent: submissions.slice(0, 5).map(s => ({
+            title: s.title,
+            status: s.status,
+            date: s.created_at,
+          })),
+        },
+        memories: memories.map(m => ({
+          content: m.memory,
+          created: m.created_at,
+          categories: m.categories,
+        })),
+        note: memories.length === 0 && purchases.length === 0 && submissions.length === 0
+          ? 'No history yet. Your preferences will be learned as you interact with RRG.'
+          : 'Your profile is built from your on-chain activity and interactions. Use this to verify what RRG knows about you.',
+      };
+
+      return {
+        content: [{ type: 'text' as const, text: JSON.stringify(profile, null, 2) }],
+      };
     }
   );
 
