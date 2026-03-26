@@ -16,4 +16,8 @@ if (!clientId && typeof window !== 'undefined') {
   console.warn('[thirdweb] NEXT_PUBLIC_THIRDWEB_CLIENT_ID not set — wallet features will not work');
 }
 
-export const thirdwebClient = createThirdwebClient({ clientId });
+// Use a dummy clientId during SSG/build when env var is not available.
+// thirdweb SDK throws if clientId is empty string.
+export const thirdwebClient = createThirdwebClient({
+  clientId: clientId || 'build-placeholder',
+});
