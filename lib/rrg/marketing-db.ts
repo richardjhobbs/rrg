@@ -69,6 +69,16 @@ export interface MktCandidate {
   outreach_status: OutreachStatus;
   last_contacted: string | null;
   contact_count: number;
+  // Added by scan
+  description: string | null;
+  reachable: boolean;
+  verified_endpoint: string | null;
+  // Enhanced intel fields
+  owner_email: string | null;
+  owner_website: string | null;
+  owner_socials: Record<string, string>;
+  agent_tools: Array<{ name: string; description: string }>;
+  agent_capabilities: string[];
 }
 
 export interface MktDiscoveryRun {
@@ -205,7 +215,9 @@ export async function getCandidatesForOutreach(
     .from('mkt_candidates')
     .select('*')
     .eq('outreach_status', 'pending')
-    .neq('tier', 'disqualified');
+    .neq('tier', 'disqualified')
+    // Only target verified reachable agents
+    .eq('reachable', true);
 
   if (tier) {
     query = query.eq('tier', tier);
@@ -213,6 +225,24 @@ export async function getCandidatesForOutreach(
 
   const { data } = await query
     .order('score', { ascending: false })
+    .limit(limit);
+  return data ?? [];
+}
+
+/**
+ * Get candidates for re-contact — previously contacted agents who should
+ * receive the updated outreach message.
+ */
+export async function getCandidatesForResend(
+  limit = 20,
+): Promise<MktCandidate[]> {
+  const { data } = await db
+    .from('mkt_candidates')
+    .select('*')
+    .eq('outreach_status', 'contacted')
+    .eq('reachable', true)
+    .neq('tier', 'disqualified')
+    .order('last_contacted', { ascending: true })
     .limit(limit);
   return data ?? [];
 }
@@ -248,6 +278,7 @@ export async function getCandidatesPaginated(
     discovery_source?: DiscoverySource;
     min_score?: number;
     chain?: string;
+    reachable?: boolean;
   },
 ): Promise<{ candidates: MktCandidate[]; totalCount: number }> {
   const offset = (page - 1) * perPage;
@@ -261,6 +292,7 @@ export async function getCandidatesPaginated(
   if (filters?.discovery_source) query = query.eq('discovery_source', filters.discovery_source);
   if (filters?.min_score) query = query.gte('score', filters.min_score);
   if (filters?.chain) query = query.eq('chain', filters.chain);
+  if (filters?.reachable !== undefined) query = query.eq('reachable', filters.reachable);
 
   const { data, count } = await query
     .order('score', { ascending: false })
@@ -508,7 +540,8 @@ export async function getPendingCommissionTotal(
 
 export async function getMarketingDashboardStats(): Promise<{
   totalCandidates: number;
-  byTier: Record<CandidateTier, number>;
+  reachableCount: number;
+  unreachableCount: number;
   byOutreachStatus: Record<OutreachStatus, number>;
   totalOutreachSent: number;
   totalConversions: number;
@@ -520,18 +553,13 @@ export async function getMarketingDashboardStats(): Promise<{
     .from('mkt_candidates')
     .select('id', { count: 'exact', head: true });
 
-  // Count per tier using exact counts (avoids Supabase 1000-row cap)
-  const tiers: CandidateTier[] = ['hot', 'warm', 'cold', 'disqualified'];
-  const byTier: Record<CandidateTier, number> = { hot: 0, warm: 0, cold: 0, disqualified: 0 };
-  for (const tier of tiers) {
-    const { count } = await db
-      .from('mkt_candidates')
-      .select('id', { count: 'exact', head: true })
-      .eq('tier', tier);
-    byTier[tier] = count ?? 0;
-  }
+  // Reachable count
+  const { count: reachableCount } = await db
+    .from('mkt_candidates')
+    .select('id', { count: 'exact', head: true })
+    .eq('reachable', true);
 
-  // Count per outreach status
+  // Count per outreach status (only for reachable agents)
   const statuses: OutreachStatus[] = ['pending', 'contacted', 'engaged', 'converted', 'declined', 'unresponsive'];
   const byOutreachStatus: Record<OutreachStatus, number> = {
     pending: 0, contacted: 0, engaged: 0, converted: 0, declined: 0, unresponsive: 0,
@@ -540,7 +568,8 @@ export async function getMarketingDashboardStats(): Promise<{
     const { count } = await db
       .from('mkt_candidates')
       .select('id', { count: 'exact', head: true })
-      .eq('outreach_status', status);
+      .eq('outreach_status', status)
+      .eq('reachable', true);
     byOutreachStatus[status] = count ?? 0;
   }
 
@@ -571,7 +600,8 @@ export async function getMarketingDashboardStats(): Promise<{
 
   return {
     totalCandidates: totalCandidates ?? 0,
-    byTier,
+    reachableCount: reachableCount ?? 0,
+    unreachableCount: (totalCandidates ?? 0) - (reachableCount ?? 0),
     byOutreachStatus,
     totalOutreachSent: totalOutreachSent ?? 0,
     totalConversions: totalConversions ?? 0,

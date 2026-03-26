@@ -96,6 +96,7 @@ export interface RrgSubmission {
   network: RrgNetwork;
   brand_id: string | null;
   creator_type: CreatorType;
+  world_verified: boolean;
   is_brand_product: boolean;
   // Physical product fields
   is_physical_product: boolean;

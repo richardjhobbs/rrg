@@ -43,6 +43,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db, getCurrentBrief, RRG_BRAND_ID } from '@/lib/rrg/db';
 import { uploadSubmissionFile, jpegStoragePath } from '@/lib/rrg/storage';
 import { fireSubmitAttribution } from '@/lib/rrg/marketing-attribution';
+import { getVerification } from '@/lib/rrg/worldid';
+import { verifyApiKey } from '@/lib/rrg/platforms';
 import { randomUUID } from 'crypto';
 
 export const dynamic = 'force-dynamic';
@@ -318,6 +320,36 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    // Check World ID verification and set flag (non-blocking)
+    getVerification(creator_wallet.trim().toLowerCase())
+      .then((wv) => {
+        if (wv) {
+          db.from('rrg_submissions')
+            .update({ world_verified: true })
+            .eq('id', submissionId)
+            .then(() => {});
+        }
+      })
+      .catch(() => {}); // non-fatal
+
+    // Platform attestation (fire-and-forget, same pattern as World ID)
+    if (body.platform_key) {
+      verifyApiKey(body.platform_key as string)
+        .then((platform) => {
+          if (platform) {
+            db.from('rrg_platform_attestations')
+              .insert({
+                platform_id: platform.id,
+                wallet_address: creator_wallet.trim().toLowerCase(),
+                submission_id: submissionId,
+                attestation_type: 'submission',
+              })
+              .then(() => {});
+          }
+        })
+        .catch(() => {}); // non-fatal
+    }
 
     // Marketing attribution (fire-and-forget)
     fireSubmitAttribution(creator_wallet.trim().toLowerCase(), data.id);

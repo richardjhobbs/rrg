@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db, claimNextTokenId, getSubmissionById, getCurrentBrief, getCurrentNetwork, getBrandById, RRG_BRAND_ID } from '@/lib/rrg/db';
+import { db, claimNextTokenId, getSubmissionById, getCurrentNetwork, getBrandById, RRG_BRAND_ID } from '@/lib/rrg/db';
 import { isAdminFromCookies, adminUnauthorized } from '@/lib/rrg/auth';
 import { getRRGContract, toUsdc6dp } from '@/lib/rrg/contract';
 import { sendApprovalNotification } from '@/lib/rrg/email';
@@ -106,7 +106,12 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Autopost + Instagram notify (non-blocking) ───────────────────────
-    getCurrentBrief().then(async (brief) => {
+    // Look up the brief the submission was actually linked to (NOT getCurrentBrief)
+    Promise.resolve(
+      submission.brief_id
+        ? db.from('rrg_briefs').select('title').eq('id', submission.brief_id).single().then(r => r.data)
+        : null
+    ).then(async (brief) => {
       const imageUrl = submission.jpeg_storage_path
         ? await getSignedUrl(submission.jpeg_storage_path, 300).catch(() => null)
         : null;

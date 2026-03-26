@@ -110,11 +110,11 @@ export async function POST(
     const priceUsdc   = parseFloat(priceStr);
     const editionSize = parseInt(editionStr, 10);
 
-    if (!priceUsdc || priceUsdc < 0.5 || priceUsdc > 500) {
-      return NextResponse.json({ error: 'price_usdc must be 0.50–500.00' }, { status: 400 });
+    if (!priceUsdc || priceUsdc < 0.01 || priceUsdc > 500) {
+      return NextResponse.json({ error: 'price_usdc must be 0.01–500.00' }, { status: 400 });
     }
-    if (!editionSize || editionSize < 1 || editionSize > 50) {
-      return NextResponse.json({ error: 'edition_size must be 1–50' }, { status: 400 });
+    if (!editionSize || editionSize < 1 || editionSize > 500) {
+      return NextResponse.json({ error: 'edition_size must be 1–500' }, { status: 400 });
     }
 
     if (!jpeg) {
@@ -249,7 +249,7 @@ export async function POST(
         creator_wallet:    brand.wallet_address.toLowerCase(),
         creator_email:     contactEmail?.trim() || brand.contact_email,
         title:             title.trim(),
-        description:       description?.trim().slice(0, 280) || null,
+        description:       description?.trim().slice(0, 1500) || null,
         submission_channel:'brand',
         status:            'approved',
         jpeg_storage_path: jpegPath,

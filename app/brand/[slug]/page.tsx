@@ -161,9 +161,9 @@ export default async function BrandStorefront({
             Current Brief
           </p>
           <h2 className="text-3xl font-light mb-3 leading-snug">{brief.title}</h2>
-          <p className="text-white/80 leading-relaxed mb-5 max-w-xl text-base">
+          <div className="text-white/80 leading-relaxed mb-5 max-w-xl text-base whitespace-pre-line">
             {brief.description}
-          </p>
+          </div>
           <div className="flex items-center gap-6">
             <Link
               href={`/brand/${slug}/submit`}

@@ -110,7 +110,7 @@ contract RRG is ERC1155, Ownable, ReentrancyGuardTransient {
         require(_drops[tokenId].creator == address(0), "RRG: tokenId already registered");
         require(creator != address(0), "RRG: zero creator");
         require(priceUsdc6dp > 0, "RRG: zero price");
-        require(maxSupply > 0 && maxSupply <= 50, "RRG: edition size must be 1-50");
+        require(maxSupply > 0 && maxSupply <= 10000, "RRG: edition size must be 1-10000");
 
         _drops[tokenId] = Drop({
             creator:    creator,

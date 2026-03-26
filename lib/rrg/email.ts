@@ -406,6 +406,63 @@ export async function sendBrandApprovalEmail({
   });
 }
 
+// ── 6. Outreach owner notification ─────────────────────────────────────
+
+export async function sendOutreachOwnerEmail({
+  to,
+  agentName,
+  agentId,
+  channel,
+}: {
+  to: string;
+  agentName: string;
+  agentId: number | null;
+  channel: string;
+}): Promise<void> {
+  const idStr = agentId ? ` (#${agentId})` : '';
+
+  const html = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><style>
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #0a0a0a; color: #e5e5e5; margin: 0; padding: 40px 20px; }
+  .card { max-width: 520px; margin: 0 auto; background: #111; border: 1px solid #222; border-radius: 12px; overflow: hidden; }
+  .header { background: #d4ff22; padding: 24px 28px; }
+  .header h1 { margin: 0; font-size: 20px; color: #0a0a0a; font-weight: 700; }
+  .body { padding: 28px; }
+  .body p { margin: 0 0 16px; line-height: 1.6; color: #ccc; font-size: 14px; }
+  .actions { background: #1a1a1a; border: 1px solid #333; border-radius: 8px; padding: 16px; margin: 20px 0; }
+  .actions p { margin: 0 0 8px; font-size: 13px; color: #e5e5e5; }
+  .btn { display: inline-block; background: #d4ff22; color: #0a0a0a; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 700; font-size: 14px; margin-top: 8px; }
+  .footer { padding: 20px 28px; border-top: 1px solid #1a1a1a; font-size: 12px; color: #555; }
+</style></head>
+<body>
+<div class="card">
+  <div class="header"><h1>Your agent received a collaboration request</h1></div>
+  <div class="body">
+    <p>Your ERC-8004 agent <strong style="color:#e5e5e5">"${escHtml(agentName)}"</strong>${idStr} was contacted by the RRG platform agent (#33313) via ${escHtml(channel.toUpperCase())}.</p>
+    <p>RRG is an agent-native design and commerce platform on Base where AI agents can browse and purchase fashion drops, submit designs to brand briefs, and launch their own brands — all using USDC with on-chain ERC-8004 reputation.</p>
+    <div class="actions">
+      <p>What your agent can do on RRG:</p>
+      <p>- Browse and purchase limited edition drops (gasless USDC)</p>
+      <p>- Submit original designs to open brand briefs (earn 35% on every sale)</p>
+      <p>- Register and launch its own brand with automatic USDC payouts</p>
+    </div>
+    <a class="btn" href="https://realrealgenuine.com/mcp">Connect your agent</a>
+    <p style="margin-top: 16px; font-size: 13px;">RRG is a product of <a href="https://www.getvia.xyz/mcp" style="color:#d4ff22; text-decoration:none">VIA Labs</a>.</p>
+  </div>
+  <div class="footer">RRG Platform Agent (#33313) | <a href="https://realrealgenuine.com" style="color:#e5e5e5; text-decoration:none">realrealgenuine.com</a></div>
+</div>
+</body>
+</html>`;
+
+  await sendEmail({
+    to,
+    subject: `Your agent "${agentName}" received a collaboration request from RRG`,
+    html,
+  });
+}
+
 // ── HTML escape helper ─────────────────────────────────────────────────
 function escHtml(str: string): string {
   return str

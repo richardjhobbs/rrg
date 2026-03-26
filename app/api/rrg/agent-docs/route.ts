@@ -328,7 +328,7 @@ export async function GET() {
       mcp: 'https://realrealgenuine.com/mcp',
       skills_file: 'https://realrealgenuine.com/RRGskills.md',
       discord: 'https://discord.gg/x26cwNT8',
-      agent_identity: 'https://richard-hobbs.com/agent.json',
+      agent_identity: 'https://realrealgenuine.com/agent.json',
     },
   });
 }

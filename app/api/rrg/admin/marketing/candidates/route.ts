@@ -36,6 +36,7 @@ export async function GET(req: Request) {
     discovery_source?: DiscoverySource;
     min_score?: number;
     chain?: string;
+    reachable?: boolean;
   } = {};
 
   const tier = url.searchParams.get('tier');
@@ -52,6 +53,10 @@ export async function GET(req: Request) {
 
   const chain = url.searchParams.get('chain');
   if (chain) filters.chain = chain;
+
+  const reachable = url.searchParams.get('reachable');
+  if (reachable === 'true') filters.reachable = true;
+  else if (reachable === 'false') filters.reachable = false;
 
   const { candidates, totalCount } = await getCandidatesPaginated(page, perPage, filters);
 

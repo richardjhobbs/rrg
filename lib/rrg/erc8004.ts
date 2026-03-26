@@ -93,35 +93,95 @@ export async function updateAgentUri(
  * implement ERC-721Enumerable so tokenOfOwnerByIndex is unavailable.
  * Returns null if the wallet has no ERC-8004 registration.
  */
-export async function lookupAgentIdByWallet(wallet: string): Promise<bigint | null> {
+// ── In-memory cache: wallet → agentId (populated lazily) ────────────────
+const _walletToAgent = new Map<string, bigint>();
+let _cachePopulated = false;
+
+/**
+ * Populate the wallet→agentId cache by checking ownerOf for all known
+ * agent IDs. Runs once per process lifetime (or until cache expires).
+ */
+async function populateAgentCache(): Promise<void> {
+  if (_cachePopulated) return;
   try {
     const provider = getBaseMainnetProvider();
-    const contract = new ethers.Contract(IDENTITY_REGISTRY_ADDR, IDENTITY_ABI, provider);
+    const abi = ['function ownerOf(uint256) view returns (address)'];
+    const contract = new ethers.Contract(IDENTITY_REGISTRY_ADDR, abi, provider);
 
-    // Fast path: skip RPC call if no balance
-    const balance = await (contract.balanceOf as (owner: string) => Promise<bigint>)(wallet);
-    if (balance === 0n) return null;
+    // Check all known agent IDs — add new ones here as they register
+    const KNOWN_IDS = [DRHOBBS_AGENT_ID, RRG_AGENT_ID]; // 17666, 33313
 
-    // Scan mint Transfer events (from=0x0, to=wallet) to find the tokenId
-    const filter = {
-      address: IDENTITY_REGISTRY_ADDR,
-      topics: [
-        ethers.id('Transfer(address,address,uint256)'),
-        ethers.zeroPadValue('0x00', 32),             // from = 0x0 (mint)
-        ethers.zeroPadValue(wallet.toLowerCase(), 32), // to = wallet
-      ],
-      fromBlock: 0,
-      toBlock: 'latest',
-    };
-    const logs = await provider.getLogs(filter);
-    if (logs.length === 0) return null;
+    const checks = KNOWN_IDS.map(async (id) => {
+      try {
+        const owner: string = await (contract.ownerOf as (id: bigint) => Promise<string>)(id);
+        _walletToAgent.set(owner.toLowerCase(), id);
+      } catch { /* token doesn't exist or reverted */ }
+    });
 
-    // Token ID is the third topic (uint256)
-    const tokenId = BigInt(logs[logs.length - 1].topics[3]);
-    return tokenId;
+    await Promise.all(checks);
+    _cachePopulated = true;
+
+    // Refresh cache every 10 minutes
+    setTimeout(() => { _cachePopulated = false; }, 10 * 60 * 1000);
+  } catch {
+    // non-fatal — badge just won't show
+  }
+}
+
+/**
+ * Look up the ERC-8004 agentId registered to a given wallet address.
+ * Uses an in-memory cache populated from known agent IDs.
+ * Falls back to balanceOf check for unknown wallets.
+ */
+export async function lookupAgentIdByWallet(wallet: string): Promise<bigint | null> {
+  try {
+    await populateAgentCache();
+    const lowerWallet = wallet.toLowerCase();
+
+    // Check cache first (covers known agents)
+    const cached = _walletToAgent.get(lowerWallet);
+    if (cached !== undefined) return cached;
+
+    // For unknown wallets: quick balanceOf check — if 0, definitely no token
+    const provider = getBaseMainnetProvider();
+    const abi = ['function balanceOf(address) view returns (uint256)'];
+    const contract = new ethers.Contract(IDENTITY_REGISTRY_ADDR, abi, provider);
+    const balance = await (contract.balanceOf as (a: string) => Promise<bigint>)(wallet);
+
+    // If balance > 0, they have a token but it's not in our known list.
+    // Return a sentinel value so the badge still shows (without specific ID).
+    if (balance > 0n) return -1n; // indicates "has token, unknown ID"
+
+    return null;
   } catch {
     return null;
   }
+}
+
+/**
+ * Batch lookup ERC-8004 agent IDs for multiple wallets.
+ * Returns a Map of lowercased wallet → agentId.
+ * Runs lookups in parallel with a 3-second timeout per wallet.
+ */
+export async function getAgentIdsForWallets(wallets: string[]): Promise<Map<string, number>> {
+  const result = new Map<string, number>();
+  if (wallets.length === 0) return result;
+
+  const unique = [...new Set(wallets.map(w => w.toLowerCase()))];
+  const lookups = unique.map(async (wallet) => {
+    try {
+      const id = await Promise.race([
+        lookupAgentIdByWallet(wallet),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
+      ]);
+      if (id !== null) result.set(wallet, Number(id));
+    } catch {
+      // skip failed lookups
+    }
+  });
+
+  await Promise.all(lookups);
+  return result;
 }
 
 // ── Reputation Registry ───────────────────────────────────────────────────

@@ -34,12 +34,14 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    // Batch mode
-    if (body.tier) {
+    // Batch mode (tier is optional — without it, sends to all reachable pending agents)
+    // resend: true → re-contact previously contacted agents with updated message
+    if (body.tier || body.limit || body.resend) {
       const results = await batchOutreach(
-        body.tier,
+        body.tier ?? undefined,
         body.channel ?? 'a2a',
-        Math.min(body.limit ?? 10, 50),
+        Math.min(body.limit ?? 10, 2000),
+        body.resend ?? false,
       );
       const delivered = results.filter((r) => r.status === 'delivered').length;
       const bounced = results.filter((r) => r.status === 'bounced').length;
@@ -84,10 +86,81 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const candidateId = url.searchParams.get('candidate_id');
 
-  if (!candidateId) {
-    return NextResponse.json({ error: 'candidate_id query param required' }, { status: 400 });
+  // Single candidate history
+  if (candidateId) {
+    const history = await getOutreachForCandidate(candidateId);
+    return NextResponse.json({ outreach: history });
   }
 
-  const history = await getOutreachForCandidate(candidateId);
-  return NextResponse.json({ outreach: history });
+  // Full outreach dashboard — aggregated stats + recent messages
+  const { db: supabase } = await import('@/lib/rrg/db');
+
+  // All outreach records (with candidate join for context)
+  const { data: allOutreach } = await supabase
+    .from('mkt_outreach')
+    .select('id, created_at, candidate_id, channel, message_type, status, response_body, cost_usdc')
+    .order('created_at', { ascending: false })
+    .limit(500);
+
+  const records = allOutreach ?? [];
+
+  // Aggregate by status
+  const byStatus: Record<string, number> = {};
+  const byChannel: Record<string, number> = {};
+  const byMessageType: Record<string, number> = {};
+  let totalCost = 0;
+
+  for (const r of records) {
+    byStatus[r.status] = (byStatus[r.status] ?? 0) + 1;
+    byChannel[r.channel] = (byChannel[r.channel] ?? 0) + 1;
+    byMessageType[r.message_type] = (byMessageType[r.message_type] ?? 0) + 1;
+    totalCost += r.cost_usdc ?? 0;
+  }
+
+  // Recent outreach with candidate names
+  const recentIds = records.slice(0, 100).map(r => r.candidate_id);
+  const uniqueCandidateIds = [...new Set(recentIds)];
+
+  const { data: candidates } = uniqueCandidateIds.length > 0
+    ? await supabase
+        .from('mkt_candidates')
+        .select('id, name, erc8004_id, chain, tier, wallet_address, has_mcp, has_a2a, has_image_gen, outreach_status')
+        .in('id', uniqueCandidateIds)
+    : { data: [] };
+
+  const candidateMap = new Map((candidates ?? []).map(c => [c.id, c]));
+
+  const recent = records.slice(0, 100).map(r => ({
+    ...r,
+    candidate: candidateMap.get(r.candidate_id) ?? null,
+    response_preview: r.response_body?.slice(0, 200) ?? null,
+  }));
+
+  // Delivery rate calculation
+  const deliveryRate = records.length > 0
+    ? ((byStatus['delivered'] ?? 0) / records.length * 100).toFixed(1)
+    : '0';
+  const bounceRate = records.length > 0
+    ? ((byStatus['bounced'] ?? 0) / records.length * 100).toFixed(1)
+    : '0';
+
+  // Today's activity
+  const today = new Date().toISOString().slice(0, 10);
+  const todayRecords = records.filter(r => r.created_at?.startsWith(today));
+  const todayDelivered = todayRecords.filter(r => r.status === 'delivered').length;
+
+  return NextResponse.json({
+    total: records.length,
+    byStatus,
+    byChannel,
+    byMessageType,
+    deliveryRate,
+    bounceRate,
+    totalCostUsdc: totalCost,
+    today: {
+      total: todayRecords.length,
+      delivered: todayDelivered,
+    },
+    recent,
+  });
 }

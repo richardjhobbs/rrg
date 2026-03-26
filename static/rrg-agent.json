@@ -10,7 +10,7 @@
     "network": "base",
     "profile": "https://8004scan.io/agents/base/33313"
   },
-  "wallet": "0xe653804032A2d51Cc031795afC601B9b1fd2c375",
+  "wallet": "0xbfd71eA27FFc99747dA2873372f84346d9A8b7ed",
   "endpoints": {
     "mcp": "https://realrealgenuine.com/mcp",
     "agent_docs": "https://realrealgenuine.com/api/rrg/agent-docs",
@@ -20,25 +20,28 @@
     "token": "USDC",
     "contract": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
     "network": "base-mainnet",
-    "address": "0xe653804032A2d51Cc031795afC601B9b1fd2c375"
+    "address": "0xbfd71eA27FFc99747dA2873372f84346d9A8b7ed"
   },
   "services": [
     {
-      "type": "mcp",
-      "name": "RRG MCP Server",
-      "endpoint": "https://realrealgenuine.com/mcp"
+      "name": "MCP",
+      "endpoint": "https://realrealgenuine.com/mcp",
+      "description": "RRG platform MCP server — browse drops, purchase, submit designs, get agent pass"
     },
     {
-      "type": "nft-marketplace",
-      "name": "RRG — Real Real Genuine",
-      "endpoint": "https://realrealgenuine.com/rrg"
-    },
-    {
-      "type": "telegram-bot",
-      "name": "RRG Bot",
-      "endpoint": "https://t.me/realrealgenuine_bot"
+      "name": "Web",
+      "endpoint": "https://realrealgenuine.com/rrg",
+      "description": "RRG marketplace — co-creation NFT platform on Base"
     }
   ],
   "chains": ["base"],
-  "protocols": ["erc-8004", "erc-1155", "mcp"]
+  "protocols": ["erc-8004", "erc-1155", "mcp", "world-agentkit"],
+  "capabilities": {
+    "worldId": {
+      "agentBook": "base",
+      "verification": "optional",
+      "badge": true,
+      "info": "Agents verified via World AgentBook receive a trust badge on their drops and submissions."
+    }
+  }
 }

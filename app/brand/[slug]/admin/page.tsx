@@ -287,9 +287,9 @@ function SubmissionsTab({ brandId }: { brandId: string }) {
               {approveForm?.id === s.id ? (
                 <form onSubmit={handleApprove} className="border-t border-white/10 p-4 flex gap-3 items-end flex-wrap">
                   <div>
-                    <label className="text-sm font-mono text-white/60 block mb-1">Edition size (1–50)</label>
+                    <label className="text-sm font-mono text-white/60 block mb-1">Edition size (1–500)</label>
                     <input
-                      type="number" required min={1} max={50}
+                      type="number" required min={1} max={500}
                       value={approveForm.edition_size}
                       onChange={(e) => setApproveForm({ ...approveForm, edition_size: e.target.value })}
                       className="w-24 bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none"
@@ -298,7 +298,7 @@ function SubmissionsTab({ brandId }: { brandId: string }) {
                   <div>
                     <label className="text-sm font-mono text-white/60 block mb-1">Price USDC</label>
                     <input
-                      type="number" required min={0.5} max={500} step={0.5}
+                      type="number" required min={0.01} max={500} step={0.01}
                       value={approveForm.price_usdc}
                       onChange={(e) => setApproveForm({ ...approveForm, price_usdc: e.target.value })}
                       className="w-24 bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none"
@@ -568,7 +568,7 @@ function ProductsTab({ brandId }: { brandId: string }) {
             <div>
               <label className="text-sm font-mono text-white/60 block mb-1">Price (USDC) *</label>
               <input
-                type="number" required min={0.5} max={500} step={0.5}
+                type="number" required min={0.01} max={500} step={0.01}
                 value={form.price_usdc}
                 onChange={(e) => setForm({ ...form, price_usdc: e.target.value })}
                 className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none"
@@ -577,7 +577,7 @@ function ProductsTab({ brandId }: { brandId: string }) {
             <div>
               <label className="text-sm font-mono text-white/60 block mb-1">Edition Size *</label>
               <input
-                type="number" required min={1} max={50}
+                type="number" required min={1} max={500}
                 value={form.edition_size}
                 onChange={(e) => setForm({ ...form, edition_size: e.target.value })}
                 className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none"
@@ -587,11 +587,12 @@ function ProductsTab({ brandId }: { brandId: string }) {
           <div>
             <label className="text-sm font-mono text-white/60 block mb-1">Description</label>
             <textarea
-              rows={3} maxLength={280}
+              rows={7} maxLength={1500}
               value={form.description}
               onChange={(e) => setForm({ ...form, description: e.target.value })}
               className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none resize-none"
             />
+            <p className="text-sm text-white/40 mt-0.5 text-right">{form.description.length}/1500</p>
           </div>
           <div>
             <label className="text-sm font-mono text-white/60 block mb-1">

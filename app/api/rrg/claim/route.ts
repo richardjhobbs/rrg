@@ -112,6 +112,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Drop not found or not approved' }, { status: 404 });
     }
 
+    // ── Per-wallet purchase limit (configurable per drop via max_per_wallet) ──
+    const maxPerWallet: number | null = submission.max_per_wallet ?? null;
+    if (maxPerWallet && maxPerWallet > 0) {
+      const { count: walletCount } = await db
+        .from('rrg_purchases')
+        .select('id', { count: 'exact', head: true })
+        .eq('token_id', tokenId)
+        .eq('buyer_wallet', buyerWallet.toLowerCase());
+
+      if ((walletCount ?? 0) >= maxPerWallet) {
+        return NextResponse.json(
+          { error: `Purchase limit reached: max ${maxPerWallet} per wallet for this drop` },
+          { status: 409 }
+        );
+      }
+    }
+
     // ── Check txHash not already used ─────────────────────────────────────
     const { data: existing } = await db
       .from('rrg_purchases')

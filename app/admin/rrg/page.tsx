@@ -54,12 +54,22 @@ interface Submission {
 interface Drop {
   id: string;
   title: string;
+  description?: string | null;
   token_id: number;
   price_usdc: string;
   edition_size: number;
   creator_wallet: string;
+  creator_email?: string | null;
+  creator_handle?: string | null;
+  creator_bio?: string | null;
+  creator_type?: string | null;
   approved_at: string;
   hidden?: boolean;
+  previewUrl?: string | null;
+  jpeg_storage_path?: string | null;
+  submission_channel?: string | null;
+  brief_id?: string | null;
+  brand_id?: string | null;
 }
 
 interface Brand {
@@ -71,6 +81,11 @@ interface Brand {
   contact_email: string;
   wallet_address: string;
   website_url?: string | null;
+  logo_path?: string | null;
+  banner_path?: string | null;
+  logoUrl?: string | null;
+  bannerUrl?: string | null;
+  social_links?: Record<string, string> | null;
   status: string;
   max_self_listings: number;
   self_listings_used: number;
@@ -189,12 +204,20 @@ export default function AdminPage() {
         <span className="font-mono text-sm uppercase tracking-[0.3em] text-white/80">
           RRG Admin
         </span>
-        <button
-          onClick={handleLogout}
-          className="text-sm text-white/50 hover:text-white transition-colors font-mono"
-        >
-          Logout
-        </button>
+        <div className="flex items-center gap-4">
+          <a
+            href="/admin/rrg/marketing"
+            className="text-sm text-white/50 hover:text-white transition-colors font-mono"
+          >
+            Agent Marketing →
+          </a>
+          <button
+            onClick={handleLogout}
+            className="text-sm text-white/50 hover:text-white transition-colors font-mono"
+          >
+            Logout
+          </button>
+        </div>
       </header>
 
       {/* Tabs */}
@@ -548,12 +571,17 @@ function BriefTab() {
 }
 
 // ── Submissions Tab ────────────────────────────────────────────────────
+// ── Submissions Tab (Superadmin) ──────────────────────────────────────
 function SubmissionsTab() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [acting,      setActing]      = useState<string | null>(null);
-  const [approveForm, setApproveForm] = useState<{ id: string; edition_size: string; price_usdc: string } | null>(null);
+  const [approveForm, setApproveForm] = useState<{ id: string; edition_size: string; price_usdc: string; title: string; description: string } | null>(null);
   const [rejectForm,  setRejectForm]  = useState<{ id: string; reason: string } | null>(null);
+  const [editingId,   setEditingId]   = useState<string | null>(null);
+  const [editForm,    setEditForm]    = useState({ title: '', description: '' });
+  const [imageFile,   setImageFile]   = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [msg,         setMsg]         = useState('');
   const [lightbox,    setLightbox]    = useState<string | null>(null);
 
@@ -561,7 +589,6 @@ function SubmissionsTab() {
     setLoading(true);
     const res  = await fetch('/api/rrg/submissions');
     const data = await res.json();
-    // Parse submitter suggestions out of description tag
     const parsed = (data.submissions || []).map((s: Submission) => {
       const match = (s.description || '').match(/\[Suggested: (\S+) ed · \$([0-9.]+) USDC\]/);
       return {
@@ -577,11 +604,61 @@ function SubmissionsTab() {
 
   useEffect(() => { load(); }, [load]);
 
+  const handleEditSave = async () => {
+    if (!editingId) return;
+    setActing(editingId);
+    setMsg('');
+
+    const formData = new FormData();
+    formData.append('submissionId', editingId);
+    formData.append('title', editForm.title);
+    formData.append('description', editForm.description);
+    if (imageFile) formData.append('image', imageFile);
+
+    const res = await fetch('/api/rrg/admin/submissions', { method: 'PATCH', body: formData });
+    const data = await res.json();
+    setActing(null);
+    if (res.ok) {
+      setMsg(`Updated ✓`);
+      setEditingId(null);
+      setImageFile(null);
+      setImagePreview(null);
+      load();
+    } else {
+      setMsg(`Error: ${data.error}`);
+    }
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setImageFile(file);
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setImagePreview(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      setImagePreview(null);
+    }
+  };
+
   const handleApprove = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!approveForm) return;
     setActing(approveForm.id);
     setMsg('');
+
+    // Save any title/description edits first
+    if (approveForm.title || approveForm.description) {
+      const editBody: Record<string, string> = { submissionId: approveForm.id };
+      if (approveForm.title) editBody.title = approveForm.title;
+      if (approveForm.description) editBody.description = approveForm.description;
+      await fetch('/api/rrg/admin/submissions', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editBody),
+      });
+    }
+
     const res = await fetch('/api/rrg/approve', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -610,40 +687,27 @@ function SubmissionsTab() {
     const res = await fetch('/api/rrg/reject', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({
-        submissionId: rejectForm.id,
-        reason:       rejectForm.reason,
-      }),
+      body:    JSON.stringify({ submissionId: rejectForm.id, reason: rejectForm.reason }),
     });
     const data = await res.json();
-    if (res.ok) {
-      setMsg('Rejected ✓');
-      setRejectForm(null);
-      load();
-    } else {
-      setMsg(`Error: ${data.error}`);
-    }
+    if (res.ok) { setMsg('Rejected ✓'); setRejectForm(null); load(); }
+    else { setMsg(`Error: ${data.error}`); }
     setActing(null);
   };
+
+  const inputClass = 'w-full bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none';
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-sm font-mono uppercase tracking-widest text-white/60">
-          Pending Submissions
+          Pending Submissions — Superadmin
         </h2>
-        <button
-          onClick={load}
-          className="text-sm text-white/50 hover:text-white transition-colors font-mono"
-        >
-          ↻ Refresh
-        </button>
+        <button onClick={load} className="text-sm text-white/50 hover:text-white transition-colors font-mono">↻ Refresh</button>
       </div>
 
       {msg && (
-        <div className="mb-4 p-3 border border-white/20 bg-white/5 text-sm font-mono text-white/80">
-          {msg}
-        </div>
+        <div className="mb-4 p-3 border border-white/20 bg-white/5 text-sm font-mono text-white/80">{msg}</div>
       )}
 
       {loading ? (
@@ -654,138 +718,107 @@ function SubmissionsTab() {
         <div className="space-y-6">
           {submissions.map((s) => (
             <div key={s.id} className="border border-white/10 overflow-hidden">
-              {/* Header */}
+              {/* Header with large image */}
               <div className="flex gap-4 p-5">
-                {/* Preview image */}
                 {s.previewUrl && (
-                  <button
-                    type="button"
-                    onClick={() => setLightbox(s.previewUrl!)}
-                    className="w-24 h-24 flex-shrink-0 bg-white/5 overflow-hidden cursor-zoom-in"
-                  >
-                    <img
-                      src={s.previewUrl}
-                      alt={s.title}
-                      className="w-full h-full object-cover"
-                    />
+                  <button type="button" onClick={() => setLightbox(s.previewUrl!)} className="w-32 h-32 flex-shrink-0 bg-white/5 overflow-hidden cursor-zoom-in">
+                    <img src={s.previewUrl} alt={s.title} className="w-full h-full object-cover" />
                   </button>
                 )}
                 <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-start mb-1">
-                    <h3 className="text-base font-medium truncate pr-2">{s.title}</h3>
-                    <span className="text-sm font-mono text-white/50 flex-shrink-0">
-                      {new Date(s.created_at).toLocaleDateString()}
-                    </span>
-                  </div>
-                  {s.description && (
-                    <p className="text-sm text-white/60 leading-relaxed mb-2 line-clamp-2">
-                      {s.description}
-                    </p>
-                  )}
-                  <div className="flex gap-4 text-sm text-white/40 font-mono flex-wrap">
-                    <span className="flex items-center gap-1">Wallet: <CopyWallet address={s.creator_wallet} /></span>
-                    {s.creator_email && <span>{s.creator_email}</span>}
-                  </div>
-                  {(s.suggestedEdition || s.suggestedPrice) && (
-                    <div className="mt-2 text-sm font-mono text-amber-400/60">
-                      Suggested: {s.suggestedEdition ? `${s.suggestedEdition} ed` : ''}
-                      {s.suggestedEdition && s.suggestedPrice ? ' · ' : ''}
-                      {s.suggestedPrice ? `$${s.suggestedPrice} USDC` : ''}
+                  {editingId === s.id ? (
+                    <div className="space-y-2">
+                      <div className="flex gap-2">
+                        <div className="flex-1">
+                          <label className="text-xs font-mono text-white/50 block mb-0.5">Title</label>
+                          <input type="text" maxLength={120} value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} className={inputClass} />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-xs font-mono text-white/50 block mb-0.5">Description</label>
+                        <textarea rows={2} value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} className={inputClass + ' resize-y'} />
+                      </div>
+                      <div className="flex gap-2 items-center">
+                        <label className="text-xs font-mono text-white/50 border border-white/20 px-3 py-1 cursor-pointer hover:border-white/50 transition-colors">
+                          Replace Image
+                          <input type="file" accept="image/jpeg,image/png" onChange={handleImageChange} className="hidden" />
+                        </label>
+                        {imageFile && <span className="text-xs text-green-400 font-mono">{imageFile.name}</span>}
+                        <button type="button" onClick={handleEditSave} disabled={acting === s.id} className="px-3 py-1 bg-white text-black text-xs font-medium hover:bg-white/90 disabled:opacity-40 transition-all">
+                          {acting === s.id ? 'Saving…' : 'Save Edits'}
+                        </button>
+                        <button type="button" onClick={() => { setEditingId(null); setImageFile(null); setImagePreview(null); }} className="text-xs text-white/50 hover:text-white transition-colors">Cancel</button>
+                      </div>
                     </div>
+                  ) : (
+                    <>
+                      <div className="flex justify-between items-start mb-1">
+                        <h3 className="text-base font-medium truncate pr-2">{s.title}</h3>
+                        <div className="flex gap-2 flex-shrink-0">
+                          <button onClick={() => { setEditingId(s.id); setEditForm({ title: s.title, description: s.description || '' }); }} className="text-xs text-white/40 hover:text-white transition-colors font-mono">Edit</button>
+                          <span className="text-sm font-mono text-white/50">
+                            {new Date(s.created_at).toLocaleDateString()} {new Date(s.created_at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}
+                          </span>
+                        </div>
+                      </div>
+                      {s.description && <p className="text-sm text-white/60 leading-relaxed mb-2 line-clamp-3">{s.description}</p>}
+                      <div className="flex gap-4 text-sm text-white/40 font-mono flex-wrap">
+                        <span className="flex items-center gap-1">Wallet: <CopyWallet address={s.creator_wallet} /></span>
+                        {s.creator_email && <span>{s.creator_email}</span>}
+                      </div>
+                      {(s.suggestedEdition || s.suggestedPrice) && (
+                        <div className="mt-2 text-sm font-mono text-amber-400/60">
+                          Suggested: {s.suggestedEdition ? `${s.suggestedEdition} ed` : ''}{s.suggestedEdition && s.suggestedPrice ? ' · ' : ''}{s.suggestedPrice ? `$${s.suggestedPrice} USDC` : ''}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
 
-              {/* Actions */}
+              {/* Approve / Reject actions */}
               {approveForm?.id === s.id ? (
-                <form onSubmit={handleApprove} className="border-t border-white/10 p-4 flex gap-3 items-end">
-                  <div>
-                    <label className="text-sm font-mono text-white/60 block mb-1">Edition size (1–50)</label>
-                    <input
-                      type="number" required min={1} max={50}
-                      value={approveForm.edition_size}
-                      onChange={(e) => setApproveForm({ ...approveForm, edition_size: e.target.value })}
-                      className="w-24 bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none"
-                    />
+                <form onSubmit={handleApprove} className="border-t border-white/10 p-4 space-y-3">
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <div>
+                      <label className="text-sm font-mono text-white/60 block mb-1">Edition size</label>
+                      <input type="number" required min={1} max={10000} value={approveForm.edition_size} onChange={(e) => setApproveForm({ ...approveForm, edition_size: e.target.value })} className="w-full bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-sm font-mono text-white/60 block mb-1">Price USDC</label>
+                      <input type="number" required min={0.1} max={10000} step={0.01} value={approveForm.price_usdc} onChange={(e) => setApproveForm({ ...approveForm, price_usdc: e.target.value })} className="w-full bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-sm font-mono text-white/60 block mb-1">Override Title</label>
+                      <input type="text" maxLength={120} placeholder={s.title} value={approveForm.title} onChange={(e) => setApproveForm({ ...approveForm, title: e.target.value })} className="w-full bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-sm font-mono text-white/60 block mb-1">Override Description</label>
+                      <input type="text" placeholder="Keep original" value={approveForm.description} onChange={(e) => setApproveForm({ ...approveForm, description: e.target.value })} className="w-full bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none" />
+                    </div>
                   </div>
-                  <div>
-                    <label className="text-sm font-mono text-white/60 block mb-1">Price USDC</label>
-                    <input
-                      type="number" required min={0.1} max={500} step={0.01}
-                      value={approveForm.price_usdc}
-                      onChange={(e) => setApproveForm({ ...approveForm, price_usdc: e.target.value })}
-                      className="w-24 bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none"
-                    />
+                  <div className="flex gap-3">
+                    <button type="submit" disabled={acting === s.id} className="px-5 py-1.5 bg-white text-black text-base font-medium hover:bg-white/90 disabled:opacity-40 transition-all">
+                      {acting === s.id ? 'Approving…' : 'Confirm Approve'}
+                    </button>
+                    <button type="button" onClick={() => setApproveForm(null)} className="text-sm text-white/50 hover:text-white transition-colors">Cancel</button>
                   </div>
-                  <button
-                    type="submit"
-                    disabled={acting === s.id}
-                    className="px-5 py-1.5 bg-white text-black text-base font-medium
-                               hover:bg-white/90 disabled:opacity-40 transition-all"
-                  >
-                    {acting === s.id ? 'Approving…' : 'Confirm Approve'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setApproveForm(null)}
-                    className="text-sm text-white/50 hover:text-white transition-colors"
-                  >
-                    Cancel
-                  </button>
                 </form>
               ) : rejectForm?.id === s.id ? (
                 <form onSubmit={handleReject} className="border-t border-white/10 p-4 flex gap-3 items-end">
                   <div className="flex-1">
                     <label className="text-sm font-mono text-white/60 block mb-1">Reason (optional)</label>
-                    <input
-                      type="text" maxLength={500}
-                      placeholder="Reason for rejection…"
-                      value={rejectForm.reason}
-                      onChange={(e) => setRejectForm({ ...rejectForm, reason: e.target.value })}
-                      className="w-full bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none"
-                    />
+                    <input type="text" maxLength={500} placeholder="Reason for rejection…" value={rejectForm.reason} onChange={(e) => setRejectForm({ ...rejectForm, reason: e.target.value })} className="w-full bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none" />
                   </div>
-                  <button
-                    type="submit"
-                    disabled={acting === s.id}
-                    className="px-5 py-1.5 border border-red-400/50 text-red-400 text-base
-                               hover:border-red-400 disabled:opacity-40 transition-all"
-                  >
+                  <button type="submit" disabled={acting === s.id} className="px-5 py-1.5 border border-red-400/50 text-red-400 text-base hover:border-red-400 disabled:opacity-40 transition-all">
                     {acting === s.id ? 'Rejecting…' : 'Confirm Reject'}
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setRejectForm(null)}
-                    className="text-sm text-white/50 hover:text-white transition-colors"
-                  >
-                    Cancel
-                  </button>
+                  <button type="button" onClick={() => setRejectForm(null)} className="text-sm text-white/50 hover:text-white transition-colors">Cancel</button>
                 </form>
               ) : (
                 <div className="border-t border-white/10 p-4 flex gap-3">
-                  <button
-                    onClick={() => {
-                      setApproveForm({
-                        id:           s.id,
-                        edition_size: s.suggestedEdition || '10',
-                        price_usdc:   s.suggestedPrice   || '5',
-                      });
-                      setRejectForm(null);
-                    }}
-                    className="px-5 py-1.5 bg-white text-black text-sm font-medium hover:bg-white/90 transition-all"
-                  >
-                    Approve
-                  </button>
-                  <button
-                    onClick={() => {
-                      setRejectForm({ id: s.id, reason: '' });
-                      setApproveForm(null);
-                    }}
-                    className="px-5 py-1.5 border border-red-400/30 text-red-400 text-sm
-                               hover:border-red-400 transition-all"
-                  >
-                    Reject
-                  </button>
+                  <button onClick={() => { setApproveForm({ id: s.id, edition_size: s.suggestedEdition || '10', price_usdc: s.suggestedPrice || '5', title: '', description: '' }); setRejectForm(null); }} className="px-5 py-1.5 bg-white text-black text-sm font-medium hover:bg-white/90 transition-all">Approve</button>
+                  <button onClick={() => { setRejectForm({ id: s.id, reason: '' }); setApproveForm(null); }} className="px-5 py-1.5 border border-red-400/30 text-red-400 text-sm hover:border-red-400 transition-all">Reject</button>
                 </div>
               )}
             </div>
@@ -795,33 +828,28 @@ function SubmissionsTab() {
 
       {/* Lightbox overlay */}
       {lightbox && (
-        <div
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center cursor-zoom-out"
-          onClick={() => setLightbox(null)}
-          onKeyDown={(e) => { if (e.key === 'Escape') setLightbox(null); }}
-          tabIndex={0}
-          ref={(el) => el?.focus()}
-        >
-          <img
-            src={lightbox}
-            alt="Full-size preview"
-            className="max-w-[90vw] max-h-[90vh] object-contain"
-            onClick={(e) => e.stopPropagation()}
-          />
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center cursor-zoom-out" onClick={() => setLightbox(null)} onKeyDown={(e) => { if (e.key === 'Escape') setLightbox(null); }} tabIndex={0} ref={(el) => el?.focus()}>
+          <img src={lightbox} alt="Full-size preview" className="max-w-[90vw] max-h-[90vh] object-contain" onClick={(e) => e.stopPropagation()} />
         </div>
       )}
     </div>
   );
 }
 
-// ── Drops Tab ──────────────────────────────────────────────────────────
+// ── Drops Tab (Superadmin) ─────────────────────────────────────────────
 function DropsTab() {
   const [drops,   setDrops]   = useState<Drop[]>([]);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState<string | null>(null);
-  const [editForm, setEditForm] = useState({ title: '', price_usdc: '', edition_size: '', description: '' });
+  const [editForm, setEditForm] = useState({
+    title: '', description: '', price_usdc: '', edition_size: '',
+    creator_email: '', creator_handle: '', creator_bio: '',
+  });
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [acting,  setActing]  = useState(false);
   const [msg,     setMsg]     = useState('');
+  const [lightbox, setLightbox] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -837,11 +865,28 @@ function DropsTab() {
     setEditing(d.id);
     setEditForm({
       title: d.title,
+      description: d.description || '',
       price_usdc: parseFloat(d.price_usdc).toString(),
       edition_size: d.edition_size.toString(),
-      description: '',
+      creator_email: d.creator_email || '',
+      creator_handle: d.creator_handle || '',
+      creator_bio: d.creator_bio || '',
     });
+    setImageFile(null);
+    setImagePreview(null);
     setMsg('');
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    setImageFile(file);
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (ev) => setImagePreview(ev.target?.result as string);
+      reader.readAsDataURL(file);
+    } else {
+      setImagePreview(null);
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -849,21 +894,26 @@ function DropsTab() {
     if (!editing) return;
     setActing(true);
     setMsg('');
-    const res = await fetch('/api/rrg/admin/drops', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        submissionId: editing,
-        title: editForm.title,
-        price_usdc: editForm.price_usdc,
-        edition_size: editForm.edition_size,
-      }),
-    });
+
+    const formData = new FormData();
+    formData.append('submissionId', editing);
+    formData.append('title', editForm.title);
+    formData.append('description', editForm.description);
+    formData.append('price_usdc', editForm.price_usdc);
+    formData.append('edition_size', editForm.edition_size);
+    formData.append('creator_email', editForm.creator_email);
+    formData.append('creator_handle', editForm.creator_handle);
+    formData.append('creator_bio', editForm.creator_bio);
+    if (imageFile) formData.append('image', imageFile);
+
+    const res = await fetch('/api/rrg/admin/drops', { method: 'PATCH', body: formData });
     const data = await res.json();
     setActing(false);
     if (res.ok) {
       setMsg(`Updated ✓ (${data.updated?.join(', ')})`);
       setEditing(null);
+      setImageFile(null);
+      setImagePreview(null);
       load();
     } else {
       setMsg(`Error: ${data.error}`);
@@ -883,12 +933,14 @@ function DropsTab() {
   };
 
   const scanBase = 'https://basescan.org';
+  const inputClass = 'w-full bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none';
+  const labelClass = 'text-sm font-mono text-white/60 block mb-1';
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-sm font-mono uppercase tracking-widest text-white/60">
-          Approved Drops
+          Approved Drops — Superadmin
         </h2>
         <button onClick={load} className="text-sm text-white/50 hover:text-white transition-colors font-mono">
           ↻ Refresh
@@ -906,100 +958,144 @@ function DropsTab() {
       ) : drops.length === 0 ? (
         <p className="text-white/40 text-sm font-mono">No approved drops yet.</p>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-4">
           {drops.map((d) => (
             <div key={d.id} className={`border border-white/10 ${d.hidden ? 'opacity-40' : ''}`}>
-              <div className="p-4 flex justify-between items-center">
-                <div className="flex items-center gap-3">
-                  <label className="flex items-center gap-1.5 cursor-pointer" title={d.hidden ? 'Hidden — click to show' : 'Visible — click to hide'}>
-                    <input
-                      type="checkbox"
-                      checked={!d.hidden}
-                      onChange={() => toggleHidden(d)}
-                      disabled={acting}
-                      className="w-4 h-4 accent-white cursor-pointer"
-                    />
-                    <span className="text-sm text-white/50 font-mono">{d.hidden ? 'Hidden' : 'Visible'}</span>
-                  </label>
-                  <div>
-                    <p className="text-base font-medium">{d.title}</p>
-                    <div className="flex gap-4 mt-1 text-sm text-white/50 font-mono">
-                      <span>Token #{d.token_id}</span>
-                      <span>${parseFloat(d.price_usdc).toFixed(2)} USDC</span>
-                      <span>{d.edition_size} ed.</span>
-                      <span>{new Date(d.approved_at).toLocaleDateString()}</span>
+              <div className="p-4 flex gap-4">
+                {/* Image thumbnail */}
+                {d.previewUrl && (
+                  <button
+                    type="button"
+                    onClick={() => setLightbox(d.previewUrl!)}
+                    className="w-20 h-20 flex-shrink-0 bg-white/5 overflow-hidden cursor-zoom-in"
+                  >
+                    <img src={d.previewUrl} alt={d.title} className="w-full h-full object-cover" />
+                  </button>
+                )}
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <p className="text-base font-medium">{d.title}</p>
+                      {d.description && (
+                        <p className="text-sm text-white/50 mt-0.5 line-clamp-1">{d.description}</p>
+                      )}
+                    </div>
+                    <div className="flex gap-3 text-sm flex-shrink-0 ml-4">
+                      <label className="flex items-center gap-1.5 cursor-pointer" title={d.hidden ? 'Hidden' : 'Visible'}>
+                        <input type="checkbox" checked={!d.hidden} onChange={() => toggleHidden(d)} disabled={acting} className="w-4 h-4 accent-white cursor-pointer" />
+                        <span className="text-white/50 font-mono text-xs">{d.hidden ? 'Hidden' : 'Vis'}</span>
+                      </label>
+                      <button onClick={() => editing === d.id ? setEditing(null) : startEdit(d)} className="text-white/50 hover:text-white transition-colors">
+                        {editing === d.id ? 'Cancel' : 'Edit'}
+                      </button>
+                      <a href={`/rrg/drop/${d.token_id}`} target="_blank" rel="noopener noreferrer" className="text-white/50 hover:text-white transition-colors">View ↗</a>
+                      <a href={`${scanBase}/address/${process.env.NEXT_PUBLIC_RRG_CONTRACT_ADDRESS}`} target="_blank" rel="noopener noreferrer" className="text-white/50 hover:text-white transition-colors font-mono">Scan ↗</a>
                     </div>
                   </div>
-                </div>
-                <div className="flex gap-3 text-sm">
-                  <button
-                    onClick={() => editing === d.id ? setEditing(null) : startEdit(d)}
-                    className="text-white/50 hover:text-white transition-colors"
-                  >
-                    {editing === d.id ? 'Cancel' : 'Edit'}
-                  </button>
-                  <a
-                    href={`/rrg/drop/${d.token_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-white/50 hover:text-white transition-colors"
-                  >
-                    View ↗
-                  </a>
-                  <a
-                    href={`${scanBase}/address/${process.env.NEXT_PUBLIC_RRG_CONTRACT_ADDRESS}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-white/50 hover:text-white transition-colors font-mono"
-                  >
-                    Contract ↗
-                  </a>
+
+                  <div className="flex gap-4 mt-1.5 text-sm text-white/50 font-mono flex-wrap">
+                    <span>Token #{d.token_id}</span>
+                    <span>${parseFloat(d.price_usdc).toFixed(2)}</span>
+                    <span>{d.edition_size} ed.</span>
+                    <span>{new Date(d.approved_at).toLocaleDateString()}</span>
+                    {d.submission_channel && <span className="text-white/30">via {d.submission_channel}</span>}
+                    {d.creator_type && <span className="text-white/30">{d.creator_type}</span>}
+                    <span className="flex items-center gap-1">
+                      <CopyWallet address={d.creator_wallet} />
+                    </span>
+                    {d.creator_email && <span className="text-white/30">{d.creator_email}</span>}
+                  </div>
                 </div>
               </div>
 
+              {/* ── Full edit form ── */}
               {editing === d.id && (
-                <form onSubmit={handleSave} className="border-t border-white/10 p-4 space-y-3">
-                  <div className="grid grid-cols-3 gap-3">
-                    <div>
-                      <label className="text-sm font-mono text-white/60 block mb-1">Title</label>
-                      <input
-                        type="text" required maxLength={60}
-                        value={editForm.title}
-                        onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                        className="w-full bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none"
-                      />
+                <form onSubmit={handleSave} className="border-t border-white/10 p-4 space-y-4">
+                  {/* Row 1: Image + Title + Description */}
+                  <div className="flex gap-4">
+                    {/* Image replacement */}
+                    <div className="flex-shrink-0">
+                      <label className={labelClass}>Image</label>
+                      <div className="w-32 h-32 bg-white/5 border border-white/20 overflow-hidden relative group">
+                        <img
+                          src={imagePreview || d.previewUrl || ''}
+                          alt="Preview"
+                          className="w-full h-full object-cover"
+                        />
+                        <label className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                          <span className="text-xs font-mono text-white/80">Replace</span>
+                          <input type="file" accept="image/jpeg,image/png" onChange={handleImageChange} className="hidden" />
+                        </label>
+                      </div>
+                      {imageFile && <p className="text-xs text-green-400 mt-1 font-mono">New: {imageFile.name}</p>}
                     </div>
-                    <div>
-                      <label className="text-sm font-mono text-white/60 block mb-1">Price USDC</label>
-                      <input
-                        type="number" required min={0.1} max={500} step={0.01}
-                        value={editForm.price_usdc}
-                        onChange={(e) => setEditForm({ ...editForm, price_usdc: e.target.value })}
-                        className="w-full bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-sm font-mono text-white/60 block mb-1">Edition Size</label>
-                      <input
-                        type="number" required min={1} max={50}
-                        value={editForm.edition_size}
-                        onChange={(e) => setEditForm({ ...editForm, edition_size: e.target.value })}
-                        className="w-full bg-transparent border border-white/20 px-3 py-1.5 text-base focus:border-white outline-none"
-                      />
+
+                    <div className="flex-1 space-y-3">
+                      <div>
+                        <label className={labelClass}>Title</label>
+                        <input type="text" required maxLength={120} value={editForm.title} onChange={(e) => setEditForm({ ...editForm, title: e.target.value })} className={inputClass} />
+                      </div>
+                      <div>
+                        <label className={labelClass}>Description</label>
+                        <textarea rows={3} value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} className={inputClass + ' resize-y'} />
+                      </div>
                     </div>
                   </div>
-                  <button
-                    type="submit"
-                    disabled={acting}
-                    className="px-5 py-1.5 bg-white text-black text-base font-medium
-                               hover:bg-white/90 disabled:opacity-40 transition-all"
-                  >
-                    {acting ? 'Saving…' : 'Save Changes'}
-                  </button>
+
+                  {/* Row 2: Price / Edition / Creator fields */}
+                  <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+                    <div>
+                      <label className={labelClass}>Price USDC</label>
+                      <input type="number" required min={0.1} max={10000} step={0.01} value={editForm.price_usdc} onChange={(e) => setEditForm({ ...editForm, price_usdc: e.target.value })} className={inputClass} />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Edition Size</label>
+                      <input type="number" required min={1} max={10000} value={editForm.edition_size} onChange={(e) => setEditForm({ ...editForm, edition_size: e.target.value })} className={inputClass} />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Creator Email</label>
+                      <input type="email" value={editForm.creator_email} onChange={(e) => setEditForm({ ...editForm, creator_email: e.target.value })} className={inputClass} />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Creator Handle</label>
+                      <input type="text" value={editForm.creator_handle} onChange={(e) => setEditForm({ ...editForm, creator_handle: e.target.value })} className={inputClass} />
+                    </div>
+                    <div>
+                      <label className={labelClass}>Creator Bio</label>
+                      <input type="text" value={editForm.creator_bio} onChange={(e) => setEditForm({ ...editForm, creator_bio: e.target.value })} className={inputClass} />
+                    </div>
+                  </div>
+
+                  {/* Save */}
+                  <div className="flex gap-3 items-center">
+                    <button type="submit" disabled={acting} className="px-5 py-1.5 bg-white text-black text-base font-medium hover:bg-white/90 disabled:opacity-40 transition-all">
+                      {acting ? 'Saving…' : 'Save All Changes'}
+                    </button>
+                    <button type="button" onClick={() => { setEditing(null); setImageFile(null); setImagePreview(null); }} className="text-sm text-white/50 hover:text-white transition-colors">
+                      Cancel
+                    </button>
+                    {imageFile && (
+                      <span className="text-xs text-amber-400 font-mono">Image will be replaced on save</span>
+                    )}
+                  </div>
                 </form>
               )}
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Lightbox overlay */}
+      {lightbox && (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center cursor-zoom-out"
+          onClick={() => setLightbox(null)}
+          onKeyDown={(e) => { if (e.key === 'Escape') setLightbox(null); }}
+          tabIndex={0}
+          ref={(el) => el?.focus()}
+        >
+          <img src={lightbox} alt="Full-size preview" className="max-w-[90vw] max-h-[90vh] object-contain" onClick={(e) => e.stopPropagation()} />
         </div>
       )}
     </div>
@@ -1018,7 +1114,15 @@ function BrandsTab() {
   });
   const [inviteForm, setInviteForm] = useState({ email: '', temp_password: '' });
   const [editing,    setEditing]   = useState<string | null>(null);
-  const [editForm,   setEditForm]  = useState({ name: '', headline: '', description: '', website_url: '', contact_email: '', wallet_address: '' });
+  const [editForm,   setEditForm]  = useState({
+    name: '', slug: '', headline: '', description: '', website_url: '',
+    contact_email: '', wallet_address: '', max_self_listings: '',
+    logo_path: '', banner_path: '', social_instagram: '', social_twitter: '', social_website: '',
+  });
+  const [logoFile,     setLogoFile]     = useState<File | null>(null);
+  const [logoPreview,  setLogoPreview]  = useState<string | null>(null);
+  const [bannerFile,   setBannerFile]   = useState<File | null>(null);
+  const [bannerPreview, setBannerPreview] = useState<string | null>(null);
   const [editSaving, setEditSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -1089,29 +1193,74 @@ function BrandsTab() {
   const startEdit = (b: Brand) => {
     setEditing(b.id);
     setInviting(null);
+    setLogoFile(null);
+    setLogoPreview(null);
+    setBannerFile(null);
+    setBannerPreview(null);
+    const sl = b.social_links || {};
     setEditForm({
       name: b.name || '',
+      slug: b.slug || '',
       headline: b.headline || '',
       description: b.description || '',
       website_url: b.website_url || '',
       contact_email: b.contact_email || '',
       wallet_address: b.wallet_address || '',
+      max_self_listings: b.max_self_listings?.toString() || '5',
+      logo_path: b.logo_path || '',
+      banner_path: b.banner_path || '',
+      social_instagram: sl.instagram || '',
+      social_twitter: sl.twitter || '',
+      social_website: sl.website || '',
     });
+  };
+
+  const handleFileSelect = (type: 'logo' | 'banner', e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] || null;
+    if (type === 'logo') {
+      setLogoFile(file);
+      if (file) { const r = new FileReader(); r.onload = (ev) => setLogoPreview(ev.target?.result as string); r.readAsDataURL(file); }
+      else setLogoPreview(null);
+    } else {
+      setBannerFile(file);
+      if (file) { const r = new FileReader(); r.onload = (ev) => setBannerPreview(ev.target?.result as string); r.readAsDataURL(file); }
+      else setBannerPreview(null);
+    }
   };
 
   const handleEditSave = async (brandId: string) => {
     setEditSaving(true);
     setMsg('');
+    const social_links: Record<string, string> = {};
+    if (editForm.social_instagram) social_links.instagram = editForm.social_instagram;
+    if (editForm.social_twitter) social_links.twitter = editForm.social_twitter;
+    if (editForm.social_website) social_links.website = editForm.social_website;
+
+    // Use FormData to support image uploads
+    const formData = new FormData();
+    formData.append('name', editForm.name);
+    formData.append('slug', editForm.slug);
+    formData.append('headline', editForm.headline);
+    formData.append('description', editForm.description);
+    formData.append('website_url', editForm.website_url);
+    formData.append('contact_email', editForm.contact_email);
+    formData.append('wallet_address', editForm.wallet_address);
+    formData.append('social_links', JSON.stringify(social_links));
+    if (editForm.max_self_listings) formData.append('max_self_listings', editForm.max_self_listings);
+    if (logoFile) formData.append('logo_file', logoFile);
+    if (bannerFile) formData.append('banner_file', bannerFile);
+
     const res = await fetch(`/api/rrg/admin/brands/${brandId}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(editForm),
+      body: formData,
     });
     const data = await res.json();
     setEditSaving(false);
     if (res.ok) {
-      setMsg('Brand updated ✓');
+      setMsg(`Brand updated ✓${data.updated ? ' (' + data.updated.join(', ') + ')' : ''}`);
       setEditing(null);
+      setLogoFile(null); setLogoPreview(null);
+      setBannerFile(null); setBannerPreview(null);
       load();
     } else {
       setMsg(`Error: ${data.error}`);
@@ -1224,7 +1373,7 @@ function BrandsTab() {
           {brands.map((b) => (
             <div key={b.id} className="border border-white/10 overflow-hidden">
               {editing === b.id ? (
-                /* ── Edit form ────────────────────────────── */
+                /* ── Full Edit form (Superadmin) ────────── */
                 <div className="p-5 space-y-3">
                   <div className="flex justify-between items-center mb-2">
                     <span className="text-sm font-mono text-white/60">Editing: /{b.slug}</span>
@@ -1234,76 +1383,113 @@ function BrandsTab() {
                       'bg-white/10 text-white/60'
                     }`}>{b.status.toUpperCase()}</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                     <div>
                       <label className="text-sm font-mono text-white/60 block mb-1">Name</label>
-                      <input
-                        type="text" maxLength={100}
-                        value={editForm.name}
-                        onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                        className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none"
-                      />
+                      <input type="text" maxLength={100} value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-sm font-mono text-white/60 block mb-1">Slug</label>
+                      <input type="text" maxLength={50} value={editForm.slug} onChange={(e) => setEditForm({ ...editForm, slug: e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '') })} className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none font-mono" />
                     </div>
                     <div>
                       <label className="text-sm font-mono text-white/60 block mb-1">Headline</label>
-                      <input
-                        type="text" maxLength={200}
-                        value={editForm.headline}
-                        onChange={(e) => setEditForm({ ...editForm, headline: e.target.value })}
-                        className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none"
-                      />
+                      <input type="text" maxLength={200} value={editForm.headline} onChange={(e) => setEditForm({ ...editForm, headline: e.target.value })} className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none" />
                     </div>
                     <div>
                       <label className="text-sm font-mono text-white/60 block mb-1">Contact Email</label>
-                      <input
-                        type="email"
-                        value={editForm.contact_email}
-                        onChange={(e) => setEditForm({ ...editForm, contact_email: e.target.value })}
-                        className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none"
-                      />
+                      <input type="email" value={editForm.contact_email} onChange={(e) => setEditForm({ ...editForm, contact_email: e.target.value })} className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none" />
                     </div>
                     <div>
                       <label className="text-sm font-mono text-white/60 block mb-1">Website</label>
-                      <input
-                        type="url"
-                        value={editForm.website_url}
-                        onChange={(e) => setEditForm({ ...editForm, website_url: e.target.value })}
-                        className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none"
-                      />
+                      <input type="url" value={editForm.website_url} onChange={(e) => setEditForm({ ...editForm, website_url: e.target.value })} className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-sm font-mono text-white/60 block mb-1">Max Self-Listings</label>
+                      <input type="number" min={0} max={1000} value={editForm.max_self_listings} onChange={(e) => setEditForm({ ...editForm, max_self_listings: e.target.value })} className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none" />
                     </div>
                   </div>
                   <div>
                     <label className="text-sm font-mono text-white/60 block mb-1">Wallet Address</label>
-                    <input
-                      type="text"
-                      value={editForm.wallet_address}
-                      onChange={(e) => setEditForm({ ...editForm, wallet_address: e.target.value })}
-                      className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none font-mono"
-                    />
+                    <input type="text" value={editForm.wallet_address} onChange={(e) => setEditForm({ ...editForm, wallet_address: e.target.value })} className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none font-mono" />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm font-mono text-white/60 block mb-1">Logo</label>
+                      <div className="flex gap-3 items-start">
+                        <div className="w-20 h-20 bg-white/5 border border-white/20 overflow-hidden flex-shrink-0 relative group">
+                          {(logoPreview || b.logoUrl) ? (
+                            <img src={logoPreview || b.logoUrl!} alt="Logo" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-white/20 text-xs font-mono">No logo</div>
+                          )}
+                          <label className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                            <span className="text-xs font-mono text-white/80">Replace</span>
+                            <input type="file" accept="image/jpeg,image/png" onChange={(e) => handleFileSelect('logo', e)} className="hidden" />
+                          </label>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          {logoFile && <p className="text-xs text-green-400 font-mono truncate">New: {logoFile.name}</p>}
+                          {b.logo_path && <p className="text-xs text-white/30 font-mono truncate mt-1">{b.logo_path}</p>}
+                          {!logoFile && !b.logo_path && (
+                            <label className="text-xs font-mono text-white/50 border border-white/20 px-2 py-1 cursor-pointer hover:border-white/50 transition-colors inline-block">
+                              Upload Logo
+                              <input type="file" accept="image/jpeg,image/png" onChange={(e) => handleFileSelect('logo', e)} className="hidden" />
+                            </label>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-mono text-white/60 block mb-1">Banner</label>
+                      <div className="flex gap-3 items-start">
+                        <div className="w-32 h-20 bg-white/5 border border-white/20 overflow-hidden flex-shrink-0 relative group">
+                          {(bannerPreview || b.bannerUrl) ? (
+                            <img src={bannerPreview || b.bannerUrl!} alt="Banner" className="w-full h-full object-cover" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-white/20 text-xs font-mono">No banner</div>
+                          )}
+                          <label className="absolute inset-0 flex items-center justify-center bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer">
+                            <span className="text-xs font-mono text-white/80">Replace</span>
+                            <input type="file" accept="image/jpeg,image/png" onChange={(e) => handleFileSelect('banner', e)} className="hidden" />
+                          </label>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          {bannerFile && <p className="text-xs text-green-400 font-mono truncate">New: {bannerFile.name}</p>}
+                          {b.banner_path && <p className="text-xs text-white/30 font-mono truncate mt-1">{b.banner_path}</p>}
+                          {!bannerFile && !b.banner_path && (
+                            <label className="text-xs font-mono text-white/50 border border-white/20 px-2 py-1 cursor-pointer hover:border-white/50 transition-colors inline-block">
+                              Upload Banner
+                              <input type="file" accept="image/jpeg,image/png" onChange={(e) => handleFileSelect('banner', e)} className="hidden" />
+                            </label>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <label className="text-sm font-mono text-white/60 block mb-1">Instagram</label>
+                      <input type="text" placeholder="@handle" value={editForm.social_instagram} onChange={(e) => setEditForm({ ...editForm, social_instagram: e.target.value })} className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-sm font-mono text-white/60 block mb-1">Twitter / X</label>
+                      <input type="text" placeholder="@handle" value={editForm.social_twitter} onChange={(e) => setEditForm({ ...editForm, social_twitter: e.target.value })} className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none" />
+                    </div>
+                    <div>
+                      <label className="text-sm font-mono text-white/60 block mb-1">Social Website</label>
+                      <input type="url" placeholder="https://..." value={editForm.social_website} onChange={(e) => setEditForm({ ...editForm, social_website: e.target.value })} className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none" />
+                    </div>
                   </div>
                   <div>
                     <label className="text-sm font-mono text-white/60 block mb-1">Description</label>
-                    <textarea
-                      rows={3} maxLength={1000}
-                      value={editForm.description}
-                      onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                      className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none resize-none"
-                    />
+                    <textarea rows={3} maxLength={1000} value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none resize-y" />
                   </div>
                   <div className="flex gap-3">
-                    <button
-                      onClick={() => handleEditSave(b.id)}
-                      disabled={editSaving}
-                      className="px-5 py-1.5 bg-white text-black text-base font-medium hover:bg-white/90 disabled:opacity-40 transition-all"
-                    >
-                      {editSaving ? 'Saving…' : 'Save'}
+                    <button onClick={() => handleEditSave(b.id)} disabled={editSaving} className="px-5 py-1.5 bg-white text-black text-base font-medium hover:bg-white/90 disabled:opacity-40 transition-all">
+                      {editSaving ? 'Saving…' : 'Save All Changes'}
                     </button>
-                    <button
-                      onClick={() => setEditing(null)}
-                      className="text-sm text-white/50 hover:text-white transition-colors"
-                    >
-                      Cancel
-                    </button>
+                    <button onClick={() => setEditing(null)} className="text-sm text-white/50 hover:text-white transition-colors">Cancel</button>
                   </div>
                 </div>
               ) : (
@@ -1311,9 +1497,14 @@ function BrandsTab() {
                 <>
                   <div className="p-5">
                     <div className="flex justify-between items-start mb-2">
-                      <div>
-                        <h3 className="text-base font-medium">{b.name}</h3>
-                        <span className="text-sm font-mono text-white/50">/{b.slug}</span>
+                      <div className="flex gap-3 items-center">
+                        {b.logoUrl && (
+                          <img src={b.logoUrl} alt={b.name} className="w-10 h-10 object-cover rounded" />
+                        )}
+                        <div>
+                          <h3 className="text-base font-medium">{b.name}</h3>
+                          <span className="text-sm font-mono text-white/50">/{b.slug}</span>
+                        </div>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className={`text-sm font-mono px-2 py-0.5 ${
@@ -1331,7 +1522,7 @@ function BrandsTab() {
                       <CopyWallet address={b.wallet_address} />
                       <span>{b.contact_email}</span>
                       <span>Listings: {b.self_listings_used}/{b.max_self_listings}</span>
-                      <span>{new Date(b.created_at).toLocaleDateString()}</span>
+                      <span>{new Date(b.created_at).toLocaleDateString()} {new Date(b.created_at).toLocaleTimeString([], {hour: '2-digit', minute: '2-digit'})}</span>
                       {b.website_url && <a href={b.website_url} target="_blank" rel="noopener noreferrer" className="hover:text-white/80">{b.website_url}</a>}
                     </div>
                   </div>

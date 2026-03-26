@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
   // Default: skip outreach (scan-only mode). Set skip_outreach=false to enable.
   const outreachLimit = Math.min(
     Number(body.outreach_limit || req.nextUrl.searchParams.get('outreach_limit') || 10),
-    50,
+    2000,
   );
 
   console.log('[auto-scan] Starting autonomous marketing scan...');

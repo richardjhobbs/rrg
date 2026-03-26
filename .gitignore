@@ -49,3 +49,4 @@ hardhat.config.js.bak
 *.tsbuildinfo
 next-env.d.ts
 .claude/settings.local.json
+.gstack/

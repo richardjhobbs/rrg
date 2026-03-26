@@ -7,6 +7,7 @@ import { notFound } from 'next/navigation';
 import PurchaseFlow from './PurchaseFlow';
 import PhysicalProductButton from './PhysicalProductButton';
 import ReferralCapture from '@/components/rrg/ReferralCapture';
+import DropBadges from '@/components/rrg/DropBadges';
 import Link from 'next/link';
 
 const VOUCHER_TYPE_LABELS: Record<string, string> = {
@@ -252,17 +253,20 @@ export default async function DropPage({ params }: Props) {
           {/* Creator / Brand */}
           <div className="mb-8">
             {drop.creator_wallet && (
-              <p className="text-sm font-mono text-white/40 mb-3">
-                {drop.is_brand_product ? 'Brand:' : 'Creator:'}{' '}
-                <a
-                  href={`${scanBase}/address/${drop.creator_wallet}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="hover:text-white/70 transition-colors"
-                >
-                  {drop.creator_wallet.slice(0, 6)}…{drop.creator_wallet.slice(-4)}
-                </a>
-              </p>
+              <div className="flex items-center gap-3 mb-3 flex-wrap">
+                <p className="text-sm font-mono text-white/40">
+                  {drop.is_brand_product ? 'Brand:' : 'Creator:'}{' '}
+                  <a
+                    href={`${scanBase}/address/${drop.creator_wallet}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="hover:text-white/70 transition-colors"
+                  >
+                    {drop.creator_wallet.slice(0, 6)}…{drop.creator_wallet.slice(-4)}
+                  </a>
+                </p>
+                <DropBadges walletAddress={drop.creator_wallet} />
+              </div>
             )}
             {drop.creator_bio && (
               <p className="text-base text-white/60 leading-relaxed">

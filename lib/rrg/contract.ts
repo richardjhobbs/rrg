@@ -73,8 +73,11 @@ const USDC_ABI = [
 ] as const;
 
 export function getUsdcContract(): ethers.Contract {
-  const usdcAddress = process.env.NEXT_PUBLIC_USDC_ADDRESS;
-  if (!usdcAddress) throw new Error('NEXT_PUBLIC_USDC_ADDRESS not set');
+  const usdcAddress = process.env.NEXT_PUBLIC_USDC_ADDRESS
+    || (process.env.NEXT_PUBLIC_CHAIN_ID === '8453'
+      ? process.env.NEXT_PUBLIC_USDC_CONTRACT_MAINNET
+      : process.env.NEXT_PUBLIC_USDC_CONTRACT_TESTNET);
+  if (!usdcAddress) throw new Error('USDC contract address not set (need NEXT_PUBLIC_USDC_ADDRESS or NEXT_PUBLIC_USDC_CONTRACT_MAINNET)');
   return new ethers.Contract(usdcAddress, USDC_ABI, getPlatformSigner());
 }
 

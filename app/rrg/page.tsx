@@ -1,6 +1,9 @@
 import { getApprovedDropsPaginated, getPurchaseCountsByTokenIds, getCurrentBrief, getAllActiveBrands, getBrandsForDirectory, RRG_BRAND_ID } from '@/lib/rrg/db';
 import type { BrandDirectoryItem } from '@/lib/rrg/db';
 import { getSignedUrl } from '@/lib/rrg/storage';
+import { getVerifiedWallets } from '@/lib/rrg/worldid';
+import { getBadgesForDrops, type PlatformBadgeInfo } from '@/lib/rrg/platforms';
+import { getAgentIdsForWallets } from '@/lib/rrg/erc8004';
 import Link from 'next/link';
 import AgentTrustBadge from '@/components/rrg/AgentTrustBadge';
 import BrandDirectory from '@/components/rrg/BrandDirectory';
@@ -166,6 +169,17 @@ export default async function RRGGallery({
     })
   );
 
+  // Batch-check World ID, ERC-8004, and platform badges for all creator wallets
+  const creatorWallets = [...new Set(dropsWithUrls.map(d => d.creator_wallet).filter(Boolean))];
+  const [worldVerifiedWallets, erc8004AgentIds] = await Promise.all([
+    getVerifiedWallets(creatorWallets),
+    getAgentIdsForWallets(creatorWallets),
+  ]);
+
+  // Batch-check platform badges for all drops
+  const submissionIds = dropsWithUrls.map(d => d.id).filter(Boolean);
+  const platformBadgesMap = await getBadgesForDrops(creatorWallets, submissionIds);
+
   // Build query string helper for pagination links
   const buildQs = (overrides: Record<string, string | undefined>) => {
     const qs = new URLSearchParams();
@@ -270,7 +284,7 @@ export default async function RRGGallery({
       {/* ── Platform Flow Diagram ───────────────────────────────────── */}
       <div className="mb-10 flex justify-center">
         <img
-          src="/platform-flow.png"
+          src="/platform-flow-v2.png"
           alt="Real Real Genuine — Collective Creativity platform flow"
           className="w-full max-w-4xl"
         />
@@ -306,12 +320,12 @@ export default async function RRGGallery({
         <div className="mb-10 p-8 border border-white/20 relative overflow-hidden">
           <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
           <p className="text-sm font-mono uppercase tracking-[0.2em] text-white/60 mb-3">
-            Current Brief{selectedBrand ? ` — ${selectedBrand.name}` : ''}
+            Latest Brief{selectedBrand ? ` — ${selectedBrand.name}` : ''}
           </p>
           <h2 className="text-3xl font-light mb-3 leading-snug">{brief.title}</h2>
-          <p className="text-white/80 leading-relaxed mb-5 max-w-xl text-base">
+          <div className="text-white/80 leading-relaxed mb-5 max-w-xl text-base whitespace-pre-line">
             {brief.description}
-          </p>
+          </div>
           <div className="flex items-center gap-6">
             <Link
               href={`${submitHref}`}
@@ -393,6 +407,36 @@ export default async function RRGGallery({
                                      text-xs font-mono uppercase tracking-wider leading-tight">
                       Sold Out
                     </span>
+                  )}
+                  {/* Verification badges (World ID + ERC-8004 + platform) */}
+                  {drop.creator_wallet && (
+                    <div className="absolute bottom-2 left-2 flex flex-wrap gap-1">
+                      {worldVerifiedWallets.has(drop.creator_wallet.toLowerCase()) && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 bg-cyan-600/80 text-white
+                                         text-xs font-mono uppercase tracking-wider leading-tight">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white/80" />
+                          World ID
+                        </span>
+                      )}
+                      {erc8004AgentIds.has(drop.creator_wallet.toLowerCase()) && (
+                        <span className="flex items-center gap-1 px-2 py-0.5 bg-amber-600/80 text-white
+                                         text-xs font-mono uppercase tracking-wider leading-tight">
+                          <span className="w-1.5 h-1.5 rounded-full bg-white/80" />
+                          8004 #{erc8004AgentIds.get(drop.creator_wallet.toLowerCase())}
+                        </span>
+                      )}
+                      {(platformBadgesMap.get(drop.creator_wallet.toLowerCase()) ?? []).slice(0, 2).map((pb) => (
+                        <span
+                          key={pb.platformSlug}
+                          className="flex items-center gap-1 px-2 py-0.5 text-white
+                                     text-xs font-mono uppercase tracking-wider leading-tight"
+                          style={{ backgroundColor: `${pb.accentColor}cc` }}
+                        >
+                          <span className="w-1.5 h-1.5 rounded-full bg-white/80" />
+                          {pb.platformName}
+                        </span>
+                      ))}
+                    </div>
                   )}
                 </div>
 

@@ -17,7 +17,7 @@
 import sharp from 'sharp';
 
 const RESEND_URL = 'https://api.resend.com/emails';
-const FROM       = process.env.FROM_EMAIL ?? 'deliver@richard-hobbs.com';
+const FROM       = process.env.FROM_EMAIL ?? 'deliver@realrealgenuine.com';
 const SITE_URL   = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://realrealgenuine.com';
 const IG_TO      = 'richard@entrepot.asia';
 
@@ -27,6 +27,7 @@ export interface InstagramNotifyParams {
   tokenId:      number;
   creatorHandle: string | null;
   creatorType:  'human' | 'agent';
+  listingType?: 'creator' | 'brand';  // brand = RRG/brand listed, creator = creator submitted
   briefName:    string | null;
   brandName:    string | null;
   buyerType?:   'human' | 'agent';
@@ -39,21 +40,23 @@ async function generateCaption(p: InstagramNotifyParams): Promise<string> {
   const apiKey = process.env.TOGETHER_API_KEY;
   if (!apiKey) throw new Error('TOGETHER_API_KEY not set');
 
+  const isBrandListing = p.listingType === 'brand' || (!p.creatorHandle && p.creatorType === 'human');
+
   const triggerLine = p.trigger === 'sale'
-    ? `This is a sale announcement. The work just sold${p.buyerType === 'agent' ? ' to an AI agent' : ''}.`
+    ? `This is a sale announcement. The drop just sold${p.buyerType === 'agent' ? ' to an AI agent' : ''}.`
     : 'This is a new drop announcement.';
 
-  const creatorLabel = p.creatorType === 'agent'
-    ? `AI creator (type: agent)`
-    : `Human creator: ${p.creatorHandle ?? 'unknown'}`;
+  const originLine = isBrandListing
+    ? `This is a brand or platform listing — not a creator submission. Focus on the drop itself, the brand (${p.brandName ?? 'RRG'}), and its exclusivity. Do NOT mention a creator.`
+    : `Creator: ${p.creatorType === 'agent' ? 'AI agent' : (p.creatorHandle ?? 'independent creator')}`;
 
   const prompt = `You write Instagram captions for Real Real Genuine (RRG), a fashion and lifestyle design marketplace where human and AI creators collaborate.
 
 Write an Instagram caption for this drop:
 - Title: ${p.title}
-- Creator: ${creatorLabel}
+- ${originLine}
 - Brief/collection: ${p.briefName ?? 'RRG original'}
-- Brand: ${p.brandName ?? 'RRG original'}
+- Brand: ${p.brandName ?? 'RRG'}
 - ${triggerLine}
 
 Rules:
@@ -64,7 +67,8 @@ Rules:
 - Add 8–12 relevant hashtags on a new line
 - Tone: fashion-forward, editorial, understated
 - If creator is AI, reference "AI x RRG" or "machine-made" naturally
-- If sale trigger, lead with the creator earning / the work selling
+- If sale trigger and creator listing, lead with the work selling / finding a new home
+- If sale trigger and brand listing, lead with the drop, the brand, and the moment
 
 Reply with ONLY the caption text and hashtags. Nothing else.`;
 
@@ -142,11 +146,8 @@ async function sendInstagramEmail(p: InstagramNotifyParams, caption: string, ima
   <div class="section">
     <div class="label">Drop details</div>
     <div class="meta-row"><span class="meta-key">Title</span><span class="meta-val">${escHtml(p.title)}</span></div>
-    <div class="meta-row"><span class="meta-key">Creator</span><span class="meta-val">${escHtml(p.creatorHandle ?? (p.creatorType === 'agent' ? 'AI agent' : 'unknown'))}</span></div>
-    <div class="meta-row"><span class="meta-key">Type</span><span class="meta-val">${p.creatorType === 'agent' ? 'AI-generated' : 'Human-made'}</span></div>
-    ${p.briefName ? `<div class="meta-row"><span class="meta-key">Brief</span><span class="meta-val">${escHtml(p.briefName)}</span></div>` : ''}
     ${p.brandName ? `<div class="meta-row"><span class="meta-key">Brand</span><span class="meta-val">${escHtml(p.brandName)}</span></div>` : ''}
-    ${p.trigger === 'sale' ? `<div class="meta-row"><span class="meta-key">Buyer</span><span class="meta-val">${p.buyerType === 'agent' ? 'AI agent' : 'Human'}</span></div>` : ''}
+    ${p.briefName ? `<div class="meta-row"><span class="meta-key">Brief</span><span class="meta-val">${escHtml(p.briefName)}</span></div>` : ''}
     <div class="meta-row"><span class="meta-key">URL</span><span class="meta-val"><a href="${dropUrl}">${dropUrl}</a></span></div>
   </div>
 

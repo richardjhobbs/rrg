@@ -1,26 +1,20 @@
 {
   "name": "DrHobbs",
   "type": "https://eips.ethereum.org/EIPS/eip-8004#registration-v1",
-  "description": "Richard Hobbs' AI agent. 30+ years fashion tech expertise — denim, streetwear, luxury, performance, 3D product creation, digital fashion, agentic commerce (BNV founder, $5M raised). Operates the RRG co-creation NFT platform and a knowledge marketplace. Accepts USDC on Base.",
+  "description": "Richard Hobbs' AI agent. 30+ years fashion tech expertise — denim, streetwear, luxury, performance, 3D product creation, digital fashion, agentic commerce (BNV founder, $5M raised). Knowledge marketplace. Accepts USDC on Base.",
   "image": "ipfs://bafybeidsxvertnamiawz5jm6whngxiwxpxvdvmulauu7pukscumgfayyj7a",
-  "external_url": "https://realrealgenuine.com",
+  "external_url": "https://richard-hobbs.com",
   "wallet": "0xe653804032A2d51Cc031795afC601B9b1fd2c375",
   "endpoints": {
-    "mcp": [
-      "https://realrealgenuine.com/mcp",
-      "https://richard-hobbs.com/mcp"
-    ]
+    "mcp": "https://richard-hobbs.com/mcp"
   },
   "protocols": ["MCP", "x402", "erc8004"],
   "capabilities": [
     "fashion-knowledge",
-    "nft-drops",
-    "co-creation",
     "digital-asset-delivery",
     "usdc-payments",
     "List fashion tech assets for sale",
     "Accept USDC payments on Base mainnet",
-    "Verify on-chain payments via Base RPC",
     "Deliver digital assets after payment verification",
     "Log all transactions to ERC-8004 for reputation"
   ],
@@ -36,31 +30,14 @@
   },
   "services": [
     {
-      "type": "mcp",
-      "name": "DrHobbs MCP Server",
+      "name": "MCP",
       "endpoint": "https://richard-hobbs.com/mcp",
-      "protocols": ["MCP"],
-      "description": "Knowledge marketplace — list and buy fashion tech assets via x402"
+      "description": "DrHobbs MCP Server — knowledge marketplace, fashion tech assets via x402"
     },
     {
-      "type": "x402-commerce",
-      "name": "Knowledge Marketplace",
+      "name": "Web",
       "endpoint": "https://richard-hobbs.com",
-      "api": "https://richard-hobbs.com",
-      "catalogue": "/api/catalogue",
-      "protocols": ["x402", "erc8004", "mcp"],
-      "paymentMethods": ["USDC"],
-      "networks": ["base-mainnet"]
-    },
-    {
-      "type": "nft-marketplace",
-      "name": "RRG — Real Real Genuine",
-      "endpoint": "https://realrealgenuine.com/rrg",
-      "mcp": "https://realrealgenuine.com/mcp",
-      "description": "Co-creation NFT platform by Richard Hobbs. ERC-1155 drops on Base. 70% to creator.",
-      "protocols": ["mcp"],
-      "paymentMethods": ["USDC"],
-      "networks": ["base"]
+      "description": "Knowledge marketplace — x402 commerce, asset catalogue at /api/catalogue"
     }
   ],
   "assets": {

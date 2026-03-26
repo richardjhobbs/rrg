@@ -113,7 +113,7 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
             Responding to
           </p>
           <p className="font-medium text-white">{brief.title}</p>
-          <p className="text-white/60 mt-1 text-sm leading-relaxed">{brief.description}</p>
+          <div className="text-white/60 mt-1 text-sm leading-relaxed whitespace-pre-line">{brief.description}</div>
         </div>
       )}
 
