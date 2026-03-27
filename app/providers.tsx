@@ -10,7 +10,7 @@ import { useState } from 'react';
 
 // Wallets that should auto-reconnect across page loads / tabs
 const autoConnectWallets = [
-  inAppWallet({ auth: { options: ['google'] } }),
+  inAppWallet({ auth: { options: ['google', 'email'] } }),
 ];
 
 export function Providers({ children }: { children: React.ReactNode }) {

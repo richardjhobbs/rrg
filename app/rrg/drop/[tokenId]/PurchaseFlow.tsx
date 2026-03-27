@@ -10,7 +10,11 @@ import {
   useSwitchChain,
   useChainId,
 } from 'wagmi';
-import { useActiveAccount as useThirdwebAccount } from 'thirdweb/react';
+import { useActiveAccount as useThirdwebAccount, ConnectEmbed, PayEmbed } from 'thirdweb/react';
+import { inAppWallet } from 'thirdweb/wallets';
+import { base } from 'thirdweb/chains';
+import { thirdwebClient } from '@/lib/rrg/thirdwebClient';
+import { sendUsdcToplatform } from '@/lib/rrg/sendUsdc';
 import { targetChainId } from '@/lib/rrg/wagmiConfig';
 
 interface Props {
@@ -22,7 +26,8 @@ interface Props {
   shippingType?: string | null;
 }
 
-type Step = 'idle' | 'connect' | 'email' | 'shipping' | 'signing' | 'confirming' | 'success' | 'error';
+type Step = 'idle' | 'connect' | 'email' | 'shipping' | 'signing' | 'confirming' | 'success' | 'error'
+  | 'card-auth' | 'card-email' | 'card-topup' | 'card-sending';
 
 interface ShippingAddress {
   name: string;
@@ -72,6 +77,7 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isPh
 
   const [step,    setStep]    = useState<Step>('idle');
   const [email,   setEmail]   = useState('');
+  const [cardEmail, setCardEmail] = useState('');
   const [error,   setError]   = useState('');
   const [result,  setResult]  = useState<PurchaseResult | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -455,6 +461,127 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isPh
     );
   }
 
+  // ── Card auth ──────────────────────────────────────────────────────
+  if (step === 'card-auth') {
+    if (thirdwebAccount?.address) {
+      setStep('card-email');
+      return null;
+    }
+    return (
+      <div className="border border-white/20 p-6 space-y-4">
+        <p className="text-base text-white/80 mb-2">Sign in to pay with card</p>
+        <ConnectEmbed
+          client={thirdwebClient}
+          chain={base}
+          wallets={[inAppWallet({ auth: { options: ['google', 'email'] } })]}
+          onConnect={() => setStep('card-email')}
+        />
+        <button onClick={() => { setStep('idle'); setError(''); }}
+          className="w-full text-sm text-white/40 hover:text-white/70 transition-colors pt-2">
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  // ── Card email ────────────────────────────────────────────────────
+  if (step === 'card-email') {
+    return (
+      <div className="border border-white/20 p-6 space-y-5">
+        <div className="flex justify-between items-center text-sm font-mono">
+          <span className="text-white/60">
+            <span className="text-blue-400/70 mr-1.5">&#x1f4b3; card</span>
+            {thirdwebAccount?.address?.slice(0, 6)}&hellip;{thirdwebAccount?.address?.slice(-4)}
+          </span>
+          <button onClick={() => setStep('idle')}
+            className="text-white/40 hover:text-white/70 transition-colors">
+            Change
+          </button>
+        </div>
+        <div className="border-t border-white/10 pt-4">
+          <p className="text-base text-white/80">
+            Purchasing for <span className="text-white font-medium">${priceUsdc.toFixed(2)} USDC</span>
+          </p>
+          <p className="text-sm text-white/60 mt-1">
+            Card processing fees apply (~3%). You&apos;ll enter card details next.
+          </p>
+        </div>
+        <div>
+          <label className="block text-sm font-mono uppercase tracking-[0.15em] text-white/50 mb-2">
+            Email for file delivery
+          </label>
+          <input type="email" value={cardEmail} onChange={(e) => setCardEmail(e.target.value)}
+            placeholder="you@example.com"
+            className="w-full bg-transparent border border-white/20 px-4 py-2.5 text-base
+                       focus:border-white outline-none transition-colors placeholder:text-white/40" />
+        </div>
+        {error && <p className="text-red-400 text-sm font-mono border border-red-400/20 bg-red-400/5 px-3 py-2">{error}</p>}
+        <button onClick={() => {
+            if (isPhysicalProduct) { setStep('shipping'); } else { setStep('card-topup'); }
+          }}
+          className="w-full py-3.5 bg-white text-black text-base font-medium hover:bg-white/90 transition-all">
+          {isPhysicalProduct ? 'Continue to Shipping \u2192' : 'Continue to Payment \u2192'}
+        </button>
+        <button onClick={() => { setStep('idle'); setError(''); }}
+          className="w-full text-sm text-white/40 hover:text-white/70 transition-colors">
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  // ── Card topup ────────────────────────────────────────────────────
+  if (step === 'card-topup') {
+    return (
+      <div className="border border-white/20 p-6 space-y-4">
+        <p className="text-base text-white/80">Fund your wallet to complete purchase</p>
+        <p className="text-sm text-white/60">
+          Add <span className="text-white">${priceUsdc.toFixed(2)} USDC</span> to your wallet, then click below.
+        </p>
+        <PayEmbed
+          client={thirdwebClient}
+          theme="dark"
+          payOptions={{
+            mode: 'fund_wallet',
+            prefillBuy: {
+              chain: base,
+              amount: String(priceUsdc),
+            },
+          }}
+          connectOptions={{
+            chain: base,
+            wallets: [inAppWallet({ auth: { options: ['google', 'email'] } })],
+          }}
+        />
+        <div className="text-center py-2">
+          <p className="text-xs font-mono text-white/40">Wallet: {thirdwebAccount?.address?.slice(0,6)}&hellip;{thirdwebAccount?.address?.slice(-4)}</p>
+          {accountBalance !== null && <p className="text-xs font-mono text-white/40 mt-1">Balance: ${accountBalance} USDC</p>}
+        </div>
+        <button onClick={() => handleCardSend()}
+          disabled={!accountBalance || parseFloat(accountBalance) < priceUsdc}
+          className="w-full py-3.5 bg-white text-black text-base font-medium hover:bg-white/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+          Complete Purchase &rarr;
+        </button>
+        <button onClick={() => { setStep('idle'); setError(''); }}
+          className="w-full text-sm text-white/40 hover:text-white/70 transition-colors">
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  // ── Card sending ──────────────────────────────────────────────────
+  if (step === 'card-sending') {
+    return (
+      <div className="border border-white/20 p-6 space-y-4 text-center">
+        <div className="animate-pulse text-3xl">&#x23f3;</div>
+        <p className="text-base text-white/80">Processing your purchase...</p>
+        <p className="text-sm text-white/60">Transferring payment and minting your token.</p>
+        {error && <p className="text-red-400 text-sm font-mono">{error}</p>}
+      </div>
+    );
+  }
+
   // ── Idle — main CTA ──────────────────────────────────────────────────
   const walletReady = mounted && isConnected && !!address;
   const hasAccountWallet = mounted && !!thirdwebAccount?.address;
@@ -520,10 +647,75 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isPh
       <p className="text-sm text-white/50 text-center">
         Gasless · USDC on Base · files delivered on mint
       </p>
+
+      {/* Card payment separator */}
+      <div className="flex items-center gap-3 py-1">
+        <div className="flex-1 border-t border-white/10" />
+        <span className="text-sm font-mono text-white/30">or</span>
+        <div className="flex-1 border-t border-white/10" />
+      </div>
+
+      {/* Buy with Card */}
+      <button
+        onClick={() => setStep('card-auth')}
+        className="w-full py-4 border border-white/20 text-white/80 text-base font-medium
+                   hover:border-white/40 hover:text-white transition-all tracking-wide"
+      >
+        &#x1f4b3; Buy with Card &middot; ${priceUsdc.toFixed(2)}
+      </button>
+      <p className="text-sm text-white/50 text-center">
+        Credit/debit card &middot; processing fees apply
+      </p>
     </div>
   );
 
   // ── Handlers ─────────────────────────────────────────────────────────
+  async function handleCardSend() {
+    if (!thirdwebAccount) return;
+    setStep('card-sending');
+    setError('');
+    try {
+      // Send USDC from embedded wallet to platform wallet
+      const txHash = await sendUsdcToplatform(thirdwebAccount, priceUsdc);
+
+      // Confirm with server
+      const confirmBody: Record<string, unknown> = {
+        tokenId,
+        buyerWallet: thirdwebAccount.address,
+        buyerEmail: cardEmail || null,
+        txHash,
+        cardFeeUsdc: priceUsdc * 0.03, // estimated 3% card fee
+      };
+      if (isPhysicalProduct) {
+        confirmBody.shipping_name = shipping.name;
+        confirmBody.shipping_address_line1 = shipping.addressLine1;
+        confirmBody.shipping_address_line2 = shipping.addressLine2 || null;
+        confirmBody.shipping_city = shipping.city;
+        confirmBody.shipping_state = shipping.state || null;
+        confirmBody.shipping_postal_code = shipping.postalCode;
+        confirmBody.shipping_country = shipping.country;
+        confirmBody.shipping_phone = shipping.phone || null;
+        confirmBody.physical_terms_accepted = shipping.termsAccepted;
+      }
+      if (referralCode) confirmBody.referralCode = referralCode;
+
+      const res = await fetch('/api/rrg/confirm-card', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(confirmBody),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Purchase failed');
+
+      setResult({ txHash: data.txHash, downloadUrl: data.downloadUrl });
+      setStep('success');
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Something went wrong';
+      setError(msg);
+      setStep('error');
+    }
+  }
+
   async function handleBuy() {
     setError('');
     setUseAccountWallet(false);

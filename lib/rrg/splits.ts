@@ -64,20 +64,37 @@ function round2(n: number): number {
 
 /**
  * Returns the brand percentage for a brand-created drop based on sale price.
- * Scales continuously across tiers — not step jumps.
+ * Single sliding scale for both digital and physical channels.
  *
  * $0–$9.99:   70%  (fixed)
- * $10–$50:    70% → 85%  (linear)
- * $50–$100:   85% → 95%  (linear)
- * $100–$200:  95% → 97.5% (linear)
- * $200+:      97.5% (fixed cap)
+ * $10–$100:   70% → 97.5%  (linear)
+ * $100+:      97.5% (fixed cap)
+ *
+ * Physical channel: same scale, $10 minimum, card fee deducted from seller.
  */
 export function getBrandPct(priceUsdc: number): number {
   if (priceUsdc < 10)  return 70;
-  if (priceUsdc <= 50)  return 70 + (priceUsdc - 10) / 40 * 15;
-  if (priceUsdc <= 100) return 85 + (priceUsdc - 50) / 50 * 10;
-  if (priceUsdc <= 200) return 95 + (priceUsdc - 100) / 100 * 2.5;
+  if (priceUsdc <= 100) return 70 + (priceUsdc - 10) / 90 * 27.5;
   return 97.5;
+}
+
+/**
+ * Deduct card processing fee from the brand/creator share.
+ * Called when payment_method === 'card'. The platform share stays unchanged.
+ * Returns adjusted split with card fee recorded.
+ */
+export function applyCardFeeDeduction(
+  split: SplitResult,
+  cardFeeUsdc: number,
+): SplitResult & { cardFeeUsdc: number } {
+  const deductFrom = split.brandUsdc > 0 ? 'brand' : 'creator';
+  const adjusted = { ...split, cardFeeUsdc };
+  if (deductFrom === 'brand') {
+    adjusted.brandUsdc = round2(Math.max(0, split.brandUsdc - cardFeeUsdc));
+  } else {
+    adjusted.creatorUsdc = round2(Math.max(0, split.creatorUsdc - cardFeeUsdc));
+  }
+  return adjusted;
 }
 
 /**
