@@ -85,7 +85,7 @@ DrHobbs is registered under **ERC-8004: Trustless Agents** (live on Ethereum mai
 | RPC | https://mainnet.base.org |
 | Block explorer | https://basescan.org |
 | USDC contract | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
-| RRG contract | `0x447692F5136798ACB111a3fB61FD4202668a6994` |
+| RRG contract | `0x9F07621f73E7CAaF2040C35833D5350F666b7177` |
 
 ---
 
@@ -93,8 +93,8 @@ DrHobbs is registered under **ERC-8004: Trustless Agents** (live on Ethereum mai
 
 ### RRG.sol — ERC-1155 NFT Contract
 
-Deployed on **Base mainnet**: `0x447692F5136798ACB111a3fB61FD4202668a6994`
-Verified on Basescan: https://basescan.org/address/0x447692F5136798ACB111a3fB61FD4202668a6994#code
+Deployed on **Base mainnet**: `0x9F07621f73E7CAaF2040C35833D5350F666b7177`
+Verified on Basescan: https://basescan.org/address/0x9F07621f73E7CAaF2040C35833D5350F666b7177#code
 
 Key functions:
 
@@ -204,7 +204,7 @@ Body: { "tokenId": 1, "buyerWallet": "0x..." }
     "types": { "Permit": [...] },
     "value": {
       "owner": "0x<buyerWallet>",
-      "spender": "0x447692F5136798ACB111a3fB61FD4202668a6994",
+      "spender": "0x9F07621f73E7CAaF2040C35833D5350F666b7177",
       "value": "1000000",
       "nonce": "0",
       "deadline": "1234567890"
@@ -463,7 +463,7 @@ Functions:
 |---|---|---|
 | Platform / DrHobbs wallet | `0xe653804032A2d51Cc031795afC601B9b1fd2c375` | Base mainnet |
 | Operator / deployer wallet | `0x369d04F08F245454926AC96a0164a634fd94660B` | Base mainnet |
-| RRG contract | `0x447692F5136798ACB111a3fB61FD4202668a6994` | Base mainnet |
+| RRG contract | `0x9F07621f73E7CAaF2040C35833D5350F666b7177` | Base mainnet |
 | USDC | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` | Base mainnet |
 | Identity Registry (ERC-8004) | `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` | Base mainnet |
 | Reputation Registry (ERC-8004) | `0x8004BAa17C55a88189AE136b182e5fdA19dE9b63` | Base mainnet |

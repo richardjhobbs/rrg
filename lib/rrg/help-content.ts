@@ -69,6 +69,99 @@ export const brandAdmin = {
     title: 'Fiat Off-Ramp',
     content: 'Link a Bridge or Coinbase Commerce account to automatically convert USDC earnings to fiat (USD, EUR, etc.) and deposit to your bank account.\n\nIf not set up, you\'ll receive earnings as USDC to your wallet.',
   },
+  // Field-level
+  name: {
+    title: 'Brand Name',
+    content: 'Your brand\'s display name. This appears on your storefront, in drop listings, and social posts. Keep it recognisable and consistent with your existing branding.',
+  },
+  headline: {
+    title: 'Headline',
+    content: 'A short tagline or positioning statement for your brand. Appears prominently on your brand page. Keep it punchy — one line that captures what you do.',
+  },
+  description: {
+    title: 'Description',
+    content: 'A longer description of your brand, your story, and what makes you unique. Appears on your brand page below the headline. Use this to build connection with potential buyers.',
+  },
+  contactEmail: {
+    title: 'Contact Email',
+    content: 'Your brand\'s primary contact email. Used for platform communications and buyer enquiries about physical products. Not displayed publicly.',
+  },
+  website: {
+    title: 'Website',
+    content: 'Your brand\'s main website URL. Appears as a clickable link on your brand page. Include the full URL including https://.',
+  },
+};
+
+// ── Brief Form Fields ────────────────────────────────────────────────
+export const briefFields = {
+  title: {
+    title: 'Brief Title',
+    content: 'The name of your brief or challenge. This appears on your brand page and in submission forms. Make it descriptive and appealing to creators.',
+  },
+  description: {
+    title: 'Brief Description',
+    content: 'Describe the theme, requirements, and creative direction. Be specific about what you\'re looking for — materials, style references, dimensions if relevant. The more detail you provide, the better submissions you\'ll receive.',
+  },
+  deadline: {
+    title: 'Deadline',
+    content: 'Optional end date for submissions. After this date, no new submissions will be accepted for this brief. Leave blank for an open-ended brief.',
+  },
+  isCurrent: {
+    title: 'Current Brief',
+    content: 'Mark this as your current brief. The current brief is prominently displayed on your brand page and used as the default when creators submit new work.',
+  },
+};
+
+// ── Product Fields ───────────────────────────────────────────────────
+export const productFields = {
+  physicalToggle: {
+    title: 'Physical Product',
+    content: 'Enable this if the drop includes a real physical product (clothing, prints, accessories). Buyers will be asked for a shipping address. Fulfilment is arranged directly between you and the buyer.',
+  },
+  physicalTitle: {
+    title: 'Physical Product Title',
+    content: 'Name of the physical product included with the digital drop. This appears in the product details section on the drop page.',
+  },
+  physicalDescription: {
+    title: 'Physical Description',
+    content: 'Describe the physical product — materials, dimensions, care instructions, or any other details buyers need to know before purchasing.',
+  },
+  physicalImages: {
+    title: 'Product Images',
+    content: 'Add photos of the physical product. Multiple angles recommended. JPEG or PNG, max 5 MB each. These appear in a carousel on the drop page.',
+  },
+};
+
+// ── Voucher Fields ───────────────────────────────────────────────────
+export const voucherFields = {
+  title: {
+    title: 'Voucher Title',
+    content: 'Name of the voucher or perk. This appears to the buyer after purchase. Keep it clear — e.g. "10% Off First Order", "Free Shipping", "VIP Access".',
+  },
+  type: {
+    title: 'Voucher Type',
+    content: 'The kind of benefit:\n\n• Percentage discount — e.g. 10% off\n• Fixed discount — e.g. $20 off\n• Free item — a complimentary product\n• Experience — access to an event or service\n• Custom — define your own perk',
+  },
+  value: {
+    title: 'Voucher Value',
+    content: 'The specific value of the voucher. For percentage discounts, enter the percentage. For fixed discounts, enter the amount. For free items, describe what\'s included.',
+  },
+  terms: {
+    title: 'Voucher Terms',
+    content: 'Any conditions or restrictions. E.g. "Valid for 30 days after purchase", "Cannot be combined with other offers", "Minimum order $50".',
+  },
+  brandUrl: {
+    title: 'Redemption URL',
+    content: 'Where buyers go to redeem the voucher. This could be your website, a specific product page, or a booking link.',
+  },
+  validDays: {
+    title: 'Validity Period',
+    content: 'Number of days the voucher remains valid after purchase. After this period, the voucher expires automatically.',
+  },
+  maxUses: {
+    title: 'Maximum Uses',
+    content: 'How many times each voucher code can be redeemed. Set to 1 for single-use vouchers.',
+  },
 };
 
 // ── Creator Dashboard ────────────────────────────────────────────────

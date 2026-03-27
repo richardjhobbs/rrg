@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useBrandContext } from './layout';
 import BrandTermsModal from '@/components/rrg/BrandTermsModal';
 import HelpTip from '@/components/rrg/HelpTip';
-import { brandAdmin } from '@/lib/rrg/help-content';
+import { brandAdmin, briefFields, voucherFields } from '@/lib/rrg/help-content';
 import { BRAND_TC_VERSION } from '@/lib/rrg/terms';
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -913,6 +913,12 @@ function BriefsTab({ brandId }: { brandId: string }) {
     ends_at: '',
     is_current: true,
   });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    title: '',
+    description: '',
+    ends_at: '',
+  });
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -970,6 +976,44 @@ function BriefsTab({ brandId }: { brandId: string }) {
     }
   };
 
+  const startEdit = (b: Brief) => {
+    setEditingId(b.id);
+    setEditForm({
+      title: b.title,
+      description: b.description,
+      ends_at: b.ends_at ? b.ends_at.split('T')[0] : '',
+    });
+  };
+
+  const handleEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingId) return;
+    setActing(true);
+    setMsg('');
+
+    const res = await fetch(`/api/brand/${brandId}/briefs`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        briefId: editingId,
+        action: 'update',
+        title: editForm.title,
+        description: editForm.description,
+        ends_at: editForm.ends_at || null,
+      }),
+    });
+    const data = await res.json();
+    setActing(false);
+
+    if (res.ok) {
+      setMsg('Brief updated ✓');
+      setEditingId(null);
+      load();
+    } else {
+      setMsg(`Error: ${data.error}`);
+    }
+  };
+
   const statusColor = (s: string) => {
     if (s === 'active')   return 'bg-green-400/20 text-green-400';
     if (s === 'closed')   return 'bg-amber-400/20 text-amber-400';
@@ -1000,7 +1044,7 @@ function BriefsTab({ brandId }: { brandId: string }) {
         <form onSubmit={handleCreate} className="mb-8 p-6 border border-white/20 space-y-4">
           <h3 className="text-base font-medium mb-2">New Brief</h3>
           <div>
-            <label className="text-sm font-mono text-white/60 block mb-1">Title *</label>
+            <label className="text-sm font-mono text-white/60 block mb-1">Title * <HelpTip {...briefFields.title} /></label>
             <input
               type="text" required maxLength={120}
               value={form.title}
@@ -1010,7 +1054,7 @@ function BriefsTab({ brandId }: { brandId: string }) {
             />
           </div>
           <div>
-            <label className="text-sm font-mono text-white/60 block mb-1">Description *</label>
+            <label className="text-sm font-mono text-white/60 block mb-1">Description * <HelpTip {...briefFields.description} /></label>
             <textarea
               rows={4} required maxLength={2000}
               value={form.description}
@@ -1022,7 +1066,7 @@ function BriefsTab({ brandId }: { brandId: string }) {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="text-sm font-mono text-white/60 block mb-1">
-                Deadline <span className="text-white/40">(optional)</span>
+                Deadline <span className="text-white/40">(optional)</span> <HelpTip {...briefFields.deadline} />
               </label>
               <input
                 type="date"
@@ -1082,6 +1126,53 @@ function BriefsTab({ brandId }: { brandId: string }) {
                 </span>
               </div>
 
+              {editingId === b.id && (
+                <form onSubmit={handleEdit} className="mt-3 p-4 border border-white/15 space-y-3">
+                  <div>
+                    <label className="text-sm font-mono text-white/60 block mb-1">Title * <HelpTip {...briefFields.title} /></label>
+                    <input
+                      type="text" required maxLength={120}
+                      value={editForm.title}
+                      onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                      className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-mono text-white/60 block mb-1">Description * <HelpTip {...briefFields.description} /></label>
+                    <textarea
+                      rows={4} required maxLength={2000}
+                      value={editForm.description}
+                      onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                      className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none resize-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-sm font-mono text-white/60 block mb-1">Deadline <HelpTip {...briefFields.deadline} /></label>
+                    <input
+                      type="date"
+                      value={editForm.ends_at}
+                      onChange={(e) => setEditForm({ ...editForm, ends_at: e.target.value })}
+                      className="w-full bg-transparent border border-white/20 px-3 py-2 text-base focus:border-white outline-none"
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <button
+                      type="submit" disabled={acting}
+                      className="px-4 py-1.5 bg-white text-black text-sm font-medium hover:bg-white/90 disabled:opacity-40 transition-all"
+                    >
+                      {acting ? 'Saving…' : 'Save Changes'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setEditingId(null)}
+                      className="text-sm text-white/40 hover:text-white/70 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
+
               <div className="flex items-center justify-between mt-3">
                 <div className="flex gap-4 text-sm text-white/50 font-mono">
                   <span>{new Date(b.created_at).toLocaleDateString()}</span>
@@ -1092,6 +1183,12 @@ function BriefsTab({ brandId }: { brandId: string }) {
                 </div>
 
                 <div className="flex gap-2">
+                  <button
+                    onClick={() => editingId === b.id ? setEditingId(null) : startEdit(b)}
+                    className="text-sm font-mono text-white/60 hover:text-white border border-white/15 px-2 py-0.5 hover:border-white/40 transition-all"
+                  >
+                    {editingId === b.id ? 'Close' : 'Edit'}
+                  </button>
                   {b.status === 'active' && !b.is_current && (
                     <button
                       onClick={() => handleAction(b.id, 'set_current')}
@@ -1322,7 +1419,7 @@ function VouchersTab({ brandId }: { brandId: string }) {
           <h3 className="text-base font-medium mb-2">New Voucher Template</h3>
 
           <div>
-            <label className="text-sm font-mono text-white/60 block mb-1">Title *</label>
+            <label className="text-sm font-mono text-white/60 block mb-1">Title * <HelpTip {...voucherFields.title} /></label>
             <input
               type="text" required maxLength={120}
               value={form.title}
@@ -1345,7 +1442,7 @@ function VouchersTab({ brandId }: { brandId: string }) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-mono text-white/60 block mb-1">Type *</label>
+              <label className="text-sm font-mono text-white/60 block mb-1">Type * <HelpTip {...voucherFields.type} /></label>
               <select
                 value={form.voucher_type}
                 onChange={(e) => setForm({ ...form, voucher_type: e.target.value })}
@@ -1374,7 +1471,7 @@ function VouchersTab({ brandId }: { brandId: string }) {
           </div>
 
           <div>
-            <label className="text-sm font-mono text-white/60 block mb-1">Redemption URL</label>
+            <label className="text-sm font-mono text-white/60 block mb-1">Redemption URL <HelpTip {...voucherFields.brandUrl} /></label>
             <input
               type="url"
               value={form.brand_url}
@@ -1385,7 +1482,7 @@ function VouchersTab({ brandId }: { brandId: string }) {
           </div>
 
           <div>
-            <label className="text-sm font-mono text-white/60 block mb-1">Terms &amp; Conditions</label>
+            <label className="text-sm font-mono text-white/60 block mb-1">Terms &amp; Conditions <HelpTip {...voucherFields.terms} /></label>
             <textarea
               rows={2} maxLength={1000}
               value={form.terms}
@@ -1397,7 +1494,7 @@ function VouchersTab({ brandId }: { brandId: string }) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="text-sm font-mono text-white/60 block mb-1">Valid for (days)</label>
+              <label className="text-sm font-mono text-white/60 block mb-1">Valid for (days) <HelpTip {...voucherFields.validDays} /></label>
               <input
                 type="number" min="1" max="365"
                 value={form.valid_days}
@@ -1406,7 +1503,7 @@ function VouchersTab({ brandId }: { brandId: string }) {
               />
             </div>
             <div>
-              <label className="text-sm font-mono text-white/60 block mb-1">Max uses per voucher</label>
+              <label className="text-sm font-mono text-white/60 block mb-1">Max uses per voucher <HelpTip {...voucherFields.maxUses} /></label>
               <input
                 type="number" min="1" max="100"
                 value={form.max_uses}
@@ -1780,7 +1877,7 @@ function SettingsTab({ brandId }: { brandId: string }) {
 
         {/* ── Basic Info ───────────────────────────────────── */}
         <div>
-          <label className="text-sm font-mono text-white/60 block mb-1">Name</label>
+          <label className="text-sm font-mono text-white/60 block mb-1">Name <HelpTip {...brandAdmin.name} /></label>
           <input
             type="text" required maxLength={100}
             value={form.name}
@@ -1789,7 +1886,7 @@ function SettingsTab({ brandId }: { brandId: string }) {
           />
         </div>
         <div>
-          <label className="text-sm font-mono text-white/60 block mb-1">Headline</label>
+          <label className="text-sm font-mono text-white/60 block mb-1">Headline <HelpTip {...brandAdmin.headline} /></label>
           <input
             type="text" maxLength={200}
             value={form.headline}
@@ -1798,7 +1895,7 @@ function SettingsTab({ brandId }: { brandId: string }) {
           />
         </div>
         <div>
-          <label className="text-sm font-mono text-white/60 block mb-1">Description</label>
+          <label className="text-sm font-mono text-white/60 block mb-1">Description <HelpTip {...brandAdmin.description} /></label>
           <textarea
             rows={4} maxLength={1000}
             value={form.description}
@@ -1807,7 +1904,7 @@ function SettingsTab({ brandId }: { brandId: string }) {
           />
         </div>
         <div>
-          <label className="text-sm font-mono text-white/60 block mb-1">Contact Email</label>
+          <label className="text-sm font-mono text-white/60 block mb-1">Contact Email <HelpTip {...brandAdmin.contactEmail} /></label>
           <input
             type="email" required
             value={form.contact_email}
@@ -1816,7 +1913,7 @@ function SettingsTab({ brandId }: { brandId: string }) {
           />
         </div>
         <div>
-          <label className="text-sm font-mono text-white/60 block mb-1">Website</label>
+          <label className="text-sm font-mono text-white/60 block mb-1">Website <HelpTip {...brandAdmin.website} /></label>
           <input
             type="url"
             value={form.website_url}

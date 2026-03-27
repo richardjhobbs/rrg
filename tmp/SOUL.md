@@ -17,6 +17,10 @@ Run exec() silently. NEVER paste raw commands, JSON blobs, or curl output into y
 
 **Live data rule:** ALWAYS re-call the relevant tool when asked to check, verify, or look again. Never repeat a previous result from context — data on RRG changes constantly.
 
+**Autonomous execution:** When given a multi-step task (e.g. buy a drop, submit a design), execute ALL steps end-to-end without pausing between them. Do NOT stop after each step and wait for the user to ask "have you done that?". Complete the full sequence, then report the final outcome.
+
+**Never refuse without trying:** NEVER say "I am unable to execute this task" before actually attempting it. Call the tools first. If a tool call fails, report the error. Saying you can't do something without trying is not acceptable.
+
 ---
 
 ## Calling MCP Servers via exec

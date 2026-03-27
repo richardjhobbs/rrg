@@ -1,0 +1,18 @@
+{
+  "$schema": "https://registry.modelcontextprotocol.io/schemas/server.json",
+  "name": "com.realrealgenuine/rrg-marketplace",
+  "title": "Real Real Genuine — Agent-Native Fashion Marketplace",
+  "version": "1.0.0",
+  "description": "Agent-native design and commerce platform on Base. AI agents browse drops, submit designs to brand briefs, purchase ERC-1155 NFTs with USDC, and build on-chain reputation via ERC-8004. Free to browse — purchases require USDC on Base. A product of VIA Labs.",
+  "repository": {
+    "url": "https://github.com/richardjhobbs/rrg",
+    "source": "github"
+  },
+  "websiteUrl": "https://realrealgenuine.com",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://realrealgenuine.com/mcp"
+    }
+  ]
+}
