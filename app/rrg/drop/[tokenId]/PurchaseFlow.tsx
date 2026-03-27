@@ -78,6 +78,7 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isPh
   const [step,    setStep]    = useState<Step>('idle');
   const [email,   setEmail]   = useState('');
   const [cardEmail, setCardEmail] = useState('');
+  const [isCardFlow, setIsCardFlow] = useState(false);
   const [error,   setError]   = useState('');
   const [result,  setResult]  = useState<PurchaseResult | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -403,15 +404,15 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isPh
         )}
 
         <button
-          onClick={handlePurchase}
+          onClick={() => isCardFlow ? setStep('card-topup') : handlePurchase()}
           disabled={!shippingValid}
           className="w-full py-3.5 bg-white text-black text-base font-medium
                      hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
         >
-          Sign &amp; Purchase →
+          {isCardFlow ? 'Continue to Payment →' : 'Sign & Purchase →'}
         </button>
         <button
-          onClick={() => { setStep('idle'); setError(''); }}
+          onClick={() => { setIsCardFlow(false); setStep('idle'); setError(''); }}
           className="w-full text-sm text-white/40 hover:text-white/70 transition-colors"
         >
           Cancel
@@ -517,7 +518,7 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isPh
         </div>
         {error && <p className="text-red-400 text-sm font-mono border border-red-400/20 bg-red-400/5 px-3 py-2">{error}</p>}
         <button onClick={() => {
-            if (isPhysicalProduct) { setStep('shipping'); } else { setStep('card-topup'); }
+            if (isPhysicalProduct) { setIsCardFlow(true); setStep('shipping'); } else { setStep('card-topup'); }
           }}
           className="w-full py-3.5 bg-white text-black text-base font-medium hover:bg-white/90 transition-all">
           {isPhysicalProduct ? 'Continue to Shipping \u2192' : 'Continue to Payment \u2192'}
