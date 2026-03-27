@@ -546,6 +546,11 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isPh
             prefillBuy: {
               chain: base,
               amount: String(priceUsdc),
+              token: {
+                address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+                name: 'USD Coin',
+                symbol: 'USDC',
+              },
             },
           }}
           connectOptions={{
@@ -621,6 +626,11 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isPh
             prefillBuy: {
               chain: base,
               amount: '10',
+              token: {
+                address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+                name: 'USD Coin',
+                symbol: 'USDC',
+              },
             },
           }}
           connectOptions={{
