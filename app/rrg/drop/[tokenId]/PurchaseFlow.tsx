@@ -648,24 +648,27 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isPh
         Gasless · USDC on Base · files delivered on mint
       </p>
 
-      {/* Card payment separator */}
-      <div className="flex items-center gap-3 py-1">
-        <div className="flex-1 border-t border-white/10" />
-        <span className="text-sm font-mono text-white/30">or</span>
-        <div className="flex-1 border-t border-white/10" />
-      </div>
+      {/* Card payment — only for items >= $1 (Thirdweb minimum) */}
+      {priceUsdc >= 1 && (
+        <>
+          <div className="flex items-center gap-3 py-1">
+            <div className="flex-1 border-t border-white/10" />
+            <span className="text-sm font-mono text-white/30">or</span>
+            <div className="flex-1 border-t border-white/10" />
+          </div>
 
-      {/* Buy with Card */}
-      <button
-        onClick={() => setStep('card-auth')}
-        className="w-full py-4 border border-white/20 text-white/80 text-base font-medium
-                   hover:border-white/40 hover:text-white transition-all tracking-wide"
-      >
-        &#x1f4b3; Buy with Card &middot; ${priceUsdc.toFixed(2)}
-      </button>
-      <p className="text-sm text-white/50 text-center">
-        Credit/debit card &middot; processing fees apply
-      </p>
+          <button
+            onClick={() => setStep('card-auth')}
+            className="w-full py-4 border border-white/20 text-white/80 text-base font-medium
+                       hover:border-white/40 hover:text-white transition-all tracking-wide"
+          >
+            &#x1f4b3; Buy with Card &middot; ${priceUsdc.toFixed(2)}
+          </button>
+          <p className="text-sm text-white/50 text-center">
+            Credit/debit card &middot; processing fees apply
+          </p>
+        </>
+      )}
     </div>
   );
 
