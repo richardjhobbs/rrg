@@ -669,11 +669,18 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isPh
           </p>
         </>
       ) : (
-        <div className="border border-white/10 bg-white/5 px-4 py-3 mt-2">
+        <div className="border border-white/10 bg-white/5 px-4 py-3 mt-2 space-y-3">
           <p className="text-sm text-white/60">
             &#x1f4b3; Fees can be high when buying a low price item. We suggest you top up your wallet
             with $10 USDC so you have a better rate and more options!
           </p>
+          <button
+            onClick={() => setStep('card-auth')}
+            className="w-full py-3 border border-white/20 text-white/70 text-sm font-medium
+                       hover:border-white/40 hover:text-white transition-all"
+          >
+            Top Up Wallet &rarr;
+          </button>
         </div>
       )}
     </div>
