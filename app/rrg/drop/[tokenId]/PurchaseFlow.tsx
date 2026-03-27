@@ -27,7 +27,7 @@ interface Props {
 }
 
 type Step = 'idle' | 'connect' | 'email' | 'shipping' | 'signing' | 'confirming' | 'success' | 'error'
-  | 'card-auth' | 'card-email' | 'card-topup' | 'card-sending';
+  | 'card-auth' | 'card-email' | 'card-topup' | 'card-sending' | 'topup-auth' | 'topup';
 
 interface ShippingAddress {
   name: string;
@@ -582,6 +582,68 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isPh
     );
   }
 
+  // ── Top-up auth ──────────────────────────────────────────────────────
+  if (step === 'topup-auth') {
+    if (thirdwebAccount?.address) {
+      setStep('topup');
+      return null;
+    }
+    return (
+      <div className="border border-white/20 p-6 space-y-4">
+        <p className="text-base text-white/80 mb-2">Sign in to top up your wallet</p>
+        <ConnectEmbed
+          client={thirdwebClient}
+          chain={base}
+          wallets={[inAppWallet({ auth: { options: ['google', 'email'] } })]}
+          onConnect={() => setStep('topup')}
+        />
+        <button onClick={() => { setStep('idle'); setError(''); }}
+          className="w-full text-sm text-white/40 hover:text-white/70 transition-colors pt-2">
+          Cancel
+        </button>
+      </div>
+    );
+  }
+
+  // ── Top-up wallet (PayEmbed, $10 default) ──────────────────────────
+  if (step === 'topup') {
+    return (
+      <div className="border border-white/20 p-6 space-y-4">
+        <p className="text-base text-white/80">Top up your wallet with USDC</p>
+        <p className="text-sm text-white/60">
+          Add USDC to your wallet using a credit or debit card. Once funded, you can purchase any item instantly.
+        </p>
+        <PayEmbed
+          client={thirdwebClient}
+          theme="dark"
+          payOptions={{
+            mode: 'fund_wallet',
+            prefillBuy: {
+              chain: base,
+              amount: '10',
+            },
+          }}
+          connectOptions={{
+            chain: base,
+            wallets: [inAppWallet({ auth: { options: ['google', 'email'] } })],
+          }}
+        />
+        <div className="text-center py-2">
+          <p className="text-xs font-mono text-white/40">
+            Wallet: {thirdwebAccount?.address?.slice(0, 6)}&hellip;{thirdwebAccount?.address?.slice(-4)}
+          </p>
+          {accountBalance !== null && (
+            <p className="text-xs font-mono text-white/40 mt-1">Balance: ${accountBalance} USDC</p>
+          )}
+        </div>
+        <button onClick={() => { setStep('idle'); setError(''); }}
+          className="w-full py-3 border border-white/20 text-white/70 text-sm hover:border-white/40 hover:text-white transition-all">
+          Done &mdash; Back to Purchase
+        </button>
+      </div>
+    );
+  }
+
   // ── Idle — main CTA ──────────────────────────────────────────────────
   const walletReady = mounted && isConnected && !!address;
   const hasAccountWallet = mounted && !!thirdwebAccount?.address;
@@ -675,7 +737,7 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isPh
             with $10 USDC so you have a better rate and more options!
           </p>
           <button
-            onClick={() => setStep('card-auth')}
+            onClick={() => setStep('topup-auth')}
             className="w-full py-3 border border-white/20 text-white/70 text-sm font-medium
                        hover:border-white/40 hover:text-white transition-all"
           >

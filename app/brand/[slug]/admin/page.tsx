@@ -65,6 +65,7 @@ interface BrandSettings {
   self_listings_used: number;
   tc_accepted_at?: string | null;
   tc_version?: string | null;
+  accepts_card_payments?: boolean;
 }
 
 const SOCIAL_PLATFORMS = [
@@ -1669,6 +1670,7 @@ function SettingsTab({ brandId }: { brandId: string }) {
       fd.append('website_url', form.website_url);
       fd.append('contact_email', form.contact_email);
       fd.append('social_links', JSON.stringify(socials));
+      fd.append('accepts_card_payments', brand?.accepts_card_payments ? 'true' : 'false');
       if (logoFile)   fd.append('logo', logoFile);
       if (bannerFile) fd.append('banner', bannerFile);
       res = await fetch(`/api/brand/${brandId}/settings`, { method: 'PATCH', body: fd });
@@ -1676,7 +1678,7 @@ function SettingsTab({ brandId }: { brandId: string }) {
       res = await fetch(`/api/brand/${brandId}/settings`, {
         method:  'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ ...form, social_links: socials }),
+        body:    JSON.stringify({ ...form, social_links: socials, accepts_card_payments: brand?.accepts_card_payments ?? false }),
       });
     }
 
@@ -1878,6 +1880,36 @@ function SettingsTab({ brandId }: { brandId: string }) {
             </button>
           </div>
         )}
+
+        {/* ── Card Payment Acceptance ────────────────────── */}
+        <div className={`p-5 border space-y-3 ${brand.accepts_card_payments ? 'border-green-400/20 bg-green-400/5' : 'border-white/10 bg-white/5'}`}>
+          <p className="text-sm font-mono uppercase tracking-widest text-white/50">
+            Credit / Debit Card Payments
+          </p>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={!!brand.accepts_card_payments}
+              onChange={(e) => setBrand({ ...brand, accepts_card_payments: e.target.checked })}
+              className="mt-1 w-4 h-4 accent-green-400"
+            />
+            <div>
+              <p className="text-base text-white/80">
+                Accept credit/debit card payments from buyers
+              </p>
+              <p className="text-sm text-white/50 mt-1">
+                Card processing fees (~3%) will be deducted from your revenue split.
+                Buyers pay with Visa, Mastercard, or other supported cards via our payment partner.
+                This applies to items priced at $10 USDC or above.
+              </p>
+            </div>
+          </label>
+          {brand.accepts_card_payments && (
+            <p className="text-xs text-green-400/60 font-mono">
+              ✓ Card payments enabled — buyers will see a &quot;Buy with Card&quot; option on your products.
+            </p>
+          )}
+        </div>
 
         {msg && (
           <p className={`text-sm font-mono ${msg.startsWith('Error') ? 'text-red-400' : 'text-green-400'}`}>

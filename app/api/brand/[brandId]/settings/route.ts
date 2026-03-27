@@ -83,7 +83,7 @@ export async function PATCH(
 
     // Build DB updates from allowed text fields
     const updates: Record<string, unknown> = {};
-    const allowed = ['name', 'description', 'headline', 'website_url', 'social_links', 'contact_email'];
+    const allowed = ['name', 'description', 'headline', 'website_url', 'social_links', 'contact_email', 'accepts_card_payments'];
 
     for (const key of allowed) {
       if (textFields[key] !== undefined) {
