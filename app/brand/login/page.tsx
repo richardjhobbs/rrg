@@ -3,6 +3,8 @@
 import { Suspense, useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
+import HelpTip from '@/components/rrg/HelpTip';
+import { brandLogin } from '@/lib/rrg/help-content';
 
 // Lazy-load thirdweb Google auth component (client-only)
 const GoogleAuthEmbed = dynamic(
@@ -463,7 +465,7 @@ function BrandLoginInner() {
 
           {/* Brand Name */}
           <div>
-            <label className="text-sm font-mono text-white/60 block mb-1">Brand Name</label>
+            <label className="text-sm font-mono text-white/60 block mb-1">Brand Name <HelpTip {...brandLogin.brandName} /></label>
             <input
               type="text" value={brandName}
               onChange={(e) => { setBrandName(e.target.value); setErr(''); }}
@@ -477,7 +479,7 @@ function BrandLoginInner() {
           {/* Wallet Address — only for "own wallet" path */}
           {walletMode === 'own' && (
             <div>
-              <label className="text-sm font-mono text-white/60 block mb-1">Wallet Address</label>
+              <label className="text-sm font-mono text-white/60 block mb-1">Wallet Address <HelpTip {...brandLogin.walletChoice} /></label>
               <input
                 type="text" value={ownWallet}
                 onChange={(e) => { setOwnWallet(e.target.value); setErr(''); }}
@@ -496,7 +498,7 @@ function BrandLoginInner() {
           {/* Application Text */}
           <div>
             <label className="text-sm font-mono text-white/60 block mb-1">
-              Tell us about your brand
+              Tell us about your brand <HelpTip {...brandLogin.applicationText} />
             </label>
             <textarea
               value={appText}

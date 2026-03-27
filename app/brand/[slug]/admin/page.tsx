@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useBrandContext } from './layout';
 import BrandTermsModal from '@/components/rrg/BrandTermsModal';
+import HelpTip from '@/components/rrg/HelpTip';
+import { brandAdmin } from '@/lib/rrg/help-content';
 import { BRAND_TC_VERSION } from '@/lib/rrg/terms';
 
 // ── Types ──────────────────────────────────────────────────────────
@@ -121,12 +123,12 @@ export default function BrandAdminPage() {
 
       {/* Tab content */}
       <div className="px-6 py-8 max-w-5xl">
-        {tab === 'submissions' && <SubmissionsTab brandId={ctx.brandId} />}
-        {tab === 'products'    && <ProductsTab brandId={ctx.brandId} />}
-        {tab === 'briefs'      && <BriefsTab brandId={ctx.brandId} />}
+        {tab === 'submissions' && <><div className="flex items-center gap-2 mb-4"><h2 className="text-xs font-mono text-white/40 uppercase tracking-widest">Submissions</h2><HelpTip {...brandAdmin.submissions} /></div><SubmissionsTab brandId={ctx.brandId} /></>}
+        {tab === 'products'    && <><div className="flex items-center gap-2 mb-4"><h2 className="text-xs font-mono text-white/40 uppercase tracking-widest">Products</h2><HelpTip {...brandAdmin.drops} /></div><ProductsTab brandId={ctx.brandId} /></>}
+        {tab === 'briefs'      && <><div className="flex items-center gap-2 mb-4"><h2 className="text-xs font-mono text-white/40 uppercase tracking-widest">Briefs</h2><HelpTip {...brandAdmin.briefs} /></div><BriefsTab brandId={ctx.brandId} /></>}
         {tab === 'vouchers'    && <VouchersTab brandId={ctx.brandId} />}
         {tab === 'sales'       && <SalesTab brandId={ctx.brandId} />}
-        {tab === 'settings'    && <SettingsTab brandId={ctx.brandId} />}
+        {tab === 'settings'    && <><div className="flex items-center gap-2 mb-4"><h2 className="text-xs font-mono text-white/40 uppercase tracking-widest">Settings</h2><HelpTip {...brandAdmin.settings} /></div><SettingsTab brandId={ctx.brandId} /></>}
       </div>
     </>
   );
@@ -1730,7 +1732,7 @@ function SettingsTab({ brandId }: { brandId: string }) {
           {/* Logo */}
           <div>
             <label className="text-sm font-mono text-white/60 block mb-2">
-              Logo <span className="text-white/40">(Square, JPEG/PNG, max 2 MB)</span>
+              Logo <span className="text-white/40">(Square, JPEG/PNG, max 2 MB)</span> <HelpTip {...brandAdmin.logo} />
             </label>
             <div className="flex items-center gap-4">
               {(logoPreview || brand.logo_path) && (
@@ -1755,7 +1757,7 @@ function SettingsTab({ brandId }: { brandId: string }) {
           {/* Banner */}
           <div>
             <label className="text-sm font-mono text-white/60 block mb-2">
-              Banner <span className="text-white/40">(Wide, JPEG/PNG, max 5 MB)</span>
+              Banner <span className="text-white/40">(Wide, JPEG/PNG, max 5 MB)</span> <HelpTip {...brandAdmin.banner} />
             </label>
             {(bannerPreview || brand.banner_path) && (
               <div className="w-full h-32 mb-3 border border-white/15 overflow-hidden bg-white/5">
@@ -1825,7 +1827,7 @@ function SettingsTab({ brandId }: { brandId: string }) {
 
         {/* ── Social Links ─────────────────────────────────── */}
         <div className="p-5 border border-white/10 space-y-3">
-          <p className="text-sm font-mono uppercase tracking-widest text-white/50">Social Links</p>
+          <p className="text-sm font-mono uppercase tracking-widest text-white/50">Social Links <HelpTip {...brandAdmin.socialLinks} /></p>
           {SOCIAL_PLATFORMS.map((p) => (
             <div key={p.key}>
               <label className="text-sm font-mono text-white/60 block mb-1">{p.label}</label>
@@ -1884,7 +1886,7 @@ function SettingsTab({ brandId }: { brandId: string }) {
         {/* ── Card Payment Acceptance ────────────────────── */}
         <div className={`p-5 border space-y-3 ${brand.accepts_card_payments ? 'border-green-400/20 bg-green-400/5' : 'border-white/10 bg-white/5'}`}>
           <p className="text-sm font-mono uppercase tracking-widest text-white/50">
-            Credit / Debit Card Payments
+            Credit / Debit Card Payments <HelpTip {...brandAdmin.cardPayments} />
           </p>
           <label className="flex items-start gap-3 cursor-pointer">
             <input

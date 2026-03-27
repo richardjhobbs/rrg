@@ -3,6 +3,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useActiveWallet, useDisconnect } from 'thirdweb/react';
 import dynamic from 'next/dynamic';
+import HelpTip from '@/components/rrg/HelpTip';
+import { creatorDashboard } from '@/lib/rrg/help-content';
 
 // Lazy-load thirdweb Google auth component (client-only, avoids SSR issues)
 const GoogleAuthEmbed = dynamic(
@@ -744,11 +746,11 @@ function DashboardPage({
         </div>
 
         {/* Tab Content */}
-        {tab === 'submissions' && <SubmissionsTab wallet={profile.walletAddress} />}
-        {tab === 'drops'       && <DropsTab wallet={profile.walletAddress} />}
-        {tab === 'earnings'    && <EarningsTab wallet={profile.walletAddress} />}
-        {tab === 'referral'    && <ReferralPartnerTab wallet={profile.walletAddress} />}
-        {tab === 'profile'     && <ProfileTab profile={profile} />}
+        {tab === 'submissions' && <><div className="flex items-center gap-2 mb-4"><h2 className="text-xs font-mono text-white/40 uppercase tracking-widest">My Submissions</h2><HelpTip {...creatorDashboard.submissions} /></div><SubmissionsTab wallet={profile.walletAddress} /></>}
+        {tab === 'drops'       && <><div className="flex items-center gap-2 mb-4"><h2 className="text-xs font-mono text-white/40 uppercase tracking-widest">My Drops</h2><HelpTip {...creatorDashboard.drops} /></div><DropsTab wallet={profile.walletAddress} /></>}
+        {tab === 'earnings'    && <><div className="flex items-center gap-2 mb-4"><h2 className="text-xs font-mono text-white/40 uppercase tracking-widest">Earnings</h2><HelpTip {...creatorDashboard.earnings} /></div><EarningsTab wallet={profile.walletAddress} /></>}
+        {tab === 'referral'    && <><div className="flex items-center gap-2 mb-4"><h2 className="text-xs font-mono text-white/40 uppercase tracking-widest">Referral Programme</h2><HelpTip {...creatorDashboard.referrals} /></div><ReferralPartnerTab wallet={profile.walletAddress} /></>}
+        {tab === 'profile'     && <><div className="flex items-center gap-2 mb-4"><h2 className="text-xs font-mono text-white/40 uppercase tracking-widest">Profile</h2><HelpTip {...creatorDashboard.profile} /></div><ProfileTab profile={profile} /></>}
       </div>
     </div>
   );
