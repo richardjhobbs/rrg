@@ -648,8 +648,8 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isPh
         Gasless · USDC on Base · files delivered on mint
       </p>
 
-      {/* Card payment — only for items >= $1 (Thirdweb minimum) */}
-      {priceUsdc >= 1 && (
+      {/* Card payment — only for items >= $10 */}
+      {priceUsdc >= 10 ? (
         <>
           <div className="flex items-center gap-3 py-1">
             <div className="flex-1 border-t border-white/10" />
@@ -668,6 +668,13 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isPh
             Credit/debit card &middot; processing fees apply
           </p>
         </>
+      ) : (
+        <div className="border border-white/10 bg-white/5 px-4 py-3 mt-2">
+          <p className="text-sm text-white/60">
+            &#x1f4b3; Fees can be high when buying a low price item. We suggest you top up your wallet
+            with $10 USDC so you have a better rate and more options!
+          </p>
+        </div>
       )}
     </div>
   );
