@@ -57,7 +57,7 @@ export default function HelpTip({ content, title, size = 'sm' }: HelpTipProps) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div
             ref={modalRef}
-            className="bg-[#0e1117] border border-amber-400/30 max-w-md w-full p-6 relative"
+            className="bg-[#0e1117] border border-amber-400/30 max-w-md w-full p-6 relative normal-case tracking-normal"
           >
             {title && (
               <h3 className="text-sm font-mono text-amber-400 tracking-wider mb-3">
