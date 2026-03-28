@@ -46,7 +46,7 @@ export default function HelpTip({ content, title, size = 'sm' }: HelpTipProps) {
         type="button"
         onClick={() => setOpen(true)}
         className={`inline-flex items-center justify-center ${btnSize} rounded-full
-                    border border-white/20 text-white/40 hover:text-white/80 hover:border-white/40
+                    border border-amber-400/60 text-amber-400 hover:text-amber-300 hover:border-amber-300
                     transition-all duration-150 ml-1.5 -mt-0.5 align-middle flex-shrink-0`}
         aria-label={title ? `Help: ${title}` : 'Help'}
       >
@@ -57,10 +57,10 @@ export default function HelpTip({ content, title, size = 'sm' }: HelpTipProps) {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
           <div
             ref={modalRef}
-            className="bg-[#0e1117] border border-white/10 max-w-md w-full p-6 relative"
+            className="bg-[#0e1117] border border-amber-400/30 max-w-md w-full p-6 relative"
           >
             {title && (
-              <h3 className="text-sm font-mono text-white/90 uppercase tracking-wider mb-3">
+              <h3 className="text-sm font-mono text-amber-400 tracking-wider mb-3">
                 {title}
               </h3>
             )}
