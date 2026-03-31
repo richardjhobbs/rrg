@@ -11,7 +11,7 @@ const VALID_STAGES: PipelineStage[] = ['AWARENESS', 'CONSIDERATION', 'DECISION',
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { content, pipeline_stage, content_type, target_channels, image_url } = body;
+    const { content, pipeline_stage, content_type, target_channels, image_url, discord_channel_id } = body;
 
     const secret = body.secret ?? req.headers.get('x-admin-secret');
     if (secret !== process.env.ADMIN_SECRET) {
@@ -36,6 +36,7 @@ export async function POST(req: NextRequest) {
         target_channels: Array.isArray(target_channels) ? target_channels : undefined,
       },
       imageUrl: image_url ?? null,
+      discord_channel_id: discord_channel_id ?? undefined,
     });
 
     return NextResponse.json({

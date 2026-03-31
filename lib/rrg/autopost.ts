@@ -684,9 +684,10 @@ function getTargetChannels(metadata?: PipelineMetadata): string[] {
 // ── Generic post (for Priscilla / agent-post endpoint) ──────────────────
 
 export interface GenericPostParams {
-  content:   string;
-  pipeline:  PipelineMetadata;
-  imageUrl?: string | null;
+  content:            string;
+  pipeline:           PipelineMetadata;
+  imageUrl?:          string | null;
+  discord_channel_id?: string;
 }
 
 export async function autopostGeneric(p: GenericPostParams): Promise<{ channels: string[]; errors: string[] }> {
@@ -707,10 +708,9 @@ export async function autopostGeneric(p: GenericPostParams): Promise<{ channels:
     const facets = bskyFacets(text, [{ match: 'RRG', url: RRG_URL }]);
     promises.push({ channel: 'BLUESKY', promise: sendBluesky({ text, facets }, imageData, 'RRG post') });
   }
-  if (channels.some(c => c === 'DISCORD' || c === 'DISCORD_ANNOUNCEMENTS')) {
-    const channelId = channels.includes('DISCORD_ANNOUNCEMENTS')
-      ? DISCORD_CHANNEL_ANNOUNCEMENTS
-      : DISCORD_CHANNEL_DROPS;
+  if (p.discord_channel_id || channels.some(c => c === 'DISCORD' || c === 'DISCORD_ANNOUNCEMENTS')) {
+    const channelId = p.discord_channel_id
+      ?? (channels.includes('DISCORD_ANNOUNCEMENTS') ? DISCORD_CHANNEL_ANNOUNCEMENTS : DISCORD_CHANNEL_DROPS);
     const payload = { content: p.content, embeds: [] as unknown[] };
     promises.push({ channel: 'DISCORD', promise: sendDiscord(channelId, payload, imageData) });
   }
