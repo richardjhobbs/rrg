@@ -659,6 +659,71 @@ export async function autopostApproval(p: ApprovalParams): Promise<void> {
   }
 }
 
+// ── Pipeline types (AA Pipeline framework) ─────────────────────────────
+
+export type PipelineStage = 'AWARENESS' | 'CONSIDERATION' | 'DECISION' | 'ACTION';
+
+export interface PipelineMetadata {
+  pipeline_stage: PipelineStage;
+  content_type:   string;
+  target_channels?: string[];
+}
+
+const STAGE_CHANNEL_MAP: Record<PipelineStage, string[]> = {
+  AWARENESS:     ['BLUESKY', 'TELEGRAM'],
+  CONSIDERATION: ['TELEGRAM', 'DISCORD'],
+  DECISION:      ['DISCORD_ANNOUNCEMENTS', 'TELEGRAM'],
+  ACTION:        ['DISCORD_ANNOUNCEMENTS'],
+};
+
+function getTargetChannels(metadata?: PipelineMetadata): string[] {
+  if (!metadata) return ['TELEGRAM', 'BLUESKY', 'DISCORD'];
+  return metadata.target_channels ?? STAGE_CHANNEL_MAP[metadata.pipeline_stage];
+}
+
+// ── Generic post (for Priscilla / agent-post endpoint) ──────────────────
+
+export interface GenericPostParams {
+  content:            string;
+  pipeline:           PipelineMetadata;
+  imageUrl?:          string | null;
+  discord_channel_id?: string;
+}
+
+export async function autopostGeneric(p: GenericPostParams): Promise<{ channels: string[]; errors: string[] }> {
+  const channels  = getTargetChannels(p.pipeline);
+  const imageData = p.imageUrl ? await downloadImage(p.imageUrl) : null;
+  const errors: string[] = [];
+  const sent: string[] = [];
+
+  const promises: { channel: string; promise: Promise<unknown> }[] = [];
+
+  if (channels.some(c => c === 'TELEGRAM')) {
+    const html = `${esc(p.content)}\n\n${SIGNOFF_TG}`;
+    promises.push({ channel: 'TELEGRAM', promise: sendTelegram(html, imageData) });
+  }
+  if (channels.some(c => c === 'BLUESKY')) {
+    const budget = 300 - 2 - SIGNOFF_BSK.length;
+    const text   = `${p.content.slice(0, budget)}\n\n${SIGNOFF_BSK}`;
+    const facets = bskyFacets(text, [{ match: 'RRG', url: RRG_URL }]);
+    promises.push({ channel: 'BLUESKY', promise: sendBluesky({ text, facets }, imageData, 'RRG post') });
+  }
+  if (p.discord_channel_id || channels.some(c => c === 'DISCORD' || c === 'DISCORD_ANNOUNCEMENTS')) {
+    const channelId = p.discord_channel_id
+      ?? (channels.includes('DISCORD_ANNOUNCEMENTS') ? DISCORD_CHANNEL_ANNOUNCEMENTS : DISCORD_CHANNEL_DROPS);
+    const payload = { content: p.content, embeds: [] as unknown[] };
+    promises.push({ channel: 'DISCORD', promise: sendDiscord(channelId, payload, imageData) });
+  }
+
+  const results = await Promise.allSettled(promises.map(pr => pr.promise));
+  results.forEach((r, i) => {
+    sent.push(promises[i].channel);
+    if (r.status === 'rejected') errors.push(`${promises[i].channel}: ${r.reason}`);
+  });
+
+  return { channels: sent, errors };
+}
+
 export async function autopostSale(p: SaleParams): Promise<void> {
   const imageData = p.imageUrl ? await downloadImage(p.imageUrl) : null;
 

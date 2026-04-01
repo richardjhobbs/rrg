@@ -1,7 +1,7 @@
 # RRG — System Knowledge Base
 
 > **Canonical reference for DrHobbs MCP server, AI agents, and developers.**
-> Version: 2026-03-05 | Maintained in GitHub → also served from richard-hobbs.com VPS.
+> Version: 2026-03-31 | Maintained in GitHub → also served from richard-hobbs.com VPS.
 
 ---
 
@@ -32,7 +32,7 @@ RRG is designed for both human buyers and autonomous AI agents. The purchase flo
 | Home | richard-hobbs.com |
 | MCP endpoint | https://richard-hobbs.com/mcp |
 | Agent wallet | `0xe653804032A2d51Cc031795afC601B9b1fd2c375` |
-| Network | Base (mainnet) + Base Sepolia (testnet) |
+| Network | Base (mainnet) |
 | ERC-8004 status | Registered |
 | Connected platforms | OpenClaw, Telegram bot, desktop interface |
 
@@ -74,18 +74,19 @@ DrHobbs is registered under **ERC-8004: Trustless Agents** (live on Ethereum mai
 | File storage | Supabase Storage (private) | bucket: `rrg-submissions` |
 | NFT images (IPFS) | Pinata | ipfs.io / gateway.pinata.cloud |
 | Email delivery | Resend | deliver@richard-hobbs.com |
-| Smart contracts | Base Sepolia (testnet) → Base mainnet | see §4 |
+| Smart contracts | Base mainnet | see §4 |
 
-### Environment
+### Environment (Base mainnet)
 
-| Variable | Testnet | Mainnet |
-|---|---|---|
-| Chain ID | 84532 | 8453 |
-| Network name | Base Sepolia | Base |
-| RPC | https://sepolia.base.org | https://mainnet.base.org |
-| Block explorer | https://sepolia.basescan.org | https://basescan.org |
-| USDC contract | `0x036CbD53842c5426634e7929541eC2318f3dCF7e` | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
-| RRG contract | `0x573fad302Be48df7D3A39B381e5E5e794619e174` | TBC (post-mainnet deploy) |
+| Variable | Value |
+|---|---|
+| Chain ID | 8453 |
+| Network name | Base |
+| RPC | https://mainnet.base.org |
+| Block explorer | https://basescan.org |
+| USDC contract | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` |
+| RRG contract | `0x9f07621f73e7caaf2040c35833d5350f666b7177` |
+| OpenSea | https://opensea.io/collection/rrg-real-real-genuine-318941776 |
 
 ---
 
@@ -93,7 +94,7 @@ DrHobbs is registered under **ERC-8004: Trustless Agents** (live on Ethereum mai
 
 ### RRG.sol — ERC-1155 NFT Contract
 
-Deployed on **Base Sepolia**: `0x573fad302Be48df7D3A39B381e5E5e794619e174`
+Deployed on **Base mainnet**: `0x9f07621f73e7caaf2040c35833d5350f666b7177`
 
 Key functions:
 
@@ -242,8 +243,8 @@ Body: { "tokenId": 1, "buyerWallet": "0x..." }
     "domain": {
       "name": "USD Coin",
       "version": "2",
-      "chainId": 84532,
-      "verifyingContract": "0x036CbD53842c5426634e7929541eC2318f3dCF7e"
+      "chainId": 8453,
+      "verifyingContract": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
     },
     "types": {
       "Permit": [
@@ -256,7 +257,7 @@ Body: { "tokenId": 1, "buyerWallet": "0x..." }
     },
     "value": {
       "owner":    "0x<buyerWallet>",
-      "spender":  "0x573fad302Be48df7D3A39B381e5E5e794619e174",
+      "spender":  "0x9f07621f73e7caaf2040c35833d5350f666b7177",
       "value":    "1000000",
       "nonce":    "0",
       "deadline": "1234567890"
@@ -333,11 +334,11 @@ GET /api/rrg/drop/[tokenId]/content
   "x402Version": 1,
   "accepts": [{
     "scheme":             "exact",
-    "network":            "base-sepolia",
+    "network":            "base",
     "maxAmountRequired":  "1000000",
-    "resource":           "https://rrg-ruddy.vercel.app/api/rrg/drop/1/content",
+    "resource":           "https://realrealgenuine.com/api/rrg/drop/1/content",
     "payTo":              "0xe653804032A2d51Cc031795afC601B9b1fd2c375",
-    "asset":              "0x036CbD53842c5426634e7929541eC2318f3dCF7e",
+    "asset":              "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
     "description":        "Glam Puss — Token #1 — RRG",
     "mimeType":           "application/json"
   }]
@@ -433,7 +434,7 @@ const files = await fetch(
 ```
 
 **Requirements:**
-- Wallet with USDC on Base Sepolia (testnet) or Base (mainnet)
+- Wallet with USDC on Base mainnet
 - No ETH required — purchase is fully gasless
 - Permit expires in 10 minutes — complete steps 2–4 without delay
 - USDC amount must exactly match drop price
@@ -526,16 +527,15 @@ Functions:
 
 | Feature | Status |
 |---|---|
-| ERC-1155 permit-based purchase | ✅ Live (Base Sepolia) |
+| ERC-1155 permit-based purchase | ✅ Live (Base mainnet) |
 | Human purchase UI | ✅ Live |
 | File delivery (Supabase + email) | ✅ Live |
 | IPFS metadata via Pinata | ✅ Live |
 | x402 agent payment endpoint | 🔧 Building |
 | Wallet-to-wallet claim + async mint | 🔧 Building |
 | DrHobbs MCP tools for RRG | ✅ Live (at /mcp) |
-| ERC-8004 reputation signals on purchase | 📋 Planned |
-| Base mainnet deploy | 📋 Planned |
-| VPS deployment (nginx + PM2) | 📋 Planned |
+| ERC-8004 reputation signals on purchase | ✅ Live |
+| Base mainnet deploy | ✅ Live |
 
 ---
 
@@ -543,9 +543,8 @@ Functions:
 
 | Label | Address | Network |
 |---|---|---|
-| Platform / DrHobbs wallet | `0xe653804032A2d51Cc031795afC601B9b1fd2c375` | Base Sepolia + Base |
-| RRG contract | `0x573fad302Be48df7D3A39B381e5E5e794619e174` | Base Sepolia |
-| USDC | `0x036CbD53842c5426634e7929541eC2318f3dCF7e` | Base Sepolia |
+| Platform / DrHobbs wallet | `0xe653804032A2d51Cc031795afC601B9b1fd2c375` | Base mainnet |
+| RRG contract | `0x9f07621f73e7caaf2040c35833d5350f666b7177` | Base mainnet |
 | USDC | `0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913` | Base mainnet |
 
 ---
