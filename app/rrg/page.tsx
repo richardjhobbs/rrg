@@ -9,7 +9,7 @@ import AgentTrustBadge from '@/components/rrg/AgentTrustBadge';
 import BrandDirectory from '@/components/rrg/BrandDirectory';
 import ProcessTabs from '@/components/rrg/ProcessTabs';
 
-export const dynamic = 'force-dynamic';
+export const revalidate = 30; // ISR: serve cached HTML, regenerate in background every 30s
 
 const DROPS_PER_PAGE = 18;
 
@@ -40,9 +40,11 @@ export default async function RRGGallery({
   const briefParam = params.brief ?? 'all';
   const brandParam = params.brand ?? 'all';
 
-  // Fetch all active brands for the directory bar (enriched with product stats)
-  const brands = await getAllActiveBrands();
-  const directoryBrands = await getBrandsForDirectory();
+  // Fetch brands in parallel — these two are independent
+  const [brands, directoryBrands] = await Promise.all([
+    getAllActiveBrands(),
+    getBrandsForDirectory(),
+  ]);
 
   // Smart ordering: newest brands → newest products → most products → random
   function orderBrandsForDirectory(items: BrandDirectoryItem[]): BrandDirectoryItem[] {
@@ -113,21 +115,15 @@ export default async function RRGGallery({
     : null;
   const selectedBrandId = selectedBrand?.id ?? undefined;
 
-  // Signed URLs for selected brand images
-  let brandLogoUrl: string | null = null;
-  let brandBannerUrl: string | null = null;
-  if (selectedBrand) {
-    try {
-      if (selectedBrand.logo_path) brandLogoUrl = await getSignedUrl(selectedBrand.logo_path, 3600);
-    } catch { /* non-fatal */ }
-    try {
-      if (selectedBrand.banner_path) brandBannerUrl = await getSignedUrl(selectedBrand.banner_path, 3600);
-    } catch { /* non-fatal */ }
-  }
-
-  // Fetch brief + past briefs scoped to selected brand (or all if 'all')
-  const [brief] = await Promise.all([
+  // Run brief fetch + selected brand signed URLs in parallel — all independent of each other
+  const [brief, brandLogoUrl, brandBannerUrl] = await Promise.all([
     getCurrentBrief(selectedBrandId),
+    selectedBrand?.logo_path
+      ? getSignedUrl(selectedBrand.logo_path, 3600).catch(() => null)
+      : Promise.resolve(null),
+    selectedBrand?.banner_path
+      ? getSignedUrl(selectedBrand.banner_path, 3600).catch(() => null)
+      : Promise.resolve(null),
   ]);
 
   // Brand lookup map for labelling drops (only needed when showing all brands)
@@ -169,16 +165,14 @@ export default async function RRGGallery({
     })
   );
 
-  // Batch-check World ID, ERC-8004, and platform badges for all creator wallets
+  // Batch-check World ID, ERC-8004, and platform badges — all in parallel
   const creatorWallets = [...new Set(dropsWithUrls.map(d => d.creator_wallet).filter(Boolean))];
-  const [worldVerifiedWallets, erc8004AgentIds] = await Promise.all([
+  const submissionIds = dropsWithUrls.map(d => d.id).filter(Boolean);
+  const [worldVerifiedWallets, erc8004AgentIds, platformBadgesMap] = await Promise.all([
     getVerifiedWallets(creatorWallets),
     getAgentIdsForWallets(creatorWallets),
+    getBadgesForDrops(creatorWallets, submissionIds),
   ]);
-
-  // Batch-check platform badges for all drops
-  const submissionIds = dropsWithUrls.map(d => d.id).filter(Boolean);
-  const platformBadgesMap = await getBadgesForDrops(creatorWallets, submissionIds);
 
   // Build query string helper for pagination links
   const buildQs = (overrides: Record<string, string | undefined>) => {
