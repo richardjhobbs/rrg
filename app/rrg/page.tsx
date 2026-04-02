@@ -9,7 +9,7 @@ import AgentTrustBadge from '@/components/rrg/AgentTrustBadge';
 import BrandDirectory from '@/components/rrg/BrandDirectory';
 import ProcessTabs from '@/components/rrg/ProcessTabs';
 
-export const revalidate = 30; // ISR: serve cached HTML, regenerate in background every 30s
+export const dynamic = 'force-dynamic';
 
 const DROPS_PER_PAGE = 18;
 

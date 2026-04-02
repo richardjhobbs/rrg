@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { unstable_cache } from 'next/cache';
 
 // ── Typed DB client (server-side, uses service key) ───────────────────
 export const db = createClient(
@@ -187,14 +188,18 @@ export async function getBrandBySlug(slug: string): Promise<RrgBrand | null> {
   return data ?? null;
 }
 
-export async function getAllActiveBrands(): Promise<RrgBrand[]> {
-  const { data } = await db
-    .from('rrg_brands')
-    .select('*')
-    .eq('status', 'active')
-    .order('created_at', { ascending: true });
-  return data ?? [];
-}
+export const getAllActiveBrands = unstable_cache(
+  async (): Promise<RrgBrand[]> => {
+    const { data } = await db
+      .from('rrg_brands')
+      .select('*')
+      .eq('status', 'active')
+      .order('created_at', { ascending: true });
+    return data ?? [];
+  },
+  ['all-active-brands'],
+  { revalidate: 60, tags: ['brands'] },
+);
 
 export interface BrandDirectoryItem {
   id: string;
@@ -207,49 +212,53 @@ export interface BrandDirectoryItem {
   latest_product_at: string | null;
 }
 
-export async function getBrandsForDirectory(): Promise<BrandDirectoryItem[]> {
-  // Fetch active brands
-  const { data: brands } = await db
-    .from('rrg_brands')
-    .select('id, slug, name, headline, logo_path, created_at')
-    .eq('status', 'active');
+export const getBrandsForDirectory = unstable_cache(
+  async (): Promise<BrandDirectoryItem[]> => {
+    // Fetch active brands
+    const { data: brands } = await db
+      .from('rrg_brands')
+      .select('id, slug, name, headline, logo_path, created_at')
+      .eq('status', 'active');
 
-  if (!brands || brands.length === 0) return [];
+    if (!brands || brands.length === 0) return [];
 
-  // Fetch product stats per brand (approved, visible drops)
-  const brandIds = brands.map((b) => b.id);
-  const { data: stats } = await db
-    .from('rrg_submissions')
-    .select('brand_id, approved_at')
-    .eq('status', 'approved')
-    .eq('hidden', false)
-    .in('brand_id', brandIds);
+    // Fetch product stats per brand (approved, visible drops)
+    const brandIds = brands.map((b) => b.id);
+    const { data: stats } = await db
+      .from('rrg_submissions')
+      .select('brand_id, approved_at')
+      .eq('status', 'approved')
+      .eq('hidden', false)
+      .in('brand_id', brandIds);
 
-  // Aggregate: count + latest approved_at per brand
-  const brandStats = new Map<string, { count: number; latest: string | null }>();
-  for (const s of stats ?? []) {
-    const existing = brandStats.get(s.brand_id) ?? { count: 0, latest: null };
-    existing.count++;
-    if (!existing.latest || s.approved_at > existing.latest) {
-      existing.latest = s.approved_at;
+    // Aggregate: count + latest approved_at per brand
+    const brandStats = new Map<string, { count: number; latest: string | null }>();
+    for (const s of stats ?? []) {
+      const existing = brandStats.get(s.brand_id) ?? { count: 0, latest: null };
+      existing.count++;
+      if (!existing.latest || s.approved_at > existing.latest) {
+        existing.latest = s.approved_at;
+      }
+      brandStats.set(s.brand_id, existing);
     }
-    brandStats.set(s.brand_id, existing);
-  }
 
-  return brands.map((b) => {
-    const st = brandStats.get(b.id);
-    return {
-      id: b.id,
-      slug: b.slug,
-      name: b.name,
-      headline: b.headline,
-      logo_path: b.logo_path,
-      created_at: b.created_at,
-      product_count: st?.count ?? 0,
-      latest_product_at: st?.latest ?? null,
-    };
-  });
-}
+    return brands.map((b) => {
+      const st = brandStats.get(b.id);
+      return {
+        id: b.id,
+        slug: b.slug,
+        name: b.name,
+        headline: b.headline,
+        logo_path: b.logo_path,
+        created_at: b.created_at,
+        product_count: st?.count ?? 0,
+        latest_product_at: st?.latest ?? null,
+      };
+    });
+  },
+  ['brands-for-directory'],
+  { revalidate: 60, tags: ['brands'] },
+);
 
 export async function getAllBrands(): Promise<RrgBrand[]> {
   const { data } = await db
@@ -432,27 +441,29 @@ export async function getApprovedDropsPaginated(
   briefId?: string | null,
   brandId?: string,
 ): Promise<{ drops: RrgSubmission[]; totalCount: number }> {
-  const offset = (page - 1) * perPage;
+  return unstable_cache(
+    async () => {
+      const offset = (page - 1) * perPage;
 
-  let query = db
-    .from('rrg_submissions')
-    .select('*', { count: 'exact' })
-    .eq('status', 'approved')
-    .eq('network', getCurrentNetwork())
-    .eq('hidden', false);
+      let query = db
+        .from('rrg_submissions')
+        .select('*', { count: 'exact' })
+        .eq('status', 'approved')
+        .eq('network', getCurrentNetwork())
+        .eq('hidden', false);
 
-  if (briefId) {
-    query = query.eq('brief_id', briefId);
-  }
-  if (brandId) {
-    query = query.eq('brand_id', brandId);
-  }
+      if (briefId) query = query.eq('brief_id', briefId);
+      if (brandId) query = query.eq('brand_id', brandId);
 
-  const { data, count } = await query
-    .order('approved_at', { ascending: false })
-    .range(offset, offset + perPage - 1);
+      const { data, count } = await query
+        .order('approved_at', { ascending: false })
+        .range(offset, offset + perPage - 1);
 
-  return { drops: data ?? [], totalCount: count ?? 0 };
+      return { drops: data ?? [], totalCount: count ?? 0 };
+    },
+    [`drops-paginated-${page}-${perPage}-${briefId ?? 'all'}-${brandId ?? 'all'}`],
+    { revalidate: 30, tags: ['drops'] },
+  )();
 }
 
 export async function getPurchaseCountsByTokenIds(
