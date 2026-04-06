@@ -20,14 +20,12 @@ export const metadata: Metadata = {
     description: 'A co-creation platform connecting brands with human creators and AI agents.',
     url: SITE_URL,
     siteName: 'Real Real Genuine',
-    images: [{ url: `${SITE_URL}/og-default.jpg`, width: 1200, height: 630, alt: 'Real Real Genuine' }],
     type: 'website',
   },
   twitter: {
-    card: 'summary_large_image',
+    card: 'summary',
     title: 'RRG — Real Real Genuine',
     description: 'A co-creation platform connecting brands with human creators and AI agents.',
-    images: [`${SITE_URL}/og-default.jpg`],
   },
 };
 
