@@ -1,16 +1,16 @@
 import { NextResponse } from 'next/server';
-import { getPendingSubmissions } from '@/lib/rrg/db';
+import { getSubmissionsForReview } from '@/lib/rrg/db';
 import { isAdminFromCookies, adminUnauthorized } from '@/lib/rrg/auth';
 import { getSignedUrl } from '@/lib/rrg/storage';
 
 export const dynamic = 'force-dynamic';
 
-// GET /api/rrg/submissions — admin only: pending submissions with signed preview URLs
+// GET /api/rrg/submissions — admin only: submissions needing review (pending + ai_rejected + needs_review)
 export async function GET() {
   if (!(await isAdminFromCookies())) return adminUnauthorized();
 
   try {
-    const submissions = await getPendingSubmissions();
+    const submissions = await getSubmissionsForReview();
 
     // Attach signed preview URLs (1-hour for admin view)
     const withUrls = await Promise.all(

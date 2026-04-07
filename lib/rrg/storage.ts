@@ -1,3 +1,4 @@
+import { unstable_cache } from 'next/cache';
 import { db } from './db';
 
 const BUCKET = 'rrg-submissions';
@@ -34,6 +35,33 @@ export async function getSignedUrl(
     throw new Error(`Failed to generate signed URL: ${error?.message}`);
   }
   return data.signedUrl;
+}
+
+// ── Batch signed URLs with caching (for gallery pages) ────────────────
+// Generates signed URLs for multiple paths in a single Supabase call,
+// cached for 30 minutes. Returns a Map of path → signedUrl.
+
+export async function getSignedUrlsBatch(paths: string[]): Promise<Map<string, string>> {
+  if (paths.length === 0) return new Map();
+
+  const cacheKey = paths.slice().sort().join('|');
+
+  const fetch = unstable_cache(
+    async () => {
+      const { data, error } = await db.storage
+        .from(BUCKET)
+        .createSignedUrls(paths, 3600); // 1-hour URLs, cached for 30min
+      if (error || !data) return [] as { path: string; signedUrl: string }[];
+      return data
+        .filter(d => !!d.signedUrl && !!d.path)
+        .map(d => ({ path: d.path as string, signedUrl: d.signedUrl as string }));
+    },
+    [`signed-urls-batch-${cacheKey}`],
+    { revalidate: 1800, tags: ['signed-urls'] }, // 30-min cache
+  );
+
+  const entries = await fetch();
+  return new Map(entries.map(e => [e.path, e.signedUrl]));
 }
 
 // ── Download a file as a Buffer ────────────────────────────────────────

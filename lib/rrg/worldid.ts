@@ -8,6 +8,7 @@
  */
 
 import { createAgentBookVerifier } from '@worldcoin/agentkit';
+import { unstable_cache } from 'next/cache';
 import { db } from './db';
 
 // ── Verifier singleton (stateless, safe to reuse) ──────────────────────
@@ -103,13 +104,19 @@ export async function getVerifiedWallets(
   wallets: string[]
 ): Promise<Set<string>> {
   if (wallets.length === 0) return new Set();
-  const lower = wallets.map((w) => w.toLowerCase());
-  const { data } = await db
-    .from('world_verifications')
-    .select('wallet_address')
-    .in('wallet_address', lower);
-
-  return new Set(
-    (data ?? []).map((r: { wallet_address: string }) => r.wallet_address)
+  const cacheKey = wallets.slice().sort().join('|');
+  const fetch = unstable_cache(
+    async () => {
+      const lower = wallets.map((w) => w.toLowerCase());
+      const { data } = await db
+        .from('world_verifications')
+        .select('wallet_address')
+        .in('wallet_address', lower);
+      return (data ?? []).map((r: { wallet_address: string }) => r.wallet_address);
+    },
+    [`world-verified-${cacheKey}`],
+    { revalidate: 300 }, // 5-min cache — verifications don't change often
   );
+  const list = await fetch();
+  return new Set(list);
 }

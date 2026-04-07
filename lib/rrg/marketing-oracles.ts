@@ -93,7 +93,7 @@ function detectCreative(text: string): boolean {
 
 // ═══════════════════════════════════════════════════════════════════════════
 // 1. RNWY Explorer — https://rnwy.com
-//    Public API, no auth, 60 req/hr, 124K+ agents with rich data
+//    Public API, 30 req/min anon / 300 req/min with key, 159K+ agents
 // ═══════════════════════════════════════════════════════════════════════════
 
 interface RnwyAgent {
@@ -109,7 +109,25 @@ interface RnwyAgent {
   avg_score: number | null;
   vouch_count: number;
   overall_score: number | null;
+  // Commerce fields (populated for agents with on-chain job history)
   commerce_score: number | null;
+  commerce_provider_jobs: number | null;
+  commerce_revenue_usd: number | null;
+  commerce_repeat_rate: number | null;
+  commerce_counterparty_count: number | null;
+  commerce_tenure_days: number | null;
+  commerce_details: unknown | null;
+  // Transaction-backed reviews (new — separates real customers from strangers)
+  transaction_backed_review_pct: number | null;
+  transaction_backed_review_count: number | null;
+  // Score breakdown + badges
+  score_breakdown: unknown | null;
+  badges: { earned?: string[]; warnings?: string[] } | null;
+  // Sybil signals (from trust-check, not agents endpoint)
+  reviewer_sybil_count: number | null;
+  reviewer_sybil_pct: number | null;
+  reviewer_sybil_signals: unknown | null;
+  // Endpoints + capabilities
   mcp_endpoint: string | null;
   a2a_endpoint: string | null;
   mcp_tools: string | null;
@@ -118,6 +136,19 @@ interface RnwyAgent {
   email: string | null;
   website: string | null;
   capabilities_fetched_at: string | null;
+  registry: string | null;
+}
+
+// RNWY trust-check response (separate endpoint, richer sybil data)
+interface RnwyTrustCheck {
+  agentId: number;
+  chain: string;
+  score: number;
+  tier: string;
+  pass: boolean;
+  badges: { earned: string[]; warnings: string[] };
+  sybilSeverity: string | null;  // 'none' | 'low' | 'moderate' | 'severe'
+  sybilSignals: string[];
 }
 
 // Map RNWY chain_id to our chain names
@@ -135,7 +166,7 @@ const CHAIN_ID_TO_NAME: Record<number, string> = {
   534352: 'scroll',
 };
 
-function scoreRnwyAgent(agent: RnwyAgent): NormalisedCandidate {
+function scoreRnwyAgent(agent: RnwyAgent, trustCheck?: RnwyTrustCheck | null): NormalisedCandidate {
   let score = 0;
   const parts: string[] = [];
   const allText = [
@@ -144,6 +175,8 @@ function scoreRnwyAgent(agent: RnwyAgent): NormalisedCandidate {
     agent.mcp_tools ?? '',
     agent.a2a_skills ?? '',
   ].join(' ').toLowerCase();
+
+  // ── Base signals ──────────────────────────────────────────────────────
 
   // Registered on-chain
   score += 15;
@@ -212,7 +245,57 @@ function scoreRnwyAgent(agent: RnwyAgent): NormalisedCandidate {
     parts.push('+5 contactable');
   }
 
+  // ── Commerce signals (new — from RNWY 1.7M job index) ────────────────
+
+  // Has done real commerce work (provider jobs)
+  if (agent.commerce_provider_jobs && agent.commerce_provider_jobs > 0) {
+    score += 15;
+    parts.push(`+15 commerce(${agent.commerce_provider_jobs} jobs)`);
+  }
+
+  // Has commerce revenue
+  if (agent.commerce_revenue_usd && agent.commerce_revenue_usd > 0) {
+    score += 5;
+    parts.push(`+5 revenue($${agent.commerce_revenue_usd.toFixed(2)})`);
+  }
+
+  // Repeat customers — strong trust signal
+  if (agent.commerce_repeat_rate && agent.commerce_repeat_rate > 0.1) {
+    score += 5;
+    parts.push(`+5 repeats(${(agent.commerce_repeat_rate * 100).toFixed(0)}%)`);
+  }
+
+  // Transaction-backed reviews — verified real customer feedback
+  if (agent.transaction_backed_review_pct && agent.transaction_backed_review_pct > 0) {
+    score += 5;
+    parts.push(`+5 tx-backed-reviews(${(agent.transaction_backed_review_pct * 100).toFixed(0)}%)`);
+  }
+
+  // RNWY overall score (if available, use as additional signal)
+  if (agent.overall_score && agent.overall_score >= 70) {
+    score += 5;
+    parts.push(`+5 rnwy-score(${agent.overall_score})`);
+  }
+
+  // ── Sybil penalties (from trust-check) ────────────────────────────────
+
+  if (trustCheck?.sybilSeverity === 'severe') {
+    score -= 30;
+    parts.push(`-30 sybil:severe [${trustCheck.sybilSignals.join(',')}]`);
+  } else if (trustCheck?.sybilSeverity === 'moderate') {
+    score -= 10;
+    parts.push(`-10 sybil:moderate [${trustCheck.sybilSignals.join(',')}]`);
+  }
+
+  // Badge warnings from RNWY
+  if (agent.badges?.warnings?.length) {
+    parts.push(`⚠ ${agent.badges.warnings.join(', ')}`);
+  }
+
+  // ── Final score ───────────────────────────────────────────────────────
+
   const chainName = CHAIN_ID_TO_NAME[agent.chain_id] ?? `chain_${agent.chain_id}`;
+  const clampedScore = Math.max(0, Math.min(score, hasMcp || hasA2a ? 100 : 50));
 
   return {
     chain: chainName,
@@ -222,15 +305,32 @@ function scoreRnwyAgent(agent: RnwyAgent): NormalisedCandidate {
     description: agent.description,
     platform: null,
     metadata_url: agent.website ?? agent.mcp_endpoint ?? null,
-    // Cap at warm (50) if no endpoints — unreachable agents can't be hot
-    score: Math.min(score, hasMcp || hasA2a ? 100 : 50),
-    tier: tierFromScore(Math.min(score, hasMcp || hasA2a ? 100 : 50)),
+    score: clampedScore,
+    tier: tierFromScore(clampedScore),
     scoring_notes: parts.join(', ') + (!hasMcp && !hasA2a ? ' [capped: no endpoint]' : ''),
     has_wallet: !!agent.owner,
     has_mcp: hasMcp,
     has_a2a: hasA2a,
     has_image_gen: hasImageGen,
   };
+}
+
+/** Fetch RNWY trust-check for sybil enrichment. Returns null on error (non-blocking). */
+async function fetchRnwyTrustCheck(agentId: number, chain: string): Promise<RnwyTrustCheck | null> {
+  try {
+    const rnwyChain = chain === 'base' ? 'base' : chain;
+    const res = await withTimeout(
+      fetch(`https://rnwy.com/api/trust-check?id=${agentId}&chain=${rnwyChain}`, {
+        headers: { Accept: 'application/json' },
+      }),
+      10_000,
+      `trust-check #${agentId}`,
+    );
+    if (!res.ok) return null;
+    return await res.json() as RnwyTrustCheck;
+  } catch {
+    return null; // non-blocking — don't fail scan for a trust-check error
+  }
 }
 
 export async function scanRnwy(
@@ -280,10 +380,22 @@ export async function scanRnwy(
 
       try {
         agentsScanned++;
-        const scored = scoreRnwyAgent(agent);
 
-        // Skip low-score agents if min_score set
-        if (minScore && scored.score < minScore) continue;
+        // First pass scoring (without trust-check — fast)
+        const preScore = scoreRnwyAgent(agent);
+
+        // Skip low-score agents early if min_score set
+        if (minScore && preScore.score < minScore) continue;
+
+        // Enrich hot/warm candidates with sybil data from trust-check
+        // (rate-limited: only for agents scoring 30+, avoids burning API quota on cold leads)
+        let trustCheck: RnwyTrustCheck | null = null;
+        if (preScore.score >= TIER_WARM_THRESHOLD && agent.chain_id === 8453) {
+          trustCheck = await fetchRnwyTrustCheck(agent.agent_id, 'base');
+        }
+
+        // Re-score with trust-check data
+        const scored = trustCheck ? scoreRnwyAgent(agent, trustCheck) : preScore;
 
         // Check if this (chain, erc8004_id) already exists
         const { data: existing } = await db
@@ -292,6 +404,22 @@ export async function scanRnwy(
           .eq('erc8004_id', agent.agent_id)
           .eq('chain', chainName)
           .single();
+
+        // RNWY enrichment fields (written on both insert and update)
+        const rnwyEnrichment = {
+          rnwy_overall_score: agent.overall_score ?? null,
+          rnwy_commerce_score: agent.commerce_score ?? null,
+          rnwy_commerce_jobs: agent.commerce_provider_jobs ?? null,
+          rnwy_commerce_revenue_usd: agent.commerce_revenue_usd ?? null,
+          rnwy_sybil_severity: trustCheck?.sybilSeverity ?? null,
+          rnwy_sybil_signals: trustCheck?.sybilSignals ?? null,
+          rnwy_badges: [
+            ...(agent.badges?.earned ?? []),
+            ...(agent.badges?.warnings?.map((w: string) => `⚠${w}`) ?? []),
+          ],
+          rnwy_tx_backed_review_pct: agent.transaction_backed_review_pct ?? null,
+          rnwy_enriched_at: new Date().toISOString(),
+        };
 
         if (existing) {
           // Update if RNWY data enriches what we have
@@ -307,6 +435,7 @@ export async function scanRnwy(
               has_mcp: scored.has_mcp || undefined,
               has_a2a: scored.has_a2a || undefined,
               has_image_gen: scored.has_image_gen || undefined,
+              ...rnwyEnrichment,
               updated_at: new Date().toISOString(),
             })
             .eq('id', existing.id);
@@ -334,6 +463,7 @@ export async function scanRnwy(
               on_chain_txns: 0,
               outreach_status: 'pending' as const,
               contact_count: 0,
+              ...rnwyEnrichment,
             });
 
           if (insertErr) {

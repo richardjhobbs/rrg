@@ -13,9 +13,9 @@ const TG_BOT_TOKEN      = process.env.RRG_TG_BOT_TOKEN     ?? '';
 const TG_CHAT_ID        = process.env.TG_CHAT_ID            ?? '';
 const BSKY_HANDLE       = process.env.BSKY_HANDLE           ?? '';
 const BSKY_APP_PASS     = process.env.BSKY_APP_PASS         ?? '';
-const DISCORD_BOT_TOKEN = process.env.DISCORD_BOT_TOKEN     ?? '';
-const DISCORD_CHANNEL_DROPS = '1482200038896828678';
-const DISCORD_CHANNEL_ANNOUNCEMENTS = '1482199995259031674';
+const DISCORD_WEBHOOK_DROPS = process.env.DISCORD_WEBHOOK_DROPS ?? '';
+const DISCORD_WEBHOOK_ANNOUNCEMENTS = process.env.DISCORD_WEBHOOK_ANNOUNCEMENTS ?? '';
+const DISCORD_WEBHOOK_USERNAME = 'RRG';
 
 const RRG_URL     = `${SITE_URL}/rrg`;
 const SIGNOFF_TG  = `Join in. Be a part of the co-creation brand revolution at <a href="${RRG_URL}">RRG</a>`;
@@ -568,23 +568,32 @@ function buildSaleDiscord(p: SaleParams): { content: string; embeds: unknown[] }
 }
 
 async function sendDiscord(
-  channelId: string,
+  webhookUrl: string,
   payload: { content: string; embeds: unknown[] },
   imageData: { buffer: Buffer; mimeType: string } | null,
 ): Promise<void> {
-  if (!DISCORD_BOT_TOKEN) {
-    console.warn('[autopost/discord] DISCORD_BOT_TOKEN not configured — skipping');
+  if (!webhookUrl) {
+    console.warn('[autopost/discord] No webhook URL configured — skipping');
     return;
   }
+
+  const webhookPayload = {
+    ...payload,
+    username:   DISCORD_WEBHOOK_USERNAME,
+  };
 
   if (imageData) {
     const boundary = `----DiscordBoundary${Date.now()}`;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const embeds = payload.embeds.map((e: any) => ({
+    const embeds = (webhookPayload.embeds || []).map((e: any) => ({
       ...e,
       image: { url: 'attachment://drop.jpg' },
     }));
-    const jsonPayload = JSON.stringify({ content: payload.content, embeds });
+    const jsonPayload = JSON.stringify({
+      content:    webhookPayload.content,
+      embeds,
+      username:   DISCORD_WEBHOOK_USERNAME,
+      });
 
     const ext = imageData.mimeType.includes('png') ? 'png' : 'jpg';
     const parts = [
@@ -599,38 +608,26 @@ async function sendDiscord(
       Buffer.from(`\r\n--${boundary}--\r\n`),
     ]);
 
-    const resp = await fetch(
-      `https://discord.com/api/v10/channels/${channelId}/messages`,
-      {
-        method:  'POST',
-        headers: {
-          'Content-Type':  `multipart/form-data; boundary=${boundary}`,
-          'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
-        },
-        body,
-        signal: AbortSignal.timeout(15_000),
-      }
-    );
+    const resp = await fetch(webhookUrl, {
+      method:  'POST',
+      headers: { 'Content-Type': `multipart/form-data; boundary=${boundary}` },
+      body,
+      signal: AbortSignal.timeout(15_000),
+    });
     if (!resp.ok) {
-      console.warn(`[autopost/discord] multipart failed (${resp.status}):`, await resp.text());
+      console.warn(`[autopost/discord] webhook multipart failed (${resp.status}):`, await resp.text());
     }
     return;
   }
 
-  const resp = await fetch(
-    `https://discord.com/api/v10/channels/${channelId}/messages`,
-    {
-      method:  'POST',
-      headers: {
-        'Content-Type':  'application/json',
-        'Authorization': `Bot ${DISCORD_BOT_TOKEN}`,
-      },
-      body:   JSON.stringify(payload),
-      signal: AbortSignal.timeout(10_000),
-    }
-  );
+  const resp = await fetch(webhookUrl, {
+    method:  'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body:   JSON.stringify(webhookPayload),
+    signal: AbortSignal.timeout(10_000),
+  });
   if (!resp.ok) {
-    console.warn(`[autopost/discord] failed (${resp.status}):`, await resp.text());
+    console.warn(`[autopost/discord] webhook failed (${resp.status}):`, await resp.text());
   }
 }
 
@@ -646,7 +643,7 @@ export async function autopostApproval(p: ApprovalParams): Promise<void> {
   const results = await Promise.allSettled([
     sendTelegram(tgHtml, imageData),
     sendBluesky(bskyPost, imageData, p.title),
-    sendDiscord(DISCORD_CHANNEL_DROPS, discordPayload, imageData),
+    sendDiscord(DISCORD_WEBHOOK_DROPS, discordPayload, imageData),
   ]);
   for (const r of results) {
     if (r.status === 'rejected') console.error('[autopost/approval]', r.reason);
@@ -687,7 +684,6 @@ export interface GenericPostParams {
   content:            string;
   pipeline:           PipelineMetadata;
   imageUrl?:          string | null;
-  discord_channel_id?: string;
 }
 
 export async function autopostGeneric(p: GenericPostParams): Promise<{ channels: string[]; errors: string[] }> {
@@ -708,11 +704,12 @@ export async function autopostGeneric(p: GenericPostParams): Promise<{ channels:
     const facets = bskyFacets(text, [{ match: 'RRG', url: RRG_URL }]);
     promises.push({ channel: 'BLUESKY', promise: sendBluesky({ text, facets }, imageData, 'RRG post') });
   }
-  if (p.discord_channel_id || channels.some(c => c === 'DISCORD' || c === 'DISCORD_ANNOUNCEMENTS')) {
-    const channelId = p.discord_channel_id
-      ?? (channels.includes('DISCORD_ANNOUNCEMENTS') ? DISCORD_CHANNEL_ANNOUNCEMENTS : DISCORD_CHANNEL_DROPS);
+  if (channels.some(c => c === 'DISCORD' || c === 'DISCORD_ANNOUNCEMENTS')) {
+    const webhookUrl = channels.includes('DISCORD_ANNOUNCEMENTS')
+      ? (DISCORD_WEBHOOK_ANNOUNCEMENTS || DISCORD_WEBHOOK_DROPS)
+      : DISCORD_WEBHOOK_DROPS;
     const payload = { content: p.content, embeds: [] as unknown[] };
-    promises.push({ channel: 'DISCORD', promise: sendDiscord(channelId, payload, imageData) });
+    promises.push({ channel: 'DISCORD', promise: sendDiscord(webhookUrl, payload, imageData) });
   }
 
   const results = await Promise.allSettled(promises.map(pr => pr.promise));
@@ -734,7 +731,7 @@ export async function autopostSale(p: SaleParams): Promise<void> {
   const results = await Promise.allSettled([
     sendTelegram(tgHtml, imageData),
     sendBluesky(bskyPost, imageData, p.title),
-    sendDiscord(DISCORD_CHANNEL_DROPS, discordPayload, imageData),
+    sendDiscord(DISCORD_WEBHOOK_DROPS, discordPayload, imageData),
   ]);
   for (const r of results) {
     if (r.status === 'rejected') console.error('[autopost/sale]', r.reason);

@@ -299,6 +299,8 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Insert submission record ──────────────────────────────────────
+    const initialStatus = resolvedBriefId ? 'ai_screening' : 'pending';
+
     const { data, error } = await db
       .from('rrg_submissions')
       .insert({
@@ -309,7 +311,7 @@ export async function POST(req: NextRequest) {
         title:               title.trim(),
         description:         fullDescription,
         submission_channel:  'agent',
-        status:              'pending',
+        status:              initialStatus,
         jpeg_storage_path:   jpegPath,
         jpeg_filename:       filename,
         jpeg_size_bytes:     imageBuffer.length,
@@ -320,6 +322,24 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    // ── Vision screening (fire-and-forget) ────────────────────────────
+    if (resolvedBriefId && initialStatus === 'ai_screening') {
+      import('@/lib/rrg/vision').then(({ screenSubmissionAsync }) => {
+        db.from('rrg_briefs')
+          .select('title, description')
+          .eq('id', resolvedBriefId!)
+          .single()
+          .then(({ data: brief }) => {
+            if (brief) {
+              screenSubmissionAsync(data.id, imageBuffer, brief.title, brief.description ?? '')
+                .catch((err) => console.error('[submit-agent] screenSubmissionAsync:', err));
+            } else {
+              db.from('rrg_submissions').update({ status: 'pending' }).eq('id', data.id).then(() => {});
+            }
+          });
+      }).catch((err) => console.error('[submit-agent] vision import:', err));
+    }
 
     // Check World ID verification and set flag (non-blocking)
     getVerification(creator_wallet.trim().toLowerCase())

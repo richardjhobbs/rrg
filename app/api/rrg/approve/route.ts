@@ -36,7 +36,9 @@ export async function POST(req: NextRequest) {
     if (!submission) {
       return NextResponse.json({ error: 'Submission not found' }, { status: 404 });
     }
-    if (submission.status !== 'pending') {
+    // Allow approval of pending, ai_rejected (override), and needs_review (brand image verified)
+    const approvableStatuses = ['pending', 'ai_rejected', 'needs_review'];
+    if (!approvableStatuses.includes(submission.status)) {
       return NextResponse.json({ error: `Submission is already ${submission.status}` }, { status: 409 });
     }
 

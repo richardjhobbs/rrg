@@ -13,6 +13,7 @@
  */
 
 import { ethers } from 'ethers';
+import { unstable_cache } from 'next/cache';
 
 // ── Constants ─────────────────────────────────────────────────────────────
 
@@ -109,7 +110,16 @@ async function populateAgentCache(): Promise<void> {
     const contract = new ethers.Contract(IDENTITY_REGISTRY_ADDR, abi, provider);
 
     // Check all known agent IDs — add new ones here as they register
-    const KNOWN_IDS = [DRHOBBS_AGENT_ID, RRG_AGENT_ID]; // 17666, 33313
+    const KNOWN_IDS = [
+      DRHOBBS_AGENT_ID,  // 17666 — DrHobbs personal agent
+      RRG_AGENT_ID,      // 33313 — RRG platform agent
+      37749n,            // Colin     — VIA Labs Admin & Company Secretary
+      37750n,            // Priscilla — VIA Labs Marketing & Content
+      37751n,            // Rosie     — VIA Labs Research & Market Intelligence
+      37752n,            // Jordan    — VIA Labs Product & Dev Coordination
+      38520n,            // Sasha     — VIA Labs Brand Partnerships
+      38538n,            // VIA_Labs  — company entity (getvia.xyz)
+    ];
 
     const checks = KNOWN_IDS.map(async (id) => {
       try {
@@ -164,24 +174,31 @@ export async function lookupAgentIdByWallet(wallet: string): Promise<bigint | nu
  * Runs lookups in parallel with a 3-second timeout per wallet.
  */
 export async function getAgentIdsForWallets(wallets: string[]): Promise<Map<string, number>> {
-  const result = new Map<string, number>();
-  if (wallets.length === 0) return result;
-
-  const unique = [...new Set(wallets.map(w => w.toLowerCase()))];
-  const lookups = unique.map(async (wallet) => {
-    try {
-      const id = await Promise.race([
-        lookupAgentIdByWallet(wallet),
-        new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
-      ]);
-      if (id !== null) result.set(wallet, Number(id));
-    } catch {
-      // skip failed lookups
-    }
-  });
-
-  await Promise.all(lookups);
-  return result;
+  if (wallets.length === 0) return new Map();
+  const cacheKey = wallets.slice().sort().join('|');
+  const fetch = unstable_cache(
+    async () => {
+      const result = new Map<string, number>();
+      const unique = [...new Set(wallets.map(w => w.toLowerCase()))];
+      const lookups = unique.map(async (wallet) => {
+        try {
+          const id = await Promise.race([
+            lookupAgentIdByWallet(wallet),
+            new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
+          ]);
+          if (id !== null) result.set(wallet, Number(id));
+        } catch {
+          // skip failed lookups
+        }
+      });
+      await Promise.all(lookups);
+      return Array.from(result.entries());
+    },
+    [`agent-ids-${cacheKey}`],
+    { revalidate: 3600 }, // 1-hour cache — agent IDs are immutable on-chain
+  );
+  const entries = await fetch();
+  return new Map(entries);
 }
 
 // ── Reputation Registry ───────────────────────────────────────────────────

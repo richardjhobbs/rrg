@@ -79,6 +79,16 @@ export interface MktCandidate {
   owner_socials: Record<string, string>;
   agent_tools: Array<{ name: string; description: string }>;
   agent_capabilities: string[];
+  // RNWY commerce enrichment (April 2026)
+  rnwy_overall_score: number | null;
+  rnwy_commerce_score: number | null;
+  rnwy_commerce_jobs: number | null;
+  rnwy_commerce_revenue_usd: number | null;
+  rnwy_sybil_severity: string | null;
+  rnwy_sybil_signals: string[] | null;
+  rnwy_badges: string[] | null;
+  rnwy_tx_backed_review_pct: number | null;
+  rnwy_enriched_at: string | null;
 }
 
 export interface MktDiscoveryRun {

@@ -14,7 +14,13 @@ export const RRG_BRAND_ID = '00000000-0000-4000-8000-000000000001';
 // ── Types ─────────────────────────────────────────────────────────────
 
 export type BriefStatus = 'active' | 'closed' | 'archived';
-export type SubmissionStatus = 'pending' | 'approved' | 'rejected';
+export type SubmissionStatus =
+  | 'pending'
+  | 'approved'
+  | 'rejected'
+  | 'ai_screening'   // awaiting vision model analysis
+  | 'ai_rejected'    // auto-rejected by vision model (superadmin can override)
+  | 'needs_review';  // brand image flagged, pending superadmin sign-off
 export type SubmissionChannel = 'web' | 'api' | 'telegram' | 'bluesky' | 'agent' | 'email';
 export type BuyerType = 'human' | 'agent';
 export type CreatorType = 'human' | 'agent';
@@ -114,6 +120,12 @@ export interface RrgSubmission {
   // Voucher fields
   has_voucher: boolean;
   voucher_template_id: string | null;
+  // Vision analysis fields
+  ai_screened_at: string | null;
+  ai_screen_result: 'pass' | 'fail' | null;
+  ai_screen_reason: string | null;
+  ai_screen_confidence: 'high' | 'medium' | 'low' | null;
+  image_review_flags: string[] | null;
 }
 
 export interface RrgPurchase {
@@ -408,6 +420,43 @@ export async function getPendingSubmissions(brandId?: string): Promise<RrgSubmis
     .from('rrg_submissions')
     .select('*')
     .eq('status', 'pending');
+
+  if (briefIds.length > 0) {
+    query = query.or(`brand_id.eq.${brandId},brief_id.in.(${briefIds.join(',')})`);
+  } else {
+    query = query.eq('brand_id', brandId);
+  }
+
+  const { data } = await query.order('created_at', { ascending: true });
+  return data ?? [];
+}
+
+/**
+ * Returns submissions needing human review: pending + ai_rejected + needs_review.
+ * Used by superadmin and brand admin panels.
+ */
+export async function getSubmissionsForReview(brandId?: string): Promise<RrgSubmission[]> {
+  const reviewStatuses = ['pending', 'ai_rejected', 'needs_review'];
+
+  if (!brandId) {
+    const { data } = await db
+      .from('rrg_submissions')
+      .select('*')
+      .in('status', reviewStatuses)
+      .order('created_at', { ascending: true });
+    return data ?? [];
+  }
+
+  const { data: brandBriefIds } = await db
+    .from('rrg_briefs')
+    .select('id')
+    .eq('brand_id', brandId);
+  const briefIds = (brandBriefIds ?? []).map((b) => b.id);
+
+  let query = db
+    .from('rrg_submissions')
+    .select('*')
+    .in('status', reviewStatuses);
 
   if (briefIds.length > 0) {
     query = query.or(`brand_id.eq.${brandId},brief_id.in.(${briefIds.join(',')})`);

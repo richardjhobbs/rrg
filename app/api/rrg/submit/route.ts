@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db, getCurrentBrief, RRG_BRAND_ID } from '@/lib/rrg/db';
 import { uploadSubmissionFile, jpegStoragePath, additionalFileStoragePath } from '@/lib/rrg/storage';
+import { screenSubmissionAsync } from '@/lib/rrg/vision';
 import { randomUUID } from 'crypto';
 
 export const dynamic = 'force-dynamic';
@@ -108,6 +109,10 @@ export async function POST(req: NextRequest) {
     }
 
     // ── Insert submission record ──────────────────────────────────────
+    // Status starts as 'ai_screening' when there's a brief to check against,
+    // otherwise goes straight to 'pending' for manual review.
+    const initialStatus = resolvedBriefId ? 'ai_screening' : 'pending';
+
     const { data, error } = await db
       .from('rrg_submissions')
       .insert({
@@ -120,7 +125,7 @@ export async function POST(req: NextRequest) {
         title,
         description,
         submission_channel,
-        status:              'pending',
+        status:              initialStatus,
         jpeg_storage_path:   jpegPath,
         jpeg_filename:       jpeg.name,
         jpeg_size_bytes:     jpeg.size,
@@ -133,6 +138,30 @@ export async function POST(req: NextRequest) {
       .single();
 
     if (error) throw error;
+
+    // ── Vision screening (fire-and-forget, does not block response) ────
+    if (resolvedBriefId && initialStatus === 'ai_screening') {
+      const brief = await db
+        .from('rrg_briefs')
+        .select('title, description')
+        .eq('id', resolvedBriefId)
+        .single()
+        .then(r => r.data);
+
+      if (brief) {
+        screenSubmissionAsync(
+          data.id,
+          jpegBuffer,
+          brief.title,
+          brief.description ?? '',
+        ).catch((err) => console.error('[submit] screenSubmissionAsync failed:', err));
+      } else {
+        // No brief found — promote to pending immediately
+        void db.from('rrg_submissions')
+          .update({ status: 'pending' })
+          .eq('id', data.id);
+      }
+    }
 
     return NextResponse.json({
       success:      true,

@@ -7,6 +7,7 @@
  */
 
 import { createHash } from 'crypto';
+import { unstable_cache } from 'next/cache';
 import { db } from './db';
 
 // ── Types ──────────────────────────────────────────────────────────────
@@ -118,81 +119,60 @@ export async function getBadgesForDrops(
   wallets: string[],
   submissionIds: string[]
 ): Promise<Map<string, PlatformBadgeInfo[]>> {
-  const result = new Map<string, PlatformBadgeInfo[]>();
-  if (wallets.length === 0) return result;
+  if (wallets.length === 0) return new Map();
+  const cacheKey = [...wallets].sort().join('|') + '::' + [...submissionIds].sort().join('|');
+  const fetch = unstable_cache(
+    async () => {
+      const lowerWallets = wallets.map((w) => w.toLowerCase());
 
-  const lowerWallets = wallets.map((w) => w.toLowerCase());
-
-  // Query wallet-level attestations
-  const { data: walletRows } = await db
-    .from('rrg_platform_attestations')
-    .select(
-      `
-      wallet_address,
-      attestation_type,
-      created_at,
-      rrg_partner_platforms!inner (
-        slug,
-        name,
-        logo_url,
-        accent_color,
-        website_url,
-        active
-      )
-    `
-    )
-    .in('wallet_address', lowerWallets)
-    .eq('attestation_type', 'wallet');
-
-  // Query submission-level attestations
-  const { data: submissionRows } = submissionIds.length > 0
-    ? await db
+      // Query wallet-level attestations
+      const { data: walletRows } = await db
         .from('rrg_platform_attestations')
-        .select(
-          `
-        wallet_address,
-        attestation_type,
-        created_at,
-        rrg_partner_platforms!inner (
-          slug,
-          name,
-          logo_url,
-          accent_color,
-          website_url,
-          active
-        )
-      `
-        )
-        .in('submission_id', submissionIds)
-        .eq('attestation_type', 'submission')
-    : { data: [] };
+        .select(`wallet_address, attestation_type, created_at, rrg_partner_platforms!inner (slug, name, logo_url, accent_color, website_url, active)`)
+        .in('wallet_address', lowerWallets)
+        .eq('attestation_type', 'wallet');
 
-  const allRows = [...(walletRows ?? []), ...(submissionRows ?? [])];
+      // Query submission-level attestations
+      const { data: submissionRows } = submissionIds.length > 0
+        ? await db
+            .from('rrg_platform_attestations')
+            .select(`wallet_address, attestation_type, created_at, rrg_partner_platforms!inner (slug, name, logo_url, accent_color, website_url, active)`)
+            .in('submission_id', submissionIds)
+            .eq('attestation_type', 'submission')
+        : { data: [] };
 
-  for (const row of allRows) {
-    const p = (row as any).rrg_partner_platforms;
-    if (!p?.active) continue;
+      const allRows = [...(walletRows ?? []), ...(submissionRows ?? [])];
+      const entries: [string, PlatformBadgeInfo][] = [];
 
-    const wallet = (row as any).wallet_address?.toLowerCase();
-    if (!wallet) continue;
+      for (const row of allRows) {
+        const p = (row as any).rrg_partner_platforms;
+        if (!p?.active) continue;
+        const wallet = (row as any).wallet_address?.toLowerCase();
+        if (!wallet) continue;
+        entries.push([wallet, {
+          platformSlug: p.slug,
+          platformName: p.name,
+          logoUrl: p.logo_url,
+          accentColor: p.accent_color,
+          websiteUrl: p.website_url,
+          attestationType: (row as any).attestation_type,
+          createdAt: (row as any).created_at,
+        }]);
+      }
+      return entries;
+    },
+    [`platform-badges-${cacheKey}`],
+    { revalidate: 300 }, // 5-min cache
+  );
 
-    const badge: PlatformBadgeInfo = {
-      platformSlug: p.slug,
-      platformName: p.name,
-      logoUrl: p.logo_url,
-      accentColor: p.accent_color,
-      websiteUrl: p.website_url,
-      attestationType: (row as any).attestation_type,
-      createdAt: (row as any).created_at,
-    };
-
+  const entries = await fetch();
+  const result = new Map<string, PlatformBadgeInfo[]>();
+  for (const [wallet, badge] of entries) {
     const existing = result.get(wallet) ?? [];
-    // Deduplicate by slug
     if (!existing.some((b) => b.platformSlug === badge.platformSlug)) {
       existing.push(badge);
       result.set(wallet, existing);
     }
   }
-
   return result;
 }

@@ -1,6 +1,6 @@
 import { getApprovedDropsPaginated, getPurchaseCountsByTokenIds, getCurrentBrief, getAllActiveBrands, getBrandsForDirectory, RRG_BRAND_ID } from '@/lib/rrg/db';
 import type { BrandDirectoryItem } from '@/lib/rrg/db';
-import { getSignedUrl } from '@/lib/rrg/storage';
+import { getSignedUrl, getSignedUrlsBatch } from '@/lib/rrg/storage';
 import { getVerifiedWallets } from '@/lib/rrg/worldid';
 import { getBadgesForDrops, type PlatformBadgeInfo } from '@/lib/rrg/platforms';
 import { getAgentIdsForWallets } from '@/lib/rrg/erc8004';
@@ -8,6 +8,7 @@ import Link from 'next/link';
 import AgentTrustBadge from '@/components/rrg/AgentTrustBadge';
 import BrandDirectory from '@/components/rrg/BrandDirectory';
 import ProcessTabs from '@/components/rrg/ProcessTabs';
+import VimeoPlayer from '@/components/rrg/VimeoPlayer';
 
 export const dynamic = 'force-dynamic';
 
@@ -92,22 +93,16 @@ export default async function RRGGallery({
 
   const sortedBrands = orderBrandsForDirectory(directoryBrands);
 
-  // Generate signed logo URLs for all brands (for directory cards)
-  const brandsWithLogos = await Promise.all(
-    sortedBrands.map(async (b) => {
-      let logoUrl: string | null = null;
-      if (b.logo_path) {
-        try { logoUrl = await getSignedUrl(b.logo_path, 3600); } catch { /* non-fatal */ }
-      }
-      return {
-        slug: b.slug,
-        name: b.name,
-        headline: b.headline,
-        logoUrl,
-        productCount: b.product_count,
-      };
-    }),
-  );
+  // Generate signed logo URLs for all brands in one batch call (cached 30min)
+  const logoPaths = sortedBrands.map(b => b.logo_path).filter((p): p is string => !!p);
+  const logoUrlMap = await getSignedUrlsBatch(logoPaths);
+  const brandsWithLogos = sortedBrands.map((b) => ({
+    slug: b.slug,
+    name: b.name,
+    headline: b.headline,
+    logoUrl: b.logo_path ? (logoUrlMap.get(b.logo_path) ?? null) : null,
+    productCount: b.product_count,
+  }));
 
   // Resolve selected brand
   const selectedBrand = brandParam !== 'all'
@@ -142,28 +137,25 @@ export default async function RRGGallery({
 
   const totalPages = Math.max(1, Math.ceil(totalCount / DROPS_PER_PAGE));
 
-  // Get purchase counts for sold-out detection
-  const tokenIds       = drops.map(d => d.token_id).filter((id): id is number => id != null);
-  const purchaseCounts = await getPurchaseCountsByTokenIds(tokenIds);
+  // Get purchase counts + signed URLs in parallel — URLs cached for 30min
+  const tokenIds = drops.map(d => d.token_id).filter((id): id is number => id != null);
+  const storagePaths = drops.map(d => d.jpeg_storage_path).filter((p): p is string => !!p);
 
-  // Generate signed preview URLs (1-hour expiry for display)
-  const dropsWithUrls = await Promise.all(
-    drops.map(async (drop) => {
-      let imageUrl: string | null = null;
-      try {
-        if (drop.jpeg_storage_path) {
-          imageUrl = await getSignedUrl(drop.jpeg_storage_path, 3600);
-        }
-      } catch { /* non-fatal */ }
-      const soldOut = drop.token_id != null
-        ? (purchaseCounts.get(drop.token_id) ?? 0) >= drop.edition_size
-        : false;
-      const brand = drop.brand_id ? brandMap.get(drop.brand_id) : null;
-      const brandName = brand && brand.id !== RRG_BRAND_ID ? brand.name : null;
-      const brandSlug = brand && brand.id !== RRG_BRAND_ID ? brand.slug : null;
-      return { ...drop, imageUrl, soldOut, brandName, brandSlug, isPhysicalProduct: drop.is_physical_product };
-    })
-  );
+  const [purchaseCounts, signedUrlMap] = await Promise.all([
+    getPurchaseCountsByTokenIds(tokenIds),
+    getSignedUrlsBatch(storagePaths),
+  ]);
+
+  const dropsWithUrls = drops.map((drop) => {
+    const imageUrl = drop.jpeg_storage_path ? (signedUrlMap.get(drop.jpeg_storage_path) ?? null) : null;
+    const soldOut = drop.token_id != null
+      ? (purchaseCounts.get(drop.token_id) ?? 0) >= drop.edition_size
+      : false;
+    const brand = drop.brand_id ? brandMap.get(drop.brand_id) : null;
+    const brandName = brand && brand.id !== RRG_BRAND_ID ? brand.name : null;
+    const brandSlug = brand && brand.id !== RRG_BRAND_ID ? brand.slug : null;
+    return { ...drop, imageUrl, soldOut, brandName, brandSlug, isPhysicalProduct: drop.is_physical_product };
+  });
 
   // Batch-check World ID, ERC-8004, and platform badges — all in parallel
   const creatorWallets = [...new Set(dropsWithUrls.map(d => d.creator_wallet).filter(Boolean))];
@@ -275,12 +267,12 @@ export default async function RRGGallery({
         />
       </div>
 
-      {/* ── Platform Flow Diagram ───────────────────────────────────── */}
-      <div className="mb-10 flex justify-center">
-        <img
-          src="/platform-flow-v2.png"
-          alt="Real Real Genuine — Collective Creativity platform flow"
-          className="w-full max-w-4xl"
+      {/* ── Intro Video ─────────────────────────────────────────────── */}
+      <div className="mb-10 max-w-4xl mx-auto border border-white/10">
+        <VimeoPlayer
+          videoId="1179525112"
+          title="Real Real Genuine"
+          aspectRatio="100"
         />
       </div>
 

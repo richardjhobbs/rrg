@@ -6,6 +6,7 @@ import { uploadSubmissionFile, jpegStoragePath, additionalFileStoragePath, addit
 import { calculateSplit } from '@/lib/rrg/splits';
 import { autopostApproval } from '@/lib/rrg/autopost';
 import { getSignedUrl } from '@/lib/rrg/storage';
+import { analyzeBrandImageQuality } from '@/lib/rrg/vision';
 import { randomUUID } from 'crypto';
 import { isValidShippingRegion } from '@/lib/rrg/physical-product';
 import type { ShippingType } from '@/lib/rrg/db';
@@ -214,6 +215,47 @@ export async function POST(
       }
       additionalPath = additionalFilesPath(submissionId);
       additionalSizeBytes = additionalTotalSize;
+    }
+
+    // ── Vision quality gate ───────────────────────────────────────────
+    // Runs synchronously so brand gets immediate feedback.
+    // Fails-open: if Box is unreachable, pass = true and listing proceeds.
+    const qualityResult = await analyzeBrandImageQuality(imageBuffer);
+    if (!qualityResult.pass) {
+      // Upload the image so superadmin can see it in the VERIFY queue
+      const flaggedId       = randomUUID();
+      const flaggedFilename = `brand-${Date.now()}.${format.ext}`;
+      const flaggedPath     = jpegStoragePath(flaggedId, flaggedFilename);
+      await uploadSubmissionFile(flaggedPath, imageBuffer, format.mimeType);
+
+      await db.from('rrg_submissions').insert({
+        id:                  flaggedId,
+        creator_wallet:      brand.wallet_address.toLowerCase(),
+        creator_email:       contactEmail?.trim() || brand.contact_email,
+        title:               title.trim(),
+        description:         description?.trim().slice(0, 1500) || null,
+        submission_channel:  'brand',
+        status:              'needs_review',
+        jpeg_storage_path:   flaggedPath,
+        jpeg_filename:       flaggedFilename,
+        jpeg_size_bytes:     imageBuffer.length,
+        brand_id:            brandId,
+        creator_type:        'human',
+        is_brand_product:    true,
+        ai_screened_at:      new Date().toISOString(),
+        ai_screen_result:    'fail',
+        ai_screen_reason:    qualityResult.reason,
+        image_review_flags:  qualityResult.flags,
+        rejected_reason:     `[IMAGE FLAGGED] ${qualityResult.flags.join(', ')}: ${qualityResult.reason}`,
+        network:             getCurrentNetwork(),
+      });
+
+      return NextResponse.json({
+        error:          'Your image requires review before it can be listed.',
+        review_reason:  qualityResult.reason,
+        flags:          qualityResult.flags,
+        message:        'Our team has been notified and will review your image within 24 hours.',
+      }, { status: 422 });
     }
 
     // ── Calculate split ───────────────────────────────────────────────

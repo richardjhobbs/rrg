@@ -46,6 +46,10 @@ interface Submission {
   status: string;
   created_at: string;
   previewUrl?: string | null;
+  // AI vision fields
+  ai_screen_reason?: string | null;
+  ai_screen_confidence?: string | null;
+  image_review_flags?: string[] | null;
   // Parsed from description tag:
   suggestedEdition?: string;
   suggestedPrice?: string;
@@ -753,7 +757,19 @@ function SubmissionsTab() {
                   ) : (
                     <>
                       <div className="flex justify-between items-start mb-1">
-                        <h3 className="text-base font-medium truncate pr-2">{s.title}</h3>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="text-base font-medium truncate pr-2">{s.title}</h3>
+                          {s.status === 'ai_rejected' && (
+                            <span className="px-2 py-0.5 text-xs font-mono bg-red-900/40 text-red-400 border border-red-400/30 flex-shrink-0">
+                              AUTO-REJECTED
+                            </span>
+                          )}
+                          {s.status === 'needs_review' && (
+                            <span className="px-2 py-0.5 text-xs font-mono bg-amber-900/40 text-amber-400 border border-amber-400/30 flex-shrink-0">
+                              VERIFY
+                            </span>
+                          )}
+                        </div>
                         <div className="flex gap-2 flex-shrink-0">
                           <button onClick={() => { setEditingId(s.id); setEditForm({ title: s.title, description: s.description || '' }); }} className="text-xs text-white/40 hover:text-white transition-colors font-mono">Edit</button>
                           <span className="text-sm font-mono text-white/50">
@@ -761,6 +777,19 @@ function SubmissionsTab() {
                           </span>
                         </div>
                       </div>
+                      {/* AI screening reason */}
+                      {s.ai_screen_reason && (
+                        <div className={`mb-2 px-3 py-2 text-xs font-mono border ${
+                          s.status === 'ai_rejected'
+                            ? 'bg-red-900/20 border-red-400/20 text-red-400/80'
+                            : 'bg-amber-900/20 border-amber-400/20 text-amber-400/80'
+                        }`}>
+                          AI: {s.ai_screen_reason}
+                          {s.image_review_flags && s.image_review_flags.length > 0 && (
+                            <span className="ml-2 opacity-60">— flags: {s.image_review_flags.join(', ')}</span>
+                          )}
+                        </div>
+                      )}
                       {s.description && <p className="text-sm text-white/60 leading-relaxed mb-2 line-clamp-3">{s.description}</p>}
                       <div className="flex gap-4 text-sm text-white/40 font-mono flex-wrap">
                         <span className="flex items-center gap-1">Wallet: <CopyWallet address={s.creator_wallet} /></span>
@@ -816,8 +845,19 @@ function SubmissionsTab() {
                   <button type="button" onClick={() => setRejectForm(null)} className="text-sm text-white/50 hover:text-white transition-colors">Cancel</button>
                 </form>
               ) : (
-                <div className="border-t border-white/10 p-4 flex gap-3">
-                  <button onClick={() => { setApproveForm({ id: s.id, edition_size: s.suggestedEdition || '10', price_usdc: s.suggestedPrice || '5', title: '', description: '' }); setRejectForm(null); }} className="px-5 py-1.5 bg-white text-black text-sm font-medium hover:bg-white/90 transition-all">Approve</button>
+                <div className="border-t border-white/10 p-4 flex gap-3 flex-wrap">
+                  <button
+                    onClick={() => { setApproveForm({ id: s.id, edition_size: s.suggestedEdition || '10', price_usdc: s.suggestedPrice || '5', title: '', description: '' }); setRejectForm(null); }}
+                    className={`px-5 py-1.5 text-sm font-medium transition-all ${
+                      s.status === 'ai_rejected'
+                        ? 'bg-amber-400 text-black hover:bg-amber-300'
+                        : s.status === 'needs_review'
+                        ? 'bg-amber-400 text-black hover:bg-amber-300'
+                        : 'bg-white text-black hover:bg-white/90'
+                    }`}
+                  >
+                    {s.status === 'ai_rejected' ? 'Override — Approve' : s.status === 'needs_review' ? 'Approve Listing' : 'Approve'}
+                  </button>
                   <button onClick={() => { setRejectForm({ id: s.id, reason: '' }); setApproveForm(null); }} className="px-5 py-1.5 border border-red-400/30 text-red-400 text-sm hover:border-red-400 transition-all">Reject</button>
                 </div>
               )}
