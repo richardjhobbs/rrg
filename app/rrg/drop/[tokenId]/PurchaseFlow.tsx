@@ -192,6 +192,16 @@ export default function PurchaseFlow({ tokenId, priceUsdc, soldOut, active, isPh
             {connector.name}
           </button>
         ))}
+        <div className="pt-2 border-t border-white/10">
+          <p className="text-sm text-white/50 mb-2">Don&apos;t have a wallet?</p>
+          <ConnectEmbed
+            client={thirdwebClient}
+            wallets={[inAppWallet({ auth: { options: ['google', 'apple', 'email'] } })]}
+            chain={base}
+            theme="dark"
+            showThirdwebBranding={false}
+          />
+        </div>
         {error && <p className="text-red-400 text-sm font-mono">{error}</p>}
         <button
           onClick={() => { setStep('idle'); setError(''); }}

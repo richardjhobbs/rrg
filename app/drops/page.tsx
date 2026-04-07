@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import RRGHeader from '@/components/rrg/RRGHeader';
+import RRGFooter from '@/components/rrg/RRGFooter';
 
 export default function DropsPage() {
   return (
@@ -19,6 +20,7 @@ export default function DropsPage() {
           </p>
         </div>
       </main>
+      <RRGFooter />
     </div>
   );
 }

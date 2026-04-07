@@ -1,4 +1,5 @@
 import RRGHeader from '@/components/rrg/RRGHeader';
+import RRGFooter from '@/components/rrg/RRGFooter';
 import { CreateAgentWizard } from '@/components/agent/CreateAgentWizard';
 
 export default function CreateAgentPage() {
@@ -8,6 +9,7 @@ export default function CreateAgentPage() {
       <main className="px-6 py-12">
         <CreateAgentWizard />
       </main>
+      <RRGFooter />
     </div>
   );
 }

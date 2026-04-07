@@ -2,6 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { ConnectEmbed, useActiveAccount } from 'thirdweb/react';
+import { base } from 'thirdweb/chains';
+import { inAppWallet, createWallet } from 'thirdweb/wallets';
+import { thirdwebClient } from '@/lib/rrg/thirdwebClient';
 import CreatorTermsModal from '@/components/rrg/CreatorTermsModal';
 import { CREATOR_TC_VERSION, DFW_CREATOR_TC_VERSION, DFW_BRAND_ID } from '@/lib/rrg/terms';
 
@@ -37,6 +41,16 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
   const [additionalFiles, setAdditionalFiles] = useState<FileList | null>(null);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [tcModalOpen, setTcModalOpen] = useState(false);
+  const [walletSignupOpen, setWalletSignupOpen] = useState(false);
+  const thirdwebAccount = useActiveAccount();
+
+  // Auto-fill wallet from Thirdweb connection
+  useEffect(() => {
+    if (thirdwebAccount?.address && !form.creator_wallet) {
+      setForm(prev => ({ ...prev, creator_wallet: thirdwebAccount.address }));
+      setWalletSignupOpen(false);
+    }
+  }, [thirdwebAccount, form.creator_wallet]);
 
   useEffect(() => {
     const url = briefId
@@ -274,6 +288,33 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
           <p className="mt-1.5 text-sm text-white/50">
             70% of each sale is transferred here as USDC on Base
           </p>
+          {!form.creator_wallet && (
+            <div className="mt-3">
+              {!walletSignupOpen ? (
+                <button
+                  type="button"
+                  onClick={() => setWalletSignupOpen(true)}
+                  className="text-sm text-green-400 hover:text-green-300 transition-colors cursor-pointer"
+                >
+                  Don&apos;t have a wallet? Sign up and we&apos;ll create one for you &rarr;
+                </button>
+              ) : (
+                <div className="border border-white/10 rounded-lg overflow-hidden">
+                  <ConnectEmbed
+                    client={thirdwebClient}
+                    wallets={[
+                      inAppWallet({ auth: { options: ['google', 'apple', 'email'] } }),
+                      createWallet('io.metamask'),
+                      createWallet('com.coinbase.wallet'),
+                    ]}
+                    chain={base}
+                    theme="dark"
+                    showThirdwebBranding={false}
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Email */}

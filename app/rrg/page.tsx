@@ -5,7 +5,7 @@ import { getVerifiedWallets } from '@/lib/rrg/worldid';
 import { getBadgesForDrops, type PlatformBadgeInfo } from '@/lib/rrg/platforms';
 import { getAgentIdsForWallets } from '@/lib/rrg/erc8004';
 import Link from 'next/link';
-import AgentTrustBadge from '@/components/rrg/AgentTrustBadge';
+// AgentTrustBadge moved to RRGFooter
 import BrandDirectory from '@/components/rrg/BrandDirectory';
 import HeroSplit from '@/components/rrg/HeroSplit';
 import LandingCTAs from '@/components/rrg/LandingCTAs';
@@ -253,11 +253,6 @@ export default async function RRGGallery({
 
       {/* ── The Process (tabbed) ───────────────────────────────────── */}
       <ProcessTabs />
-
-      {/* ── Agent Trust Badge ───────────────────────────────────────── */}
-      <div className="flex justify-center mb-8">
-        <AgentTrustBadge />
-      </div>
 
     </div>
   );

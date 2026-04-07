@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import RRGHeader from '@/components/rrg/RRGHeader';
+import RRGFooter from '@/components/rrg/RRGFooter';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -65,20 +66,21 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <>
+      <div className="min-h-screen bg-black text-white">
         <RRGHeader active="agent" />
-        <main className="min-h-screen px-6 py-12 max-w-4xl mx-auto">
+        <main className="px-6 py-12 max-w-4xl mx-auto">
           <p className="text-neutral-500">Loading...</p>
         </main>
-      </>
+        <RRGFooter />
+      </div>
     );
   }
 
   if (!agent) {
     return (
-      <>
+      <div className="min-h-screen bg-black text-white">
         <RRGHeader active="agent" />
-        <main className="min-h-screen px-6 py-12 max-w-4xl mx-auto">
+        <main className="px-6 py-12 max-w-4xl mx-auto">
           <h1 className="text-2xl font-bold mb-4">No agent found</h1>
           <p className="text-neutral-400 mb-6">
             Create an agent to access the dashboard.
@@ -87,14 +89,15 @@ export default function DashboardPage() {
             Create agent
           </Button>
         </main>
-      </>
+        <RRGFooter />
+      </div>
     );
   }
 
   return (
-    <>
+    <div className="min-h-screen bg-black text-white">
       <RRGHeader active="agent" />
-      <main className="min-h-screen px-6 py-12 max-w-4xl mx-auto">
+      <main className="px-6 py-12 max-w-4xl mx-auto">
         {/* Agent header */}
         <div className="flex items-start justify-between mb-8">
           <div>
@@ -245,6 +248,7 @@ export default function DashboardPage() {
           </Card>
         </div>
       </main>
-    </>
+      <RRGFooter />
+    </div>
   );
 }

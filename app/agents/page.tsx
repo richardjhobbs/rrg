@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import RRGHeader from '@/components/rrg/RRGHeader';
+import RRGFooter from '@/components/rrg/RRGFooter';
 
 export default function AgentsLanding() {
   return (
@@ -56,6 +57,7 @@ export default function AgentsLanding() {
           Create your agent
         </Link>
       </main>
+      <RRGFooter />
     </div>
   );
 }
