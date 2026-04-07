@@ -219,6 +219,7 @@ export interface BrandDirectoryItem {
   name: string;
   headline: string | null;
   logo_path: string | null;
+  banner_path: string | null;
   created_at: string;
   product_count: number;
   latest_product_at: string | null;
@@ -229,7 +230,7 @@ export const getBrandsForDirectory = unstable_cache(
     // Fetch active brands
     const { data: brands } = await db
       .from('rrg_brands')
-      .select('id, slug, name, headline, logo_path, created_at')
+      .select('id, slug, name, headline, logo_path, banner_path, created_at')
       .eq('status', 'active');
 
     if (!brands || brands.length === 0) return [];
@@ -262,6 +263,7 @@ export const getBrandsForDirectory = unstable_cache(
         name: b.name,
         headline: b.headline,
         logo_path: b.logo_path,
+        banner_path: b.banner_path,
         created_at: b.created_at,
         product_count: st?.count ?? 0,
         latest_product_at: st?.latest ?? null,
