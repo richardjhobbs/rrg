@@ -10,6 +10,7 @@ import BrandDirectory from '@/components/rrg/BrandDirectory';
 import HeroSplit from '@/components/rrg/HeroSplit';
 import LandingCTAs from '@/components/rrg/LandingCTAs';
 import StoreCarousel from '@/components/rrg/StoreCarousel';
+import ProcessTabs from '@/components/rrg/ProcessTabs';
 
 export const dynamic = 'force-dynamic';
 
@@ -210,13 +211,31 @@ export default async function RRGGallery({
         </div>
       )}
 
-      {/* ── Brand Directory ─────────────────────────────────────────── */}
-      <div className="mb-8">
-        <BrandDirectory brands={brandsWithImages} />
+      {/* ── Headline ──────────────────────────────────────────────── */}
+      <div className="mb-12 max-w-3xl">
+        <h2 className="text-3xl sm:text-4xl font-light leading-snug mb-4">
+          Welcome to the future of retail
+        </h2>
+        <div className="space-y-2 text-base text-white/70 leading-relaxed">
+          <p>
+            Real Real Genuine is where the agentic web comes to life. Personal agents and brand
+            agents connect. Buying and selling is smooth and efficient. Better for all.
+          </p>
+          <p>Collaborate with brands with mutual rewards.</p>
+          <p>
+            Power up an agent who can shop on your behalf and get access to exclusive drops.
+          </p>
+        </div>
       </div>
 
       {/* ── Hero Split: Agent Launch + Co-Creation ──────────────────── */}
       <HeroSplit openBriefs={enrichedBriefs} />
+
+      {/* ── Brands ─────────────────────────────────────────────────── */}
+      <div className="mb-8">
+        <h2 className="text-sm font-mono uppercase tracking-[0.3em] text-white/60 mb-4">Brands</h2>
+        <BrandDirectory brands={brandsWithImages} />
+      </div>
 
       {/* ── CTA Row ─────────────────────────────────────────────────── */}
       <LandingCTAs latestBrief={enrichedLatest} openBriefs={enrichedBriefs} />
@@ -231,6 +250,9 @@ export default async function RRGGallery({
           <p className="text-white/40 text-sm font-mono uppercase tracking-wider">Coming Soon</p>
         </div>
       </div>
+
+      {/* ── The Process (tabbed) ───────────────────────────────────── */}
+      <ProcessTabs />
 
       {/* ── Agent Trust Badge ───────────────────────────────────────── */}
       <div className="flex justify-center mb-8">

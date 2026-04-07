@@ -59,22 +59,22 @@ export default function LandingCTAs({ latestBrief, openBriefs }: Props) {
 
   return (
     <>
-      <div className="flex flex-wrap items-center justify-center gap-3 mb-10">
+      <div className="grid grid-cols-3 gap-3 mb-10">
         <button
           onClick={() => setJoinOpen(true)}
-          className="bg-green-500 text-black rounded-full px-6 py-2.5 font-medium text-sm hover:bg-green-400 transition-colors cursor-pointer"
+          className="bg-green-500 text-black rounded-full py-3 font-medium text-sm hover:bg-green-400 transition-colors cursor-pointer"
         >
           Join In
         </button>
         <button
           onClick={() => setBriefOpen(true)}
-          className="bg-green-500 text-black rounded-full px-6 py-2.5 font-medium text-sm hover:bg-green-400 transition-colors cursor-pointer"
+          className="bg-green-500 text-black rounded-full py-3 font-medium text-sm hover:bg-green-400 transition-colors cursor-pointer"
         >
           Latest Brief
         </button>
         <button
           onClick={() => setCreateOpen(true)}
-          className="bg-green-500 text-black rounded-full px-6 py-2.5 font-medium text-sm hover:bg-green-400 transition-colors cursor-pointer"
+          className="bg-green-500 text-black rounded-full py-3 font-medium text-sm hover:bg-green-400 transition-colors cursor-pointer"
         >
           Create
         </button>

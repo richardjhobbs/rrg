@@ -26,8 +26,8 @@ export default function BrandDirectory({
 
   return (
     <div>
-      {/* Desktop: 2-column grid */}
-      <div className="hidden sm:grid grid-cols-2 gap-4">
+      {/* Desktop: 2-column grid, scrollable when many brands */}
+      <div className="hidden sm:grid grid-cols-2 gap-4 max-h-[500px] overflow-y-auto pr-1">
         {brands.map((b) => (
           <button
             key={b.slug}
