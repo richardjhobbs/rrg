@@ -23,7 +23,7 @@ export default function LoginButton() {
         onClick={() => setOpen(!open)}
         className="text-base text-white/80 hover:text-white transition-colors"
       >
-        Login / Sign Up
+        Login
       </button>
 
       {open && (
