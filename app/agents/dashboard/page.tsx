@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { SiteNav } from '@/components/nav/SiteNav';
+import RRGHeader from '@/components/rrg/RRGHeader';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { Button } from '@/components/ui/Button';
@@ -66,7 +66,7 @@ export default function DashboardPage() {
   if (loading) {
     return (
       <>
-        <SiteNav />
+        <RRGHeader active="agent" />
         <main className="min-h-screen px-6 py-12 max-w-4xl mx-auto">
           <p className="text-neutral-500">Loading...</p>
         </main>
@@ -77,7 +77,7 @@ export default function DashboardPage() {
   if (!agent) {
     return (
       <>
-        <SiteNav />
+        <RRGHeader active="agent" />
         <main className="min-h-screen px-6 py-12 max-w-4xl mx-auto">
           <h1 className="text-2xl font-bold mb-4">No agent found</h1>
           <p className="text-neutral-400 mb-6">
@@ -93,7 +93,7 @@ export default function DashboardPage() {
 
   return (
     <>
-      <SiteNav />
+      <RRGHeader active="agent" />
       <main className="min-h-screen px-6 py-12 max-w-4xl mx-auto">
         {/* Agent header */}
         <div className="flex items-start justify-between mb-8">

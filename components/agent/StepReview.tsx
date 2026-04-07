@@ -24,10 +24,9 @@ export function StepReview({ state, onBack, onComplete, agentId }: Props) {
     setError(null);
 
     try {
-      const endpoint =
-        state.wallet_type === 'imported'
-          ? '/api/agent/import'
-          : '/api/agent/create';
+      // Both flows use /api/agent/create for now
+      // Signature verification for imported wallets will be added later
+      const endpoint = '/api/agent/create';
 
       const body: Record<string, unknown> = {
         email: state.email,

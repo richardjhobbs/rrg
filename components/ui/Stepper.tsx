@@ -13,9 +13,9 @@ export function Stepper({ steps, currentStep }: StepperProps) {
           <div
             className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold transition-colors ${
               i < currentStep
-                ? 'bg-white text-black'
+                ? 'bg-green-500 text-black'
                 : i === currentStep
-                  ? 'bg-neutral-700 text-white ring-2 ring-neutral-500'
+                  ? 'bg-neutral-700 text-white ring-2 ring-green-500/50'
                   : 'bg-neutral-900 text-neutral-600'
             }`}
           >
@@ -23,7 +23,7 @@ export function Stepper({ steps, currentStep }: StepperProps) {
           </div>
           <span
             className={`text-sm hidden sm:inline ${
-              i <= currentStep ? 'text-neutral-300' : 'text-neutral-600'
+              i < currentStep ? 'text-green-400' : i === currentStep ? 'text-neutral-300' : 'text-neutral-600'
             }`}
           >
             {label}
@@ -31,7 +31,7 @@ export function Stepper({ steps, currentStep }: StepperProps) {
           {i < steps.length - 1 && (
             <div
               className={`w-8 h-px ${
-                i < currentStep ? 'bg-neutral-500' : 'bg-neutral-800'
+                i < currentStep ? 'bg-green-500/50' : 'bg-neutral-800'
               }`}
             />
           )}

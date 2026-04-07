@@ -1,20 +1,10 @@
 import Link from 'next/link';
-import LoginButton from '@/components/rrg/LoginButton';
+import RRGHeader from '@/components/rrg/RRGHeader';
 
 export default function DropsPage() {
   return (
     <div className="min-h-screen bg-black text-white">
-      <header className="border-b border-white/10 px-6 py-4 flex justify-between items-center">
-        <Link href="/rrg" className="text-base font-mono tracking-[0.3em] hover:opacity-70 transition-opacity">
-          REAL REAL GENUINE
-        </Link>
-        <nav className="flex gap-6 items-center text-base text-white/80">
-          <Link href="/agents" className="hover:text-green-400 transition-colors">Agent</Link>
-          <Link href="/rrg" className="hover:text-green-400 transition-colors">Store</Link>
-          <Link href="/drops" className="text-green-400">Drops</Link>
-          <LoginButton />
-        </nav>
-      </header>
+      <RRGHeader active="drops" />
       <main className="px-6 py-16 max-w-4xl mx-auto">
         <h1 className="text-4xl font-bold tracking-tight mb-4">
           Exclusive Drops
