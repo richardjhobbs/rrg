@@ -137,6 +137,16 @@ export function StepReview({ state, onBack, onComplete, agentId }: Props) {
       {error && (
         <div className="mb-4 p-3 rounded-lg bg-red-900/30 border border-red-800 text-sm text-red-400">
           {error}
+          {(error.includes('already registered') || error.includes('already')) && (
+            <div className="mt-2">
+              <a
+                href="/agents/dashboard"
+                className="text-green-400 hover:text-green-300 underline transition-colors"
+              >
+                Go to your dashboard
+              </a>
+            </div>
+          )}
         </div>
       )}
 

@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
 
     if (existing) {
       return NextResponse.json(
-        { error: 'This wallet is already registered to an agent' },
+        { error: 'This wallet is already registered. Go to your dashboard to manage it.' },
         { status: 409 }
       );
     }
