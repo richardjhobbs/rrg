@@ -79,7 +79,7 @@ export default async function AgentsLanding() {
               deepens over time. Falls back to Personal Shopper when credits run out.
             </p>
             <ul className="text-sm text-white/50 space-y-1">
-              <li>&bull; Claude, OpenAI, Gemini, DeepSeek or Qwen</li>
+              <li>&bull; Powered by Claude or DeepSeek</li>
               <li>&bull; Chat with your Concierge directly</li>
               <li>&bull; Reasoned recommendations with explanations</li>
               <li>&bull; Cross-drop budget optimisation</li>

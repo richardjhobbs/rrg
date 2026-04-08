@@ -71,7 +71,7 @@ export function StepTier({ state, update, onNext }: Props) {
               <li>Understands nuance and context</li>
               <li>Negotiates on your behalf</li>
               <li>Chat with your Concierge directly</li>
-              <li>Claude, OpenAI, Gemini, DeepSeek or Qwen</li>
+              <li>Powered by Claude or DeepSeek</li>
               <li>Falls back to Personal Shopper when credits run out</li>
             </ul>
           </Card>

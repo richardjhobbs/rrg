@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/Input';
 import { Textarea } from '@/components/ui/Textarea';
 import { Select, TagSelect } from '@/components/ui/Select';
 import { InterestSelector } from './InterestSelector';
-import { STYLE_TAGS, VOICE_PRESETS, COMM_STYLE_PRESETS, TIER_DISPLAY } from '@/lib/agent/types';
+import { STYLE_TAGS, VOICE_PRESETS, COMM_STYLE_PRESETS, TIER_DISPLAY, LLM_PROVIDER_OPTIONS } from '@/lib/agent/types';
 import type { WizardState } from './CreateAgentWizard';
 
 interface Props {
@@ -93,15 +93,9 @@ export function StepProfile({ state, update, onNext, onBack }: Props) {
             label="LLM provider"
             value={state.llm_provider}
             onChange={(v) =>
-              update({ llm_provider: v as 'claude' | 'openai' | 'gemini' | 'deepseek' | 'qwen' })
+              update({ llm_provider: v as 'claude' | 'deepseek' })
             }
-            options={[
-              { value: 'claude', label: 'Claude (Anthropic)' },
-              { value: 'openai', label: 'GPT-4o (OpenAI)' },
-              { value: 'gemini', label: 'Gemini (Google)' },
-              { value: 'deepseek', label: 'DeepSeek' },
-              { value: 'qwen', label: 'Qwen (Alibaba)' },
-            ]}
+            options={[...LLM_PROVIDER_OPTIONS]}
           />
         )}
       </div>

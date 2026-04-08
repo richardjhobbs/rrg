@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Card } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
 import { TIER_DISPLAY } from '@/lib/agent/types';
+import { CHAT_COST_ESTIMATE } from '@/lib/agent/credits';
 import type { Agent } from '@/lib/agent/types';
 
 interface ChatMessage {
@@ -11,15 +12,6 @@ interface ChatMessage {
   content: string;
   streaming?: boolean;
 }
-
-// Cost estimates per chat message by provider
-const CHAT_COST_ESTIMATE: Record<string, string> = {
-  claude: '~$0.005',
-  openai: '~$0.003',
-  gemini: '~$0.001',
-  deepseek: '~$0.001',
-  qwen: '~$0.001',
-};
 
 interface Props {
   agent: Agent;
@@ -269,7 +261,7 @@ export function ChatPanel({ agent }: Props) {
 
           {/* Credit info */}
           <div className="mt-2 text-xs text-white/30 flex justify-between">
-            <span>Credits: ${agent.credit_balance_usdc.toFixed(4)} USDC</span>
+            <span>Credits: ${agent.credit_balance_usdc.toFixed(2)}</span>
             <span>{agent.llm_provider}</span>
           </div>
         </div>

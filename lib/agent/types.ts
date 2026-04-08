@@ -4,7 +4,14 @@ export type AgentTier = 'basic' | 'pro';
 export type AvatarSource = 'none' | 'preset' | 'uploaded' | 'generated';
 export type BidAggression = 'conservative' | 'balanced' | 'aggressive';
 export type WalletType = 'embedded' | 'imported';
+/** All supported LLM providers (backend compatibility) */
 export type LlmProvider = 'claude' | 'openai' | 'gemini' | 'deepseek' | 'qwen';
+
+/** Available LLM providers shown in the UI (restricted to actively supported) */
+export const LLM_PROVIDER_OPTIONS = [
+  { value: 'claude' as LlmProvider, label: 'Claude (Anthropic)' },
+  { value: 'deepseek' as LlmProvider, label: 'DeepSeek' },
+] as const;
 export type AgentStatus = 'active' | 'suspended' | 'archived';
 
 /** Buyer-facing display names per tier (from agent-naming-narrative) */
