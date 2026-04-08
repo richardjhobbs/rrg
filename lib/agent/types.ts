@@ -1,10 +1,22 @@
 // ── Agent ─────────────────────────────────────────────────────────────
 
 export type AgentTier = 'basic' | 'pro';
+export type AvatarSource = 'none' | 'preset' | 'uploaded' | 'generated';
 export type BidAggression = 'conservative' | 'balanced' | 'aggressive';
 export type WalletType = 'embedded' | 'imported';
 export type LlmProvider = 'claude' | 'openai' | 'gemini' | 'deepseek' | 'qwen';
 export type AgentStatus = 'active' | 'suspended' | 'archived';
+
+/** Buyer-facing display names per tier (from agent-naming-narrative) */
+export const TIER_DISPLAY: Record<AgentTier, { label: string; tagline: string }> = {
+  basic: { label: 'Personal Shopper', tagline: 'Your reliable assistant at your favourite store' },
+  pro:   { label: 'Concierge',        tagline: 'A dedicated person who genuinely knows you' },
+};
+
+export interface InterestSelection {
+  category: string;
+  tags: string[];
+}
 
 export interface Agent {
   id: string;
@@ -27,6 +39,13 @@ export interface Agent {
   status: AgentStatus;
   last_active_at: string | null;
   last_poll_at: string | null;
+  // Persona fields
+  persona_bio: string | null;
+  persona_voice: string | null;
+  persona_comm_style: string | null;
+  interest_categories: InterestSelection[];
+  avatar_path: string | null;
+  avatar_source: AvatarSource;
 }
 
 // ── Rules (Basic agent) ──────────────────────────────────────────────
@@ -212,3 +231,68 @@ export const STYLE_TAGS = [
 ] as const;
 
 export type StyleTag = (typeof STYLE_TAGS)[number];
+
+// ── Interest categories (broader than fashion) ──────────────────────
+
+export const INTEREST_CATEGORIES = {
+  fashion: {
+    label: 'Fashion',
+    tags: [...STYLE_TAGS],
+  },
+  art_culture: {
+    label: 'Art & Culture',
+    tags: [
+      'contemporary-art', 'photography', 'graphic-design', 'illustration',
+      'sculpture', 'street-art', 'gallery', 'museum', 'print', 'ceramics',
+    ],
+  },
+  music_entertainment: {
+    label: 'Music & Entertainment',
+    tags: [
+      'vinyl', 'hip-hop', 'electronic', 'indie', 'jazz', 'punk',
+      'concert-merch', 'film', 'gaming', 'anime',
+    ],
+  },
+  technology: {
+    label: 'Technology',
+    tags: [
+      'web3', 'ai', 'hardware', 'open-source', 'wearables',
+      'robotics', 'privacy', 'crypto', 'defi', 'nft',
+    ],
+  },
+  lifestyle: {
+    label: 'Lifestyle',
+    tags: [
+      'travel', 'food', 'fitness', 'wellness', 'interiors',
+      'architecture', 'outdoors', 'automotive', 'cycling', 'skateboarding',
+    ],
+  },
+  sustainability: {
+    label: 'Sustainability',
+    tags: [
+      'circular-fashion', 'upcycling', 'organic', 'fair-trade', 'zero-waste',
+      'repair', 'local-production', 'biodegradable', 'ethical-sourcing', 'slow-fashion',
+    ],
+  },
+} as const;
+
+export type InterestCategoryKey = keyof typeof INTEREST_CATEGORIES;
+
+// ── Voice presets ───────────────────────────────────────────────────
+
+export const VOICE_PRESETS = [
+  { value: 'formal', label: 'Formal', description: 'Professional and precise' },
+  { value: 'casual', label: 'Casual', description: 'Relaxed and conversational' },
+  { value: 'witty', label: 'Witty', description: 'Sharp and playful' },
+  { value: 'technical', label: 'Technical', description: 'Detail-oriented and analytical' },
+  { value: 'streetwise', label: 'Streetwise', description: 'Culture-first, in the know' },
+  { value: 'custom', label: 'Custom', description: 'Write your own tone' },
+] as const;
+
+export const COMM_STYLE_PRESETS = [
+  { value: 'brief', label: 'Brief', description: 'Short and to the point' },
+  { value: 'detailed', label: 'Detailed', description: 'Thorough explanations' },
+  { value: 'conversational', label: 'Conversational', description: 'Natural back-and-forth' },
+  { value: 'analytical', label: 'Analytical', description: 'Data-driven and structured' },
+  { value: 'custom', label: 'Custom', description: 'Write your own style' },
+] as const;

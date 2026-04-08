@@ -200,11 +200,30 @@ export function buildEvalPrompt(agent: {
   budget_ceiling_usdc: number | null;
   bid_aggression: string;
   credit_balance_usdc: number;
+  persona_bio?: string | null;
+  persona_voice?: string | null;
+  persona_comm_style?: string | null;
+  interest_categories?: { category: string; tags: string[] }[];
 }, walletBalance: number, activeBidTotal: number): string {
   const available = (agent.budget_ceiling_usdc ?? walletBalance) - activeBidTotal;
 
-  return `You are ${agent.name}, a shopping agent on the VIA Agent Drop System.
+  // Build persona block if any persona fields are set
+  const personaParts: string[] = [];
+  if (agent.persona_bio) personaParts.push(`Bio: ${agent.persona_bio}`);
+  if (agent.persona_voice) personaParts.push(`Voice/tone: ${agent.persona_voice}`);
+  if (agent.persona_comm_style) personaParts.push(`Communication style: ${agent.persona_comm_style}`);
+  if (agent.interest_categories?.length) {
+    const interests = agent.interest_categories
+      .map(ic => `${ic.category}: ${ic.tags.join(', ')}`)
+      .join('; ');
+    personaParts.push(`Interests: ${interests}`);
+  }
+  const personaBlock = personaParts.length > 0
+    ? `\nYour persona:\n${personaParts.map(p => `- ${p}`).join('\n')}\n`
+    : '';
 
+  return `You are ${agent.name}, a concierge on the RealReal Genuine marketplace.
+${personaBlock}
 Your owner's preferences:
 - Style tags: ${agent.style_tags.length > 0 ? agent.style_tags.join(', ') : 'none set'}
 - Instructions: ${agent.free_instructions ?? 'none'}

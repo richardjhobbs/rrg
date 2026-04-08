@@ -27,6 +27,10 @@ export async function POST(req: NextRequest) {
       budget_ceiling_usdc = null,
       bid_aggression = 'balanced',
       llm_provider = 'claude',
+      persona_bio = null,
+      persona_voice = null,
+      persona_comm_style = null,
+      interest_categories = [],
     } = body as {
       email: string;
       name: string;
@@ -38,6 +42,10 @@ export async function POST(req: NextRequest) {
       budget_ceiling_usdc?: number | null;
       bid_aggression?: BidAggression;
       llm_provider?: LlmProvider;
+      persona_bio?: string | null;
+      persona_voice?: string | null;
+      persona_comm_style?: string | null;
+      interest_categories?: { category: string; tags: string[] }[];
     };
 
     // Validate required fields
@@ -81,6 +89,10 @@ export async function POST(req: NextRequest) {
         llm_provider,
         credit_balance_usdc: 0,
         status: 'active',
+        persona_bio,
+        persona_voice,
+        persona_comm_style,
+        interest_categories,
       })
       .select('*')
       .single();

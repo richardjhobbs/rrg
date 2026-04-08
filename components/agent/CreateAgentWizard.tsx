@@ -6,7 +6,7 @@ import { StepTier } from './StepTier';
 import { StepRegistration } from './StepRegistration';
 import { StepProfile } from './StepProfile';
 import { StepReview } from './StepReview';
-import type { AgentTier, BidAggression, LlmProvider } from '@/lib/agent/types';
+import type { AgentTier, BidAggression, LlmProvider, InterestSelection } from '@/lib/agent/types';
 
 const STEPS = ['Tier', 'Registration', 'Profile', 'Review'];
 
@@ -21,6 +21,10 @@ export interface WizardState {
   budget_ceiling_usdc: string;
   bid_aggression: BidAggression;
   llm_provider: LlmProvider;
+  persona_bio: string;
+  persona_voice: string;
+  persona_comm_style: string;
+  interest_categories: InterestSelection[];
 }
 
 const initialState: WizardState = {
@@ -34,6 +38,10 @@ const initialState: WizardState = {
   budget_ceiling_usdc: '',
   bid_aggression: 'balanced',
   llm_provider: 'claude',
+  persona_bio: '',
+  persona_voice: '',
+  persona_comm_style: '',
+  interest_categories: [],
 };
 
 export function CreateAgentWizard() {

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
+import { TIER_DISPLAY } from '@/lib/agent/types';
 import type { WizardState } from './CreateAgentWizard';
 
 interface Props {
@@ -19,13 +20,13 @@ export function StepReview({ state, onBack, onComplete, agentId }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const tierDisplay = TIER_DISPLAY[state.tier];
+
   const handleCreate = async () => {
     setLoading(true);
     setError(null);
 
     try {
-      // Both flows use /api/agent/create for now
-      // Signature verification for imported wallets will be added later
       const endpoint = '/api/agent/create';
 
       const body: Record<string, unknown> = {
@@ -41,6 +42,10 @@ export function StepReview({ state, onBack, onComplete, agentId }: Props) {
         llm_provider: state.llm_provider,
         wallet_address: state.wallet_address,
         wallet_type: state.wallet_type,
+        persona_bio: state.persona_bio || null,
+        persona_voice: state.persona_voice || null,
+        persona_comm_style: state.persona_comm_style || null,
+        interest_categories: state.interest_categories,
       };
 
       const res = await fetch(endpoint, {
@@ -51,7 +56,7 @@ export function StepReview({ state, onBack, onComplete, agentId }: Props) {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Failed to create agent');
+        throw new Error(data.error || `Failed to create ${tierDisplay.label}`);
       }
 
       const { agent } = await res.json();
@@ -67,10 +72,9 @@ export function StepReview({ state, onBack, onComplete, agentId }: Props) {
     return (
       <div className="text-center py-12">
         <div className="text-4xl mb-4">&#10003;</div>
-        <h2 className="text-xl font-semibold mb-2">Agent created</h2>
+        <h2 className="text-xl font-semibold mb-2">{tierDisplay.label} created</h2>
         <p className="text-neutral-400 mb-6">
-          Your agent <strong>{state.name}</strong> is live and ready to evaluate
-          drops.
+          Your {tierDisplay.label} <strong>{state.name}</strong> is ready.
         </p>
         <Button onClick={() => router.push('/agents/dashboard')}>
           Go to dashboard
@@ -83,14 +87,14 @@ export function StepReview({ state, onBack, onComplete, agentId }: Props) {
     <div>
       <h2 className="text-xl font-semibold mb-2">Review and create</h2>
       <p className="text-neutral-400 mb-6">
-        Confirm your agent configuration.
+        Confirm your {tierDisplay.label} configuration.
       </p>
 
       <Card className="mb-6">
         <div className="space-y-3 text-sm">
-          <Row label="Tier">
+          <Row label="Service">
             <Badge variant={state.tier === 'pro' ? 'pro' : 'default'}>
-              {state.tier}
+              {tierDisplay.label}
             </Badge>
           </Row>
           <Row label="Name">{state.name}</Row>
@@ -113,6 +117,20 @@ export function StepReview({ state, onBack, onComplete, agentId }: Props) {
           {state.tier === 'pro' && (
             <Row label="LLM provider">{state.llm_provider}</Row>
           )}
+          {state.persona_bio && (
+            <Row label="Persona bio">{state.persona_bio}</Row>
+          )}
+          {state.persona_voice && (
+            <Row label="Voice">{state.persona_voice}</Row>
+          )}
+          {state.persona_comm_style && (
+            <Row label="Communication">{state.persona_comm_style}</Row>
+          )}
+          {state.interest_categories.length > 0 && (
+            <Row label="Interests">
+              {state.interest_categories.map(ic => `${ic.category} (${ic.tags.length})`).join(', ')}
+            </Row>
+          )}
         </div>
       </Card>
 
@@ -127,7 +145,7 @@ export function StepReview({ state, onBack, onComplete, agentId }: Props) {
           Back
         </Button>
         <Button onClick={handleCreate} loading={loading}>
-          Create agent
+          Create {tierDisplay.label}
         </Button>
       </div>
     </div>

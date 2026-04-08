@@ -1,26 +1,26 @@
 /**
  * GET /api/rrg/agent-trust
- * Returns live ERC-8004 identity data for DrHobbs (Agent ID 17666).
+ * Returns live ERC-8004 identity data for RRG (Agent ID 33313).
  * Reads directly from Base mainnet — no third-party dependency.
  * Cached for 5 minutes so it's cheap to embed in the UI.
  */
 
 import { NextResponse } from 'next/server';
-import { getAgentUri, DRHOBBS_AGENT_ID } from '@/lib/rrg/erc8004';
+import { getAgentUri, RRG_AGENT_ID } from '@/lib/rrg/erc8004';
 
 export const dynamic  = 'force-dynamic';
 export const revalidate = 300; // 5 min ISR cache
 
-const PROFILE_URL = `https://8004scan.io/agents/base/${DRHOBBS_AGENT_ID}`;
-const EXPECTED_URI = 'https://richard-hobbs.com/agent.json';
+const PROFILE_URL = `https://8004scan.io/agents/base/${RRG_AGENT_ID}`;
+const EXPECTED_URI = 'https://realrealgenuine.com/agent.json';
 
 export async function GET() {
   try {
-    const tokenUri = await getAgentUri();
+    const tokenUri = await getAgentUri(RRG_AGENT_ID);
 
     return NextResponse.json(
       {
-        agentId:    DRHOBBS_AGENT_ID.toString(),
+        agentId:    RRG_AGENT_ID.toString(),
         network:    'base',
         registered: true,
         tokenUri,

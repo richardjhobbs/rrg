@@ -10,7 +10,8 @@ import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { Select, TagSelect } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
-import { STYLE_TAGS } from '@/lib/agent/types';
+import { PersonaCard } from '@/components/agent/PersonaCard';
+import { STYLE_TAGS, TIER_DISPLAY } from '@/lib/agent/types';
 import type { Agent, ActivityLogEntry, AgentEvaluation } from '@/lib/agent/types';
 
 export default function DashboardPage() {
@@ -87,6 +88,19 @@ export default function DashboardPage() {
     } catch {} finally { setSaving(false); }
   }
 
+  async function savePersona(updates: Partial<Agent>) {
+    if (!agent) return;
+    const res = await fetch(`/api/agent/${agent.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (res.ok) {
+      const { agent: updated } = await res.json();
+      setAgent(updated);
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-black text-white">
@@ -105,13 +119,15 @@ export default function DashboardPage() {
         <RRGHeader active="agent" />
         <main className="px-6 py-12 max-w-4xl mx-auto">
           <h1 className="text-xl font-semibold mb-4">No agent found</h1>
-          <p className="text-white/60 mb-6">Create an agent to access the dashboard.</p>
-          <Button onClick={() => router.push('/agents/create')}>Create agent</Button>
+          <p className="text-white/60 mb-6">Get your own Personal Shopper or Concierge.</p>
+          <Button onClick={() => router.push('/agents/create')}>Get started</Button>
         </main>
         <RRGFooter />
       </div>
     );
   }
+
+  const tierDisplay = TIER_DISPLAY[agent.tier];
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -119,17 +135,39 @@ export default function DashboardPage() {
       <main className="px-6 py-12 max-w-4xl mx-auto">
         {/* Agent header */}
         <div className="flex items-start justify-between mb-8">
-          <div>
-            <div className="flex items-center gap-3 mb-2">
-              <h1 className="text-3xl font-light">{agent.name}</h1>
-              <Badge variant={agent.tier === 'pro' ? 'pro' : 'default'}>
-                {agent.tier}
-              </Badge>
-              {agent.erc8004_linked && (
-                <Badge variant="success">ERC-8004</Badge>
+          <div className="flex items-start gap-4">
+            {/* Avatar */}
+            <div className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-light flex-shrink-0 bg-white/10 text-white/60">
+              {agent.avatar_source !== 'none' && agent.avatar_path ? (
+                agent.avatar_source === 'preset' ? (
+                  <img
+                    src={`/avatars/presets/${agent.avatar_path}.webp`}
+                    alt={agent.name}
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                ) : (
+                  <img
+                    src={agent.avatar_path}
+                    alt={agent.name}
+                    className="w-full h-full rounded-full object-cover"
+                  />
+                )
+              ) : (
+                agent.name.charAt(0).toUpperCase()
               )}
             </div>
-            <p className="text-sm text-white/40 font-mono">{agent.wallet_address}</p>
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <h1 className="text-3xl font-light">{agent.name}</h1>
+                <Badge variant={agent.tier === 'pro' ? 'pro' : 'default'}>
+                  {tierDisplay.label}
+                </Badge>
+                {agent.erc8004_linked && (
+                  <Badge variant="success">ERC-8004</Badge>
+                )}
+              </div>
+              <p className="text-sm text-white/40 font-mono">{agent.wallet_address}</p>
+            </div>
           </div>
           <div className="text-right">
             <div className="text-2xl font-light text-green-400">
@@ -140,6 +178,9 @@ export default function DashboardPage() {
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Persona */}
+          <PersonaCard agent={agent} onSave={savePersona} />
+
           {/* Preferences */}
           <Card>
             <div className="flex items-center justify-between mb-4">
@@ -240,7 +281,7 @@ export default function DashboardPage() {
             )}
           </Card>
 
-          {/* Credits (Pro only) */}
+          {/* Credits (Concierge only) */}
           {agent.tier === 'pro' && (
             <Card>
               <h2 className="text-base font-semibold mb-4">Credits</h2>
@@ -259,7 +300,7 @@ export default function DashboardPage() {
             </Card>
           )}
 
-          {/* Recommendations (Pro only) */}
+          {/* Recommendations (Concierge only) */}
           {agent.tier === 'pro' && recommendations.length > 0 && (
             <Card className="md:col-span-2">
               <h2 className="text-base font-semibold mb-4">Recommendations</h2>
@@ -285,7 +326,7 @@ export default function DashboardPage() {
             <h2 className="text-base font-semibold mb-4">Activity</h2>
             {activity.length === 0 ? (
               <p className="text-sm text-white/40">
-                No activity yet. Your agent will start evaluating drops when they go live.
+                No activity yet. Your {tierDisplay.label} will start evaluating drops when they go live.
               </p>
             ) : (
               <div className="space-y-2">

@@ -41,6 +41,12 @@ export async function PATCH(
     'bid_aggression',
     'llm_provider',
     'tier',
+    'persona_bio',
+    'persona_voice',
+    'persona_comm_style',
+    'interest_categories',
+    'avatar_path',
+    'avatar_source',
   ];
 
   const updates: Record<string, unknown> = {};

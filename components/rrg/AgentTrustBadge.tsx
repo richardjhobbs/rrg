@@ -2,7 +2,7 @@
 
 /**
  * AgentTrustBadge
- * Shows DrHobbs's live ERC-8004 on-chain identity verification status.
+ * Shows RRG's live ERC-8004 on-chain identity verification status.
  * Fetches after mount so it never blocks the main page render.
  * Degrades gracefully if the chain read fails.
  */
@@ -99,7 +99,7 @@ export default function AgentTrustBadge() {
                 </div>
 
                 <p className="text-white/50 leading-relaxed mb-3 text-xs">
-                  ERC-8004 is an open standard for trustless AI agents. DrHobbs is
+                  ERC-8004 is an open standard for trustless AI agents. RRG is
                   registered on-chain — any agent can verify its identity and
                   reputation before trading, without needing a human introduction.
                 </p>
