@@ -414,11 +414,11 @@ function BrandLoginInner() {
         </div>
       )}
 
-      {/* ── REGISTER: WALLET CHOICE ── */}
+      {/* ── REGISTER: WALLET CHOICE (skip straight to own wallet) ── */}
       {mode === 'register' && walletMode === 'choose' && (
         <div className="space-y-4">
-          <p className="text-sm font-mono text-white/50 mb-2">
-            First — do you have a crypto wallet?
+          <p className="text-sm text-white/60 mb-2">
+            Brands need their own wallet for receiving revenue. This should be a business wallet separate from any personal wallets.
           </p>
 
           <button
@@ -427,23 +427,18 @@ function BrandLoginInner() {
             className="w-full py-4 border border-white/20 text-base text-white/80
                        hover:border-white/50 hover:text-white transition-all text-left px-5"
           >
-            <span className="block font-medium">I have my own wallet</span>
+            <span className="block font-medium">Continue with registration</span>
             <span className="block text-sm text-white/40 mt-1">
-              Use your existing wallet address for revenue payouts
+              You&apos;ll enter your brand wallet address in the next step
             </span>
           </button>
 
-          <button
-            type="button"
-            onClick={() => setWalletMode('new')}
-            className="w-full py-4 border border-white/20 text-base text-white/80
-                       hover:border-white/50 hover:text-white transition-all text-left px-5"
-          >
-            <span className="block font-medium">Set me up with a wallet</span>
-            <span className="block text-sm text-white/40 mt-1">
-              We&apos;ll create a wallet for you — linked to your Google account
-            </span>
-          </button>
+          <p className="text-xs text-white/30 leading-relaxed">
+            If you need help creating a wallet, contact us at{' '}
+            <a href="mailto:contact@getvia.xyz" className="text-green-400 hover:text-green-300 transition-colors">
+              contact@getvia.xyz
+            </a>
+          </p>
 
           <div className="pt-2">
             <button
@@ -451,7 +446,7 @@ function BrandLoginInner() {
               onClick={() => switchMode('login')}
               className="w-full text-sm text-white/50 hover:text-white/80 transition-colors font-mono"
             >
-              ← Already have an account? Login
+              &larr; Already have an account? Login
             </button>
           </div>
         </div>
@@ -461,9 +456,7 @@ function BrandLoginInner() {
       {mode === 'register' && walletMode !== 'choose' && (
         <div className="space-y-4">
           <p className="text-sm font-mono text-white/50 mb-2">
-            {walletMode === 'own'
-              ? 'Enter your brand details and wallet, then sign in with Google.'
-              : 'Enter your brand details, then sign in with Google to create your account and wallet.'}
+            Enter your brand details and wallet address, then sign in with Google.
           </p>
 
           {/* Brand Name */}
@@ -479,9 +472,8 @@ function BrandLoginInner() {
             />
           </div>
 
-          {/* Wallet Address — only for "own wallet" path */}
-          {walletMode === 'own' && (
-            <div>
+          {/* Wallet Address — always required for brands */}
+          <div>
               <label className="text-sm font-mono text-white/60 block mb-1">Wallet Address <HelpTip {...brandLogin.walletChoice} /></label>
               <input
                 type="text" value={ownWallet}
@@ -493,10 +485,15 @@ function BrandLoginInner() {
                 autoComplete="off"
               />
               <p className="text-sm text-white/30 mt-1">
-                This is where your revenue share will be sent
+                This is where your revenue share will be sent. Use a business wallet, not a personal one.
+              </p>
+              <p className="text-xs text-white/25 mt-1">
+                Need help?{' '}
+                <a href="mailto:contact@getvia.xyz" className="text-green-400 hover:text-green-300 transition-colors">
+                  contact@getvia.xyz
+                </a>
               </p>
             </div>
-          )}
 
           {/* Application Text */}
           <div>
@@ -521,8 +518,7 @@ function BrandLoginInner() {
             />
           </div>
 
-          {/* Email/password alternative — only for 'own wallet' path (Google creates the wallet for 'new') */}
-          {walletMode === 'own' && (
+          {/* Email/password alternative */}
           <>
           <div className="relative flex items-center gap-3">
             <div className="flex-1 border-t border-white/10" />
@@ -569,7 +565,6 @@ function BrandLoginInner() {
             </button>
           )}
           </>
-          )}
 
           {loading && !showEmailRegister && (
             <p className="text-sm font-mono text-white/50 animate-pulse">Submitting application…</p>
