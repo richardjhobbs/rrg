@@ -12,6 +12,8 @@ export const LLM_COST_PER_EVAL: Record<string, number> = {
   claude: 0.005,
   openai: 0.003,
   gemini: 0.001,
+  deepseek: 0.001,
+  qwen: 0.001,
 };
 
 /** Check if a Pro agent has sufficient credits for an evaluation. */

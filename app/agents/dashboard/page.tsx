@@ -12,6 +12,7 @@ import { Select, TagSelect } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { PersonaCard } from '@/components/agent/PersonaCard';
 import { AvatarPicker } from '@/components/agent/AvatarPicker';
+import { ChatPanel } from '@/components/agent/ChatPanel';
 import { STYLE_TAGS, TIER_DISPLAY } from '@/lib/agent/types';
 import { PRESET_AVATARS } from '@/lib/agent/avatars';
 import type { Agent, ActivityLogEntry, AgentEvaluation } from '@/lib/agent/types';
@@ -327,6 +328,11 @@ export default function DashboardPage() {
                 ))}
               </div>
             </Card>
+          )}
+
+          {/* Chat (Concierge only) */}
+          {agent.tier === 'pro' && (
+            <ChatPanel agent={agent} />
           )}
 
           {/* Activity log */}
