@@ -10,7 +10,7 @@ import BrandDirectory from '@/components/rrg/BrandDirectory';
 import HeroSplit from '@/components/rrg/HeroSplit';
 import LandingCTAs from '@/components/rrg/LandingCTAs';
 import StoreCarousel from '@/components/rrg/StoreCarousel';
-import ProcessTabs from '@/components/rrg/ProcessTabs';
+import BrandCTAs from '@/components/rrg/BrandCTAs';
 
 export const dynamic = 'force-dynamic';
 
@@ -212,7 +212,7 @@ export default async function RRGGallery({
       )}
 
       {/* ── Headline ──────────────────────────────────────────────── */}
-      <div className="mb-12 max-w-3xl">
+      <div className="mb-12">
         <h2 className="text-3xl sm:text-4xl font-light leading-snug mb-4">
           Welcome to the future of retail
         </h2>
@@ -251,8 +251,8 @@ export default async function RRGGallery({
         </div>
       </div>
 
-      {/* ── The Process (tabbed) ───────────────────────────────────── */}
-      <ProcessTabs />
+      {/* ── CTA Buttons (For Creators / For Brands / For Agents) ──── */}
+      <BrandCTAs brandSlug="" />
 
     </div>
   );

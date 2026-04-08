@@ -100,7 +100,7 @@ export default function BrandCTAs({ brandSlug }: Props) {
             </ol>
             <div className="pt-4">
               <Link
-                href={`/brand/${brandSlug}/submit`}
+                href={brandSlug ? `/brand/${brandSlug}/submit` : '/rrg/submit'}
                 onClick={() => setCreatorsOpen(false)}
                 className="inline-flex items-center gap-1 text-green-400 hover:text-green-300 transition-colors"
               >

@@ -50,6 +50,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             >
               Privacy
             </a>
+            <a
+              href="/rrg/faq"
+              className="hover:text-white/80 transition-colors"
+            >
+              FAQ
+            </a>
           </div>
         </footer>
       </body>
