@@ -3,7 +3,7 @@ import ThemeToggle from './ThemeToggle';
 
 export default function RRGFooter() {
   return (
-    <footer className="border-t border-white/10 px-6 py-8 mt-24 text-sm text-white/50 font-mono flex justify-between items-center">
+    <footer className="border-t border-white/10 px-6 py-8 mt-24 text-xs text-white/50 flex justify-between items-center">
       <div className="flex gap-4 items-center">
         <ThemeToggle />
         <a href="https://discord.gg/x26cwNT8" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors" aria-label="Discord">

@@ -1923,19 +1923,19 @@ function ContributorsTab() {
         <div className="grid grid-cols-4 gap-4">
           <div className="border border-white/10 p-4">
             <p className="text-sm text-white/60 font-mono uppercase tracking-wider">Total</p>
-            <p className="text-3xl font-mono mt-1">{stats.total}</p>
+            <p className="text-xl font-mono mt-1">{stats.total}</p>
           </div>
           <div className="border border-white/10 p-4">
             <p className="text-sm text-white/60 font-mono uppercase tracking-wider">Human</p>
-            <p className="text-3xl font-mono mt-1">{stats.humans}</p>
+            <p className="text-xl font-mono mt-1">{stats.humans}</p>
           </div>
           <div className="border border-white/10 p-4">
             <p className="text-sm text-white/60 font-mono uppercase tracking-wider">AI Agent</p>
-            <p className="text-3xl font-mono mt-1">{stats.agents}</p>
+            <p className="text-xl font-mono mt-1">{stats.agents}</p>
           </div>
           <div className="border border-white/10 p-4">
             <p className="text-sm text-white/60 font-mono uppercase tracking-wider">Revenue Dist.</p>
-            <p className="text-3xl font-mono mt-1">${stats.totalRevenue.toFixed(2)}</p>
+            <p className="text-xl font-mono mt-1">${stats.totalRevenue.toFixed(2)}</p>
           </div>
         </div>
       )}
