@@ -17,6 +17,7 @@ import { LlmStatusCard } from '@/components/agent/LlmStatusCard';
 import { ChatPanel } from '@/components/agent/ChatPanel';
 import { STYLE_TAGS, TIER_DISPLAY, LLM_PROVIDER_OPTIONS } from '@/lib/agent/types';
 import { PRESET_AVATARS } from '@/lib/agent/avatars';
+import { useActiveAccount } from 'thirdweb/react';
 import type { Agent, ActivityLogEntry, AgentEvaluation } from '@/lib/agent/types';
 
 export default function DashboardPage() {
@@ -39,13 +40,31 @@ export default function DashboardPage() {
     llm_provider: 'claude',
   });
 
-  useEffect(() => { loadDashboard(); }, []);
+  const activeAccount = useActiveAccount();
+
+  useEffect(() => { loadDashboard(); }, [activeAccount]);
 
   async function loadDashboard() {
     try {
-      const res = await fetch('/api/agent/session');
-      if (!res.ok) { setLoading(false); return; }
-      const { agent: raw } = await res.json();
+      // Try session cookie first
+      let res = await fetch('/api/agent/session');
+      let raw = null;
+
+      if (res.ok) {
+        const data = await res.json();
+        raw = data.agent;
+      }
+
+      // Fallback: if no cookie but Thirdweb wallet is connected, look up by wallet
+      if (!raw && activeAccount?.address) {
+        const walletRes = await fetch(`/api/agent/session?wallet=${activeAccount.address}`);
+        if (walletRes.ok) {
+          const data = await walletRes.json();
+          raw = data.agent;
+        }
+      }
+
+      if (!raw) { setLoading(false); return; }
       // Defensive defaults for agents created before persona migration
       const a = {
         ...raw,
