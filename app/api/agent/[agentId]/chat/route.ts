@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/rrg/db';
 import { buildChatPrompt, streamChatResponse } from '@/lib/agent/llm';
 import { hasCredits, deductCredits } from '@/lib/agent/credits';
+import { loadMemories, formatMemoriesForPrompt, extractMemoriesFromSession } from '@/lib/agent/memory';
 import type { Agent } from '@/lib/agent/types';
 
 export const dynamic = 'force-dynamic';
@@ -69,8 +70,10 @@ export async function POST(
     content: m.content,
   }));
 
-  // Build prompt and stream
-  const systemPrompt = buildChatPrompt(agent as Agent, is_eval_preview);
+  // Load persistent memories and build prompt
+  const memories = await loadMemories(agentId);
+  const memoriesBlock = formatMemoriesForPrompt(memories);
+  const systemPrompt = buildChatPrompt(agent as Agent, is_eval_preview, memoriesBlock);
 
   try {
     const { stream, getTokensUsed } = await streamChatResponse(
@@ -112,6 +115,18 @@ export async function POST(
           });
 
           await deductCredits(agentId, tokensUsed, agent.llm_provider);
+
+          // Extract memories from conversation (async, non-blocking)
+          // Trigger after every 4+ messages in the session
+          const { count: msgCount } = await db
+            .from('agent_chat_messages')
+            .select('id', { count: 'exact', head: true })
+            .eq('session_id', session_id);
+
+          if (msgCount && msgCount >= 4 && msgCount % 4 === 0) {
+            extractMemoriesFromSession(agentId, session_id, agent.llm_provider)
+              .catch(err => console.error('[memory extract bg]', err));
+          }
 
           controller.enqueue(encoder.encode(`data: [DONE]\n\n`));
           controller.close();

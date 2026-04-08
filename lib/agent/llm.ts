@@ -6,6 +6,7 @@
  */
 
 import type { LlmProvider, EvalDecision, Agent } from './types';
+import { CORE_SYSTEM_PROMPT } from './core-prompt';
 
 export interface LlmEvalResult {
   decision: EvalDecision;
@@ -248,7 +249,7 @@ Your reasoning should be concise (2-3 sentences max). Always state the decision 
 
 // ── Chat prompt builder ─────────────────────────────────────────────
 
-export function buildChatPrompt(agent: Agent, isEvalPreview: boolean): string {
+export function buildChatPrompt(agent: Agent, isEvalPreview: boolean, memoriesBlock = ''): string {
   const personaParts: string[] = [];
   if (agent.persona_bio) personaParts.push(`Bio: ${agent.persona_bio}`);
   if (agent.persona_voice) personaParts.push(`Voice/tone: ${agent.persona_voice}`);
@@ -275,10 +276,14 @@ export function buildChatPrompt(agent: Agent, isEvalPreview: boolean): string {
     ? `\n\nWhen the user describes or pastes a drop listing, evaluate it and respond with your recommendation: SKIP, RECOMMEND, or BID with a suggested amount. Explain your reasoning.`
     : '';
 
-  return `You are ${agent.name}, a personal concierge on the RealReal Genuine marketplace. You help your owner discover and evaluate fashion, art, and culture products.
-${personaBlock}${styleBlock}${instructionBlock}
+  return `${CORE_SYSTEM_PROMPT}
 
-Be conversational and helpful. Keep responses concise. Stay in character.${evalAugment}`;
+## Your identity
+
+You are ${agent.name}.
+${personaBlock}${styleBlock}${instructionBlock}
+${memoriesBlock}
+${evalAugment}`.trim();
 }
 
 // ── Chat message type ───────────────────────────────────────────────
