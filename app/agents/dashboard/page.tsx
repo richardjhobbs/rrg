@@ -23,6 +23,7 @@ export default function DashboardPage() {
   const [balance, setBalance] = useState<number | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [showTopUp, setShowTopUp] = useState(false);
   const [activity, setActivity] = useState<ActivityLogEntry[]>([]);
   const [recommendations, setRecommendations] = useState<AgentEvaluation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -224,7 +225,7 @@ export default function DashboardPage() {
                   onChange={(e) => setEditForm(prev => ({ ...prev, budget_ceiling_usdc: e.target.value }))}
                 />
                 <Select
-                  label="Aggression"
+                  label="Bid style"
                   value={editForm.bid_aggression}
                   onChange={(v) => setEditForm(prev => ({ ...prev, bid_aggression: v }))}
                   options={[
@@ -277,7 +278,7 @@ export default function DashboardPage() {
                   <span className="text-green-400">{agent.budget_ceiling_usdc ? `$${agent.budget_ceiling_usdc}` : 'No limit'}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-white/40">Aggression</span>
+                  <span className="text-white/40">Bid style</span>
                   <span>{agent.bid_aggression}</span>
                 </div>
                 {agent.tier === 'pro' && (
@@ -298,11 +299,10 @@ export default function DashboardPage() {
                 ${agent.credit_balance_usdc.toFixed(4)}
               </div>
               <div className="text-xs text-white/40 mb-4">USDC credit balance</div>
-              <p className="text-xs text-white/30 mb-2">Card payments coming soon. Crypto top-up available.</p>
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => alert('Stripe card payments coming soon. For now, send USDC on Base to your agent wallet: ' + agent.wallet_address)}
+                onClick={() => setShowTopUp(true)}
               >
                 Top up credits
               </Button>
@@ -363,6 +363,34 @@ export default function DashboardPage() {
           </Card>
         </div>
       </main>
+
+      {/* Top up credits modal */}
+      {showTopUp && agent && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+          <div className="bg-neutral-900 border border-white/10 rounded-xl w-full max-w-sm mx-4 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base font-semibold">Top up credits</h3>
+              <button onClick={() => setShowTopUp(false)} className="text-white/50 hover:text-white cursor-pointer">✕</button>
+            </div>
+            <div className="space-y-4 text-sm">
+              <div>
+                <div className="text-white/40 mb-1">Current balance</div>
+                <div className="text-2xl font-light text-green-400">${agent.credit_balance_usdc.toFixed(4)} USDC</div>
+              </div>
+              <div className="border-t border-white/10 pt-4">
+                <div className="text-white/80 mb-2">Send USDC on Base to your {tierDisplay.label} wallet:</div>
+                <div className="bg-white/5 border border-white/10 rounded-lg p-3 font-mono text-xs text-white/70 break-all select-all">
+                  {agent.wallet_address}
+                </div>
+              </div>
+              <p className="text-xs text-white/40">
+                Credits are used for chat and drop evaluations. Your balance updates
+                automatically when USDC is received. Card payments coming soon.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Avatar picker modal */}
       {showAvatarPicker && agent && (

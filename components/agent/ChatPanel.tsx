@@ -171,8 +171,14 @@ export function ChatPanel({ agent }: Props) {
           <h2 className="text-base font-semibold">Chat with {agent.name}</h2>
           <span className="text-xs text-white/30">{open ? '▲' : '▼'}</span>
         </button>
-        <span className="text-xs text-white/40">
+        <span className="text-xs text-white/40 flex items-center gap-1">
           {CHAT_COST_ESTIMATE[agent.llm_provider] ?? '~$0.003'} per message
+          <span className="relative group">
+            <span className="inline-flex items-center justify-center w-3.5 h-3.5 rounded-full border border-white/20 text-[10px] text-white/40 cursor-help">?</span>
+            <span className="absolute bottom-full right-0 mb-1 w-48 p-2 text-[10px] text-white/70 bg-neutral-800 border border-white/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10">
+              Estimate only — charged according to LLM provider
+            </span>
+          </span>
         </span>
       </div>
 
@@ -210,10 +216,17 @@ export function ChatPanel({ agent }: Props) {
           >
             {messages.length === 0 && (
               <div className="flex items-center justify-center h-full">
-                <p className="text-sm text-white/30 text-center">
-                  Say hello to {agent.name}.<br />
-                  <span className="text-xs">Your {tierLabel} is ready to chat.</span>
-                </p>
+                <div className="text-center max-w-xs">
+                  <p className="text-sm text-white/30 mb-3">
+                    Say hello to {agent.name}.<br />
+                    <span className="text-xs">Your {tierLabel} is ready to chat.</span>
+                  </p>
+                  <p className="text-xs text-white/20 leading-relaxed">
+                    {agent.name} will learn more about your style and taste as you converse.
+                    Let {agent.name} know about brands and products that interest you and they
+                    will remember and be more selective on your behalf when shopping.
+                  </p>
+                </div>
               </div>
             )}
             {messages.map((msg, i) => (

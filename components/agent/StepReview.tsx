@@ -113,7 +113,7 @@ export function StepReview({ state, onBack, onComplete, agentId }: Props) {
           {state.budget_ceiling_usdc && (
             <Row label="Budget ceiling">${state.budget_ceiling_usdc} USDC</Row>
           )}
-          <Row label="Aggression">{state.bid_aggression}</Row>
+          <Row label="Bid style">{state.bid_aggression}</Row>
           {state.tier === 'pro' && (
             <Row label="LLM provider">{state.llm_provider}</Row>
           )}

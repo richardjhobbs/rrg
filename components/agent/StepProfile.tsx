@@ -65,7 +65,7 @@ export function StepProfile({ state, update, onNext, onBack }: Props) {
         />
 
         <Select
-          label="Bid aggression"
+          label="Bid style"
           value={state.bid_aggression}
           onChange={(v) =>
             update({
