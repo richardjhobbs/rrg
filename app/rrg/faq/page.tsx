@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import RRGHeader from '@/components/rrg/RRGHeader';
+import RRGFooter from '@/components/rrg/RRGFooter';
 
 export const metadata: Metadata = {
   title: 'FAQ - Real Real Genuine',
@@ -35,16 +37,16 @@ const faqs = [
     a: 'Yes. Submissions can be created digitally, by hand, with design software, or with the help of AI tools. All we ask is that you follow the brief and bring something worth making.',
   },
   {
-    q: 'What is an agent?',
-    a: 'An agent is a personal AI assistant that can shop, evaluate products, and interact with the platform on your behalf. You set the rules and preferences. The agent does the browsing, comparing, and buying. You can create a Basic agent for free or upgrade to a Pro agent that uses AI reasoning to make smarter decisions.',
+    q: 'What is a Personal Shopper?',
+    a: 'A Personal Shopper is a free, rule-based service that works on the preferences you set. It finds, filters, and surfaces products that match your taste. You set the criteria and it handles the browsing so you don\'t have to.',
+  },
+  {
+    q: 'What is a Concierge?',
+    a: 'A Concierge is a credit-based service powered by AI (Claude or DeepSeek). It learns your style and taste over time, understands nuance, and can negotiate on your behalf. You can chat with your Concierge directly and it gets better the longer you work together.',
   },
   {
     q: 'What are Drops?',
-    a: 'Drops are exclusive sealed-bid auctions for limited products. Your agent evaluates each drop against your preferences and bids within your budget. Drops are coming soon.',
-  },
-  {
-    q: 'How does the agent work with brands?',
-    a: 'Agents can discover products, read briefs, make purchases, and even submit designs. Brands do not need to do anything special. The platform\'s open protocol means any agent can interact with any brand\'s storefront automatically.',
+    a: 'Drops are exclusive sealed-bid auctions for limited products. Your Personal Shopper or Concierge evaluates each drop against your preferences and bids within your budget. Drops are coming soon.',
   },
   {
     q: 'How do I become a brand partner?',
@@ -52,7 +54,7 @@ const faqs = [
   },
   {
     q: 'Is there a fee to use the platform?',
-    a: 'No fee to browse, create an account, or set up an agent. The platform takes a percentage of each sale. For low-value digital products, the platform fee is typically around 30%. For real-world physical products, the fee is on a sliding scale and comes down significantly. There are no hidden costs, no subscriptions, and no listing fees.',
+    a: 'No fee to browse, create an account, or set up a Personal Shopper. The platform takes a percentage of each sale. For low-value digital products, the platform fee is typically around 30%. For physical products, the fee is on a sliding scale and comes down significantly. There are no hidden costs, no subscriptions, and no listing fees.',
   },
   {
     q: 'How do I buy something?',
@@ -68,7 +70,7 @@ const faqs = [
   },
   {
     q: 'What is the technology behind this?',
-    a: 'Products are minted as on-chain editions on Base, which is a modern network built on Ethereum. This gives every item verifiable provenance, transparent revenue splits, and permanent ownership records. Agents are registered using an on-chain identity standard called ERC-8004 that builds trust through verifiable reputation. The platform uses an open protocol called MCP (Model Context Protocol) so that AI agents can interact with it directly without needing a human to navigate the website.',
+    a: 'Products are minted as on-chain editions on Base, which is a modern network built on Ethereum. This gives every item verifiable provenance, transparent revenue splits, and permanent ownership records. The platform uses an open protocol called MCP (Model Context Protocol) so that AI services can interact with it directly.',
   },
   {
     q: 'Where does my data go?',
@@ -82,18 +84,22 @@ const faqs = [
 
 export default function FAQPage() {
   return (
-    <div className="px-6 py-12 max-w-4xl mx-auto">
-      <h1 className="text-4xl font-light mb-2">Frequently Asked Questions</h1>
-      <p className="text-white/50 text-sm font-mono mb-12">Everything you need to know about Real Real Genuine</p>
+    <div className="min-h-screen bg-black text-white">
+      <RRGHeader />
+      <main className="px-6 py-12 max-w-4xl mx-auto">
+        <h1 className="text-3xl font-light mb-2">Frequently Asked Questions</h1>
+        <p className="text-white/50 text-sm mb-12">Everything you need to know about Real Real Genuine</p>
 
-      <div className="space-y-8">
-        {faqs.map((faq, i) => (
-          <div key={i} className="border-b border-white/10 pb-8 last:border-0">
-            <h2 className="text-lg font-semibold mb-3">{faq.q}</h2>
-            <p className="text-white/70 leading-relaxed">{faq.a}</p>
-          </div>
-        ))}
-      </div>
+        <div className="space-y-8">
+          {faqs.map((faq, i) => (
+            <div key={i} className="border-b border-white/10 pb-8 last:border-0">
+              <h2 className="text-lg font-semibold mb-3">{faq.q}</h2>
+              <p className="text-white/70 leading-relaxed">{faq.a}</p>
+            </div>
+          ))}
+        </div>
+      </main>
+      <RRGFooter />
     </div>
   );
 }
