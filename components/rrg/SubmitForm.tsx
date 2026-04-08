@@ -42,6 +42,7 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [tcModalOpen, setTcModalOpen] = useState(false);
   const [walletSignupOpen, setWalletSignupOpen] = useState(false);
+  const [emailWalletHint, setEmailWalletHint] = useState<{ wallet: string; source: string; name?: string } | null>(null);
   const thirdwebAccount = useActiveAccount();
 
   // Auto-fill wallet from Thirdweb connection
@@ -51,6 +52,20 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
       setWalletSignupOpen(false);
     }
   }, [thirdwebAccount, form.creator_wallet]);
+
+  // Email-based wallet lookup (for cross-session detection)
+  const checkEmailForWallet = async (email: string) => {
+    if (!email || !email.includes('@') || form.creator_wallet) return;
+    try {
+      const res = await fetch(`/api/rrg/wallet-lookup?email=${encodeURIComponent(email)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.found && data.wallet) {
+          setEmailWalletHint({ wallet: data.wallet, source: data.source, name: data.name });
+        }
+      }
+    } catch {}
+  };
 
   useEffect(() => {
     const url = briefId
@@ -288,7 +303,25 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
           <p className="mt-1.5 text-sm text-white/50">
             35% of each sale is transferred here as USDC on Base
           </p>
-          {!form.creator_wallet && (
+          {/* Email-based wallet hint */}
+          {emailWalletHint && !form.creator_wallet && (
+            <div className="mt-2 p-3 border border-green-500/30 bg-green-500/5 rounded">
+              <p className="text-sm text-green-400 mb-1">
+                Found a wallet linked to your email{emailWalletHint.source === 'agent' ? ' (from your agent)' : ''}{emailWalletHint.name ? ` (${emailWalletHint.name})` : ''}
+              </p>
+              <p className="text-xs font-mono text-white/50 mb-2">
+                {emailWalletHint.wallet.slice(0, 10)}...{emailWalletHint.wallet.slice(-8)}
+              </p>
+              <button
+                type="button"
+                onClick={() => { setForm(prev => ({ ...prev, creator_wallet: emailWalletHint.wallet })); setEmailWalletHint(null); }}
+                className="text-xs bg-green-500 text-black rounded px-3 py-1 font-medium hover:bg-green-400 transition-colors cursor-pointer"
+              >
+                Use this wallet
+              </button>
+            </div>
+          )}
+          {!form.creator_wallet && !emailWalletHint && (
             <div className="mt-3 space-y-2">
               {!walletSignupOpen ? (
                 <>
@@ -335,6 +368,7 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
             required
             value={form.creator_email}
             onChange={(e) => setForm({ ...form, creator_email: e.target.value })}
+            onBlur={(e) => checkEmailForWallet(e.target.value)}
             className="w-full bg-transparent border border-white/20 px-4 py-3 text-base
                        focus:border-white outline-none transition-colors placeholder:text-white/40"
             placeholder="you@example.com"

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { ConnectEmbed, useActiveAccount, useProfiles } from 'thirdweb/react';
 import { base } from 'thirdweb/chains';
 import { inAppWallet, createWallet } from 'thirdweb/wallets';
@@ -27,19 +27,27 @@ function isValidAddress(addr: string): boolean {
   return /^0x[0-9a-fA-F]{40}$/.test(addr);
 }
 
+interface WalletLookup {
+  found: boolean;
+  wallet?: string;
+  source?: 'creator' | 'agent';
+  name?: string;
+}
+
 export function StepRegistration({ state, update, onNext, onBack }: Props) {
   const [walletMode, setWalletMode] = useState<'new' | 'import'>('new');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [existingCreator, setExistingCreator] = useState<boolean>(false);
+  const [emailLookup, setEmailLookup] = useState<WalletLookup | null>(null);
+  const [lookupDismissed, setLookupDismissed] = useState(false);
   const account = useActiveAccount();
   const { data: profiles } = useProfiles({ client: thirdwebClient });
 
-  // Auto-detect existing Thirdweb session on mount (creator may already be logged in)
+  // Auto-detect existing Thirdweb session on mount
   useEffect(() => {
     if (account?.address) {
       update({ wallet_address: account.address, wallet_type: 'embedded' });
 
-      // Try to get email from OAuth profiles
       if (profiles) {
         for (const p of profiles) {
           const details = (p as Record<string, unknown>).details as Record<string, string> | undefined;
@@ -50,13 +58,38 @@ export function StepRegistration({ state, update, onNext, onBack }: Props) {
         }
       }
 
-      // Check if this wallet is already a creator
       fetch(`/api/rrg/creator-check?wallet=${account.address}`)
         .then(r => r.ok ? r.json() : null)
         .then(data => { if (data?.exists) setExistingCreator(true); })
         .catch(() => {});
     }
   }, [account?.address, profiles, state.email, update]);
+
+  // Email-based wallet lookup (cross-session detection)
+  const checkEmailWallet = useCallback(async (email: string) => {
+    if (!email || !email.includes('@')) return;
+    setLookupDismissed(false);
+    try {
+      const res = await fetch(`/api/rrg/wallet-lookup?email=${encodeURIComponent(email)}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.found && data.source === 'creator') {
+          setEmailLookup(data);
+        } else {
+          setEmailLookup(null);
+        }
+      }
+    } catch {
+      setEmailLookup(null);
+    }
+  }, []);
+
+  const useExistingWallet = () => {
+    if (emailLookup?.wallet) {
+      update({ wallet_address: emailLookup.wallet, wallet_type: 'imported' });
+      setWalletMode('import');
+    }
+  };
 
   const validate = () => {
     const errs: Record<string, string> = {};
@@ -81,8 +114,7 @@ export function StepRegistration({ state, update, onNext, onBack }: Props) {
     onNext();
   };
 
-  // If wallet already connected (from creator session), show simplified view
-  const walletAlreadyConnected = !!account?.address && state.wallet_address;
+  const walletAlreadyConnected = !!account?.address && !!state.wallet_address;
 
   return (
     <div>
@@ -92,14 +124,44 @@ export function StepRegistration({ state, update, onNext, onBack }: Props) {
       </p>
 
       <div className="space-y-4 mb-8">
-        <Input
-          label="Email"
-          type="email"
-          placeholder="you@example.com"
-          value={state.email}
-          onChange={(e) => update({ email: e.target.value })}
-          error={errors.email}
-        />
+        <div>
+          <Input
+            label="Email"
+            type="email"
+            placeholder="you@example.com"
+            value={state.email}
+            onChange={(e) => update({ email: e.target.value })}
+            onBlur={(e) => checkEmailWallet(e.target.value)}
+            error={errors.email}
+          />
+          {/* Email-based wallet detection */}
+          {emailLookup?.found && !lookupDismissed && !walletAlreadyConnected && (
+            <div className="mt-2 p-3 rounded-lg border border-green-500/30 bg-green-500/5">
+              <p className="text-sm text-green-400 mb-1">
+                We found a creator account with this email{emailLookup.name ? ` (${emailLookup.name})` : ''}.
+              </p>
+              <p className="text-xs text-white/50 font-mono mb-2">
+                {emailLookup.wallet?.slice(0, 10)}...{emailLookup.wallet?.slice(-8)}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={useExistingWallet}
+                  className="text-xs bg-green-500 text-black rounded px-3 py-1 font-medium hover:bg-green-400 transition-colors cursor-pointer"
+                >
+                  Use this wallet
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLookupDismissed(true)}
+                  className="text-xs text-white/40 hover:text-white/60 transition-colors cursor-pointer"
+                >
+                  Use a different wallet
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         <Input
           label="Agent name"
@@ -111,7 +173,6 @@ export function StepRegistration({ state, update, onNext, onBack }: Props) {
 
         {/* Wallet section */}
         {walletAlreadyConnected ? (
-          // Already connected (from creator login or previous session)
           <div>
             <label className="block text-sm font-medium text-neutral-300 mb-2">Wallet</label>
             <div className="p-3 rounded-lg border border-green-500/30 bg-green-500/5">
@@ -121,9 +182,7 @@ export function StepRegistration({ state, update, onNext, onBack }: Props) {
                   {existingCreator ? 'Connected (same as your creator wallet)' : 'Wallet connected'}
                 </span>
               </div>
-              <p className="text-xs font-mono text-white/50 mt-1">
-                {state.wallet_address}
-              </p>
+              <p className="text-xs font-mono text-white/50 mt-1">{state.wallet_address}</p>
             </div>
             {existingCreator && (
               <p className="mt-1.5 text-xs text-white/40">
@@ -132,14 +191,13 @@ export function StepRegistration({ state, update, onNext, onBack }: Props) {
             )}
           </div>
         ) : (
-          // Not connected yet - show wallet setup options
           <>
             <div>
               <label className="block text-sm font-medium text-neutral-300 mb-2">Wallet setup</label>
               <div className="flex gap-3">
                 <button
                   type="button"
-                  onClick={() => { setWalletMode('new'); update({ wallet_address: '' }); }}
+                  onClick={() => { setWalletMode('new'); if (!emailLookup?.wallet) update({ wallet_address: '' }); }}
                   className={`flex-1 px-4 py-3 rounded-lg border text-sm text-left transition-colors cursor-pointer ${
                     walletMode === 'new'
                       ? 'border-green-500/60 bg-neutral-900'
@@ -151,7 +209,7 @@ export function StepRegistration({ state, update, onNext, onBack }: Props) {
                 </button>
                 <button
                   type="button"
-                  onClick={() => { setWalletMode('import'); update({ wallet_address: '' }); }}
+                  onClick={() => { setWalletMode('import'); if (!emailLookup?.wallet) update({ wallet_address: '' }); }}
                   className={`flex-1 px-4 py-3 rounded-lg border text-sm text-left transition-colors cursor-pointer ${
                     walletMode === 'import'
                       ? 'border-green-500/60 bg-neutral-900'
