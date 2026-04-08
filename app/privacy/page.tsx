@@ -33,15 +33,15 @@ export default function PrivacyPage() {
           {sections.map((s) => (
             <div key={s.num} className="border-b border-white/5 pb-8 last:border-0">
               <p className="text-xs text-white/20 mb-1">{s.num}</p>
-              <h2 className="text-sm font-semibold text-white/80 mb-2">{s.title}</h2>
-              <p className="text-sm text-white/45 leading-relaxed">{s.content}</p>
+              <h2 className="text-base font-semibold text-white/80 mb-2">{s.title}</h2>
+              <p className="text-base text-white/45 leading-relaxed">{s.content}</p>
               {s.list && (
-                <ul className="mt-2 space-y-1 pl-5 list-disc text-sm text-white/45">
+                <ul className="mt-2 space-y-1 pl-5 list-disc text-base text-white/45">
                   {s.list.map((item, i) => <li key={i}>{item}</li>)}
                 </ul>
               )}
               {s.after && (
-                <p className="text-sm text-white/45 mt-2">{s.after}</p>
+                <p className="text-base text-white/45 mt-2">{s.after}</p>
               )}
             </div>
           ))}

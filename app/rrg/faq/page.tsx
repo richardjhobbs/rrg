@@ -1,6 +1,4 @@
 import type { Metadata } from 'next';
-import RRGHeader from '@/components/rrg/RRGHeader';
-import RRGFooter from '@/components/rrg/RRGFooter';
 
 export const metadata: Metadata = {
   title: 'FAQ - Real Real Genuine',
@@ -84,9 +82,7 @@ const faqs = [
 
 export default function FAQPage() {
   return (
-    <div className="min-h-screen bg-black text-white">
-      <RRGHeader />
-      <main className="px-6 py-12 max-w-4xl mx-auto">
+    <div className="px-6 py-12 max-w-4xl mx-auto">
         <h1 className="text-3xl font-light mb-2">Frequently Asked Questions</h1>
         <p className="text-white/50 text-sm mb-12">Everything you need to know about Real Real Genuine</p>
 
@@ -98,8 +94,6 @@ export default function FAQPage() {
             </div>
           ))}
         </div>
-      </main>
-      <RRGFooter />
     </div>
   );
 }
