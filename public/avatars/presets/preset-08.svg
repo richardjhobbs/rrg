@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" width="256" height="256">
+  <rect width="256" height="256" fill="#d4638a"/>
+  <g fill="#e8a0b8" opacity="0.6">
+    <polygon points="0,0 40,0 20,35"/>
+    <polygon points="40,0 80,0 60,35"/>
+    <polygon points="80,0 120,0 100,35"/>
+    <polygon points="120,0 160,0 140,35"/>
+    <polygon points="160,0 200,0 180,35"/>
+    <polygon points="200,0 240,0 220,35"/>
+    <polygon points="20,35 60,35 40,70"/>
+    <polygon points="60,35 100,35 80,70"/>
+    <polygon points="100,35 140,35 120,70"/>
+    <polygon points="140,35 180,35 160,70"/>
+    <polygon points="180,35 220,35 200,70"/>
+    <polygon points="220,35 256,35 238,70"/>
+    <polygon points="0,70 40,70 20,105"/>
+    <polygon points="40,70 80,70 60,105"/>
+    <polygon points="80,70 120,70 100,105"/>
+    <polygon points="120,70 160,70 140,105"/>
+    <polygon points="160,70 200,70 180,105"/>
+    <polygon points="200,70 240,70 220,105"/>
+    <polygon points="20,105 60,105 40,140"/>
+    <polygon points="60,105 100,105 80,140"/>
+    <polygon points="100,105 140,105 120,140"/>
+    <polygon points="140,105 180,105 160,140"/>
+    <polygon points="180,105 220,105 200,140"/>
+    <polygon points="220,105 256,105 238,140"/>
+    <polygon points="0,140 40,140 20,175"/>
+    <polygon points="40,140 80,140 60,175"/>
+    <polygon points="80,140 120,140 100,175"/>
+    <polygon points="120,140 160,140 140,175"/>
+    <polygon points="160,140 200,140 180,175"/>
+    <polygon points="200,140 240,140 220,175"/>
+    <polygon points="20,175 60,175 40,210"/>
+    <polygon points="60,175 100,175 80,210"/>
+    <polygon points="100,175 140,175 120,210"/>
+    <polygon points="140,175 180,175 160,210"/>
+    <polygon points="180,175 220,175 200,210"/>
+    <polygon points="0,210 40,210 20,245"/>
+    <polygon points="40,210 80,210 60,245"/>
+    <polygon points="80,210 120,210 100,245"/>
+    <polygon points="120,210 160,210 140,245"/>
+    <polygon points="160,210 200,210 180,245"/>
+    <polygon points="200,210 240,210 220,245"/>
+  </g>
+</svg>

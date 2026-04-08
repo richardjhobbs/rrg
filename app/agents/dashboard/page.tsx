@@ -11,13 +11,17 @@ import { Input } from '@/components/ui/Input';
 import { Select, TagSelect } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { PersonaCard } from '@/components/agent/PersonaCard';
+import { AvatarPicker } from '@/components/agent/AvatarPicker';
 import { STYLE_TAGS, TIER_DISPLAY } from '@/lib/agent/types';
+import { PRESET_AVATARS } from '@/lib/agent/avatars';
 import type { Agent, ActivityLogEntry, AgentEvaluation } from '@/lib/agent/types';
 
 export default function DashboardPage() {
   const router = useRouter();
   const [agent, setAgent] = useState<Agent | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
   const [activity, setActivity] = useState<ActivityLogEntry[]>([]);
   const [recommendations, setRecommendations] = useState<AgentEvaluation[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +49,15 @@ export default function DashboardPage() {
 
       const actRes = await fetch(`/api/agent/${a.id}/activity`);
       if (actRes.ok) { const { activity: acts } = await actRes.json(); setActivity(acts); }
+
+      // Resolve avatar URL
+      if (a.avatar_source === 'preset' && a.avatar_path) {
+        const preset = PRESET_AVATARS.find(p => p.id === a.avatar_path);
+        if (preset) setAvatarUrl(preset.src);
+      } else if ((a.avatar_source === 'uploaded' || a.avatar_source === 'generated') && a.avatar_path) {
+        // Signed URL was returned when avatar was set; for now show initials until we add a resolve endpoint
+        setAvatarUrl(null);
+      }
 
       if (a.tier === 'pro') {
         const recRes = await fetch(`/api/agent/${a.id}/recommendations`);
@@ -118,7 +131,7 @@ export default function DashboardPage() {
       <div className="min-h-screen bg-black text-white">
         <RRGHeader active="agent" />
         <main className="px-6 py-12 max-w-4xl mx-auto">
-          <h1 className="text-xl font-semibold mb-4">No agent found</h1>
+          <h1 className="text-xl font-semibold mb-4">No service found</h1>
           <p className="text-white/60 mb-6">Get your own Personal Shopper or Concierge.</p>
           <Button onClick={() => router.push('/agents/create')}>Get started</Button>
         </main>
@@ -136,26 +149,21 @@ export default function DashboardPage() {
         {/* Agent header */}
         <div className="flex items-start justify-between mb-8">
           <div className="flex items-start gap-4">
-            {/* Avatar */}
-            <div className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-light flex-shrink-0 bg-white/10 text-white/60">
-              {agent.avatar_source !== 'none' && agent.avatar_path ? (
-                agent.avatar_source === 'preset' ? (
-                  <img
-                    src={`/avatars/presets/${agent.avatar_path}.webp`}
-                    alt={agent.name}
-                    className="w-full h-full rounded-full object-cover"
-                  />
-                ) : (
-                  <img
-                    src={agent.avatar_path}
-                    alt={agent.name}
-                    className="w-full h-full rounded-full object-cover"
-                  />
-                )
+            {/* Avatar — click to change */}
+            <button
+              onClick={() => setShowAvatarPicker(true)}
+              className="w-14 h-14 rounded-full flex items-center justify-center text-xl font-light flex-shrink-0 bg-white/10 text-white/60 hover:ring-2 hover:ring-green-500/50 transition-all cursor-pointer overflow-hidden group relative"
+              title="Change avatar"
+            >
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={agent.name} className="w-full h-full object-cover" />
               ) : (
                 agent.name.charAt(0).toUpperCase()
               )}
-            </div>
+              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <span className="text-xs text-white/80">Edit</span>
+              </div>
+            </button>
             <div>
               <div className="flex items-center gap-3 mb-2">
                 <h1 className="text-3xl font-light">{agent.name}</h1>
@@ -349,6 +357,24 @@ export default function DashboardPage() {
           </Card>
         </div>
       </main>
+
+      {/* Avatar picker modal */}
+      {showAvatarPicker && agent && (
+        <AvatarPicker
+          agent={agent}
+          onAvatarChange={(data) => {
+            setAgent(prev => prev ? {
+              ...prev,
+              avatar_path: data.avatar_path,
+              avatar_source: data.avatar_source as Agent['avatar_source'],
+            } : prev);
+            setAvatarUrl(data.avatar_url || null);
+            setShowAvatarPicker(false);
+          }}
+          onClose={() => setShowAvatarPicker(false)}
+        />
+      )}
+
       <RRGFooter />
     </div>
   );

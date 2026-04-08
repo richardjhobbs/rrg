@@ -9,7 +9,7 @@ export default function RRGHeader({ active }: { active?: 'agent' | 'store' | 'dr
       </Link>
       <nav className="flex gap-6 items-center text-base text-white/80">
         <Link href="/agents" className={active === 'agent' ? 'text-green-400' : 'hover:text-green-400 transition-colors'}>
-          Agent
+          Concierge
         </Link>
         <Link href="/rrg" className={active === 'store' ? 'text-green-400' : 'hover:text-green-400 transition-colors'}>
           Store

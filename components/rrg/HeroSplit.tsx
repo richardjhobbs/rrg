@@ -65,11 +65,11 @@ export default function HeroSplit({ openBriefs }: Props) {
           <div>
             <div className="flex items-center gap-2 mb-3">
               <span className="w-2 h-2 rounded-full bg-green-500" />
-              <h2 className="text-sm font-mono uppercase tracking-wider text-white/60">Agent Launch</h2>
+              <h2 className="text-sm font-mono uppercase tracking-wider text-white/60">Personal Shopper</h2>
             </div>
             <p className="text-white/80 text-sm leading-relaxed mb-4">
-              Create your personal shopping agent. Set your preferences, connect a wallet,
-              and let your agent evaluate drops, bid on your behalf, and build reputation on-chain.
+              Get your own Personal Shopper or Concierge. Set your preferences, connect a wallet,
+              and let them find, evaluate, and bid on drops on your behalf.
             </p>
             <button
               onClick={() => setAgentVideoOpen(true)}
@@ -83,7 +83,7 @@ export default function HeroSplit({ openBriefs }: Props) {
             href="/agents"
             className="inline-flex items-center justify-center bg-green-500 text-black rounded-full px-6 py-2.5 font-medium text-sm hover:bg-green-400 transition-colors"
           >
-            Create Agent
+            Get Started
           </Link>
         </div>
 

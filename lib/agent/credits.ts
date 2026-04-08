@@ -64,6 +64,38 @@ export async function deductCredits(
   return newBalance;
 }
 
+/** Deduct a flat USDC amount (for non-LLM costs like avatar generation). Returns new balance. */
+export async function deductFlatCredits(
+  agentId: string,
+  costUsdc: number,
+  description: string
+): Promise<number> {
+  const { data: agent } = await db
+    .from('agent_agents')
+    .select('credit_balance_usdc')
+    .eq('id', agentId)
+    .single();
+
+  if (!agent) throw new Error('Agent not found');
+
+  const newBalance = Math.max(0, agent.credit_balance_usdc - costUsdc);
+
+  await db
+    .from('agent_agents')
+    .update({ credit_balance_usdc: newBalance })
+    .eq('id', agentId);
+
+  await db.from('agent_credit_transactions').insert({
+    agent_id: agentId,
+    type: 'deduction',
+    amount_usdc: -costUsdc,
+    balance_after: newBalance,
+    description,
+  });
+
+  return newBalance;
+}
+
 /** Top up agent credits. Returns new balance. */
 export async function topUpCredits(
   agentId: string,
