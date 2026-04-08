@@ -1,8 +1,8 @@
 /**
- * LLM provider abstraction — unified interface for Claude, OpenAI, and Gemini.
+ * LLM provider abstraction — Claude (Anthropic) and DeepSeek.
  *
- * Used by Pro agents to evaluate drops with reasoning.
- * Platform provides the API keys — owner pays per use via credits.
+ * Used by Concierge agents for chat and drop evaluation.
+ * Platform provides the API keys — owner pays per use via Concierge Credits.
  */
 
 import type { LlmProvider, EvalDecision, Agent } from './types';
@@ -25,14 +25,8 @@ export async function evaluateWithLlm(
   switch (provider) {
     case 'claude':
       return evaluateWithClaude(systemPrompt, dropDescription);
-    case 'openai':
-      return evaluateWithOpenAI(systemPrompt, dropDescription);
-    case 'gemini':
-      return evaluateWithGemini(systemPrompt, dropDescription);
     case 'deepseek':
       return evaluateWithDeepSeek(systemPrompt, dropDescription);
-    case 'qwen':
-      return evaluateWithQwen(systemPrompt, dropDescription);
   }
 }
 
@@ -56,54 +50,6 @@ async function evaluateWithClaude(
     response.content[0].type === 'text' ? response.content[0].text : '';
   const tokensUsed =
     (response.usage?.input_tokens ?? 0) + (response.usage?.output_tokens ?? 0);
-
-  return parseEvalResponse(text, tokensUsed);
-}
-
-// ── OpenAI ────────────────────────────────────────────────────────────
-
-async function evaluateWithOpenAI(
-  systemPrompt: string,
-  dropDescription: string
-): Promise<LlmEvalResult> {
-  const OpenAI = (await import('openai')).default;
-  const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-
-  const response = await client.chat.completions.create({
-    model: 'gpt-4o',
-    max_tokens: 1024,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: dropDescription },
-    ],
-  });
-
-  const text = response.choices[0]?.message?.content ?? '';
-  const tokensUsed =
-    (response.usage?.prompt_tokens ?? 0) +
-    (response.usage?.completion_tokens ?? 0);
-
-  return parseEvalResponse(text, tokensUsed);
-}
-
-// ── Gemini ────────────────────────────────────────────────────────────
-
-async function evaluateWithGemini(
-  systemPrompt: string,
-  dropDescription: string
-): Promise<LlmEvalResult> {
-  const { GoogleGenerativeAI } = await import('@google/generative-ai');
-  const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY ?? '');
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash',
-    systemInstruction: systemPrompt,
-  });
-
-  const result = await model.generateContent(dropDescription);
-  const text = result.response.text();
-  const usage = result.response.usageMetadata;
-  const tokensUsed =
-    (usage?.promptTokenCount ?? 0) + (usage?.candidatesTokenCount ?? 0);
 
   return parseEvalResponse(text, tokensUsed);
 }
@@ -137,35 +83,6 @@ async function evaluateWithDeepSeek(
   return parseEvalResponse(text, tokensUsed);
 }
 
-// ── Qwen (OpenAI-compatible via DashScope) ──────────────────────────
-
-async function evaluateWithQwen(
-  systemPrompt: string,
-  dropDescription: string
-): Promise<LlmEvalResult> {
-  const OpenAI = (await import('openai')).default;
-  const client = new OpenAI({
-    apiKey: process.env.DASHSCOPE_API_KEY,
-    baseURL: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
-  });
-
-  const response = await client.chat.completions.create({
-    model: 'qwen-plus',
-    max_tokens: 1024,
-    messages: [
-      { role: 'system', content: systemPrompt },
-      { role: 'user', content: dropDescription },
-    ],
-  });
-
-  const text = response.choices[0]?.message?.content ?? '';
-  const tokensUsed =
-    (response.usage?.prompt_tokens ?? 0) +
-    (response.usage?.completion_tokens ?? 0);
-
-  return parseEvalResponse(text, tokensUsed);
-}
-
 // ── Response parser ──────────────────────────────────────────────────
 
 function parseEvalResponse(text: string, tokensUsed: number): LlmEvalResult {
@@ -175,7 +92,6 @@ function parseEvalResponse(text: string, tokensUsed: number): LlmEvalResult {
   if (upper.includes('BID')) decision = 'bid';
   else if (upper.includes('RECOMMEND')) decision = 'recommend';
 
-  // Try to extract a bid amount
   let suggestedBidUsdc: number | null = null;
   const bidMatch = text.match(
     /(?:bid|amount|suggest).*?\$?\s*(\d+(?:\.\d+)?)\s*(?:usdc|usd|\$)?/i
@@ -192,7 +108,7 @@ function parseEvalResponse(text: string, tokensUsed: number): LlmEvalResult {
   };
 }
 
-// ── Prompt builder ───────────────────────────────────────────────────
+// ── Prompt builder (evaluation) ─────────────────────────────────────
 
 export function buildEvalPrompt(agent: {
   name: string;
@@ -208,7 +124,6 @@ export function buildEvalPrompt(agent: {
 }, walletBalance: number, activeBidTotal: number): string {
   const available = (agent.budget_ceiling_usdc ?? walletBalance) - activeBidTotal;
 
-  // Build persona block if any persona fields are set
   const personaParts: string[] = [];
   if (agent.persona_bio) personaParts.push(`Bio: ${agent.persona_bio}`);
   if (agent.persona_voice) personaParts.push(`Voice/tone: ${agent.persona_voice}`);
@@ -303,14 +218,8 @@ export async function streamChatResponse(
   switch (provider) {
     case 'claude':
       return streamClaude(systemPrompt, messages);
-    case 'openai':
-      return streamOpenAI(systemPrompt, messages, process.env.OPENAI_API_KEY!, 'https://api.openai.com/v1', 'gpt-4o');
-    case 'gemini':
-      return streamGemini(systemPrompt, messages);
     case 'deepseek':
-      return streamOpenAI(systemPrompt, messages, process.env.DEEPSEEK_API_KEY!, 'https://api.deepseek.com', 'deepseek-chat');
-    case 'qwen':
-      return streamOpenAI(systemPrompt, messages, process.env.DASHSCOPE_API_KEY!, 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1', 'qwen-plus');
+      return streamDeepSeek(systemPrompt, messages);
   }
 }
 
@@ -354,20 +263,20 @@ async function streamClaude(
   return { stream, getTokensUsed: () => tokensUsed };
 }
 
-async function streamOpenAI(
+async function streamDeepSeek(
   systemPrompt: string,
-  messages: ChatMessage[],
-  apiKey: string,
-  baseURL: string,
-  model: string
+  messages: ChatMessage[]
 ): Promise<{ stream: ReadableStream<string>; getTokensUsed: () => number }> {
   const OpenAI = (await import('openai')).default;
-  const client = new OpenAI({ apiKey, baseURL });
+  const client = new OpenAI({
+    apiKey: process.env.DEEPSEEK_API_KEY,
+    baseURL: 'https://api.deepseek.com',
+  });
 
   let tokensUsed = 0;
 
   const response = await client.chat.completions.create({
-    model,
+    model: 'deepseek-chat',
     max_tokens: 1024,
     stream: true,
     stream_options: { include_usage: true },
@@ -387,50 +296,6 @@ async function streamOpenAI(
             tokensUsed = (chunk.usage.prompt_tokens ?? 0) + (chunk.usage.completion_tokens ?? 0);
           }
         }
-        controller.close();
-      } catch (err) {
-        controller.error(err);
-      }
-    },
-  });
-
-  return { stream, getTokensUsed: () => tokensUsed };
-}
-
-async function streamGemini(
-  systemPrompt: string,
-  messages: ChatMessage[]
-): Promise<{ stream: ReadableStream<string>; getTokensUsed: () => number }> {
-  const { GoogleGenerativeAI } = await import('@google/generative-ai');
-  const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY ?? '');
-  const model = genAI.getGenerativeModel({
-    model: 'gemini-2.0-flash',
-    systemInstruction: systemPrompt,
-  });
-
-  let tokensUsed = 0;
-
-  // Build Gemini chat history (all except last user message)
-  const history = messages.slice(0, -1).map(m => ({
-    role: m.role === 'assistant' ? 'model' as const : 'user' as const,
-    parts: [{ text: m.content }],
-  }));
-
-  const lastMessage = messages[messages.length - 1]?.content ?? '';
-
-  const chat = model.startChat({ history });
-  const result = await chat.sendMessageStream(lastMessage);
-
-  const stream = new ReadableStream<string>({
-    async start(controller) {
-      try {
-        for await (const chunk of result.stream) {
-          const text = chunk.text();
-          if (text) controller.enqueue(text);
-        }
-        const response = await result.response;
-        const usage = response.usageMetadata;
-        tokensUsed = (usage?.promptTokenCount ?? 0) + (usage?.candidatesTokenCount ?? 0);
         controller.close();
       } catch (err) {
         controller.error(err);

@@ -12,6 +12,8 @@ import { Select, TagSelect } from '@/components/ui/Select';
 import { Textarea } from '@/components/ui/Textarea';
 import { PersonaCard } from '@/components/agent/PersonaCard';
 import { AvatarPicker } from '@/components/agent/AvatarPicker';
+import { TopUpModal } from '@/components/agent/TopUpModal';
+import { LlmStatusCard } from '@/components/agent/LlmStatusCard';
 import { ChatPanel } from '@/components/agent/ChatPanel';
 import { STYLE_TAGS, TIER_DISPLAY, LLM_PROVIDER_OPTIONS } from '@/lib/agent/types';
 import { PRESET_AVATARS } from '@/lib/agent/avatars';
@@ -303,6 +305,11 @@ export default function DashboardPage() {
             </Card>
           )}
 
+          {/* LLM Provider Status (Concierge only) */}
+          {agent.tier === 'pro' && (
+            <LlmStatusCard agent={agent} />
+          )}
+
           {/* Recommendations (Concierge only) */}
           {agent.tier === 'pro' && recommendations.length > 0 && (
             <Card className="md:col-span-2">
@@ -360,39 +367,14 @@ export default function DashboardPage() {
 
       {/* Top up credits modal */}
       {showTopUp && agent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
-          <div className="bg-neutral-900 border border-white/10 rounded-xl w-full max-w-sm mx-4 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-base font-semibold">Top up Concierge Credits</h3>
-              <button onClick={() => setShowTopUp(false)} className="text-white/50 hover:text-white cursor-pointer">✕</button>
-            </div>
-            <div className="space-y-4 text-sm">
-              <div>
-                <div className="text-white/40 mb-1">Current balance</div>
-                <div className="text-2xl font-light text-green-400">${agent.credit_balance_usdc.toFixed(2)}</div>
-              </div>
-              <div className="border-t border-white/10 pt-4 space-y-3">
-                <p className="text-white/70">
-                  Concierge Credits are used for chat conversations and drop evaluations.
-                  Credits are charged based on actual usage with your chosen LLM provider.
-                </p>
-                <div className="bg-white/5 border border-white/10 rounded-lg p-3 space-y-1">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-white/50">Claude (Anthropic)</span>
-                    <span className="text-white/70">~$0.006 per message</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-white/50">DeepSeek</span>
-                    <span className="text-white/70">~$0.001 per message</span>
-                  </div>
-                </div>
-              </div>
-              <p className="text-xs text-white/40">
-                Card payments coming soon. Contact us at contact@getvia.xyz to add credits manually.
-              </p>
-            </div>
-          </div>
-        </div>
+        <TopUpModal
+          agent={agent}
+          onClose={() => setShowTopUp(false)}
+          onCredited={(newBalance) => {
+            setAgent(prev => prev ? { ...prev, credit_balance_usdc: newBalance } : prev);
+            setShowTopUp(false);
+          }}
+        />
       )}
 
       {/* Avatar picker modal */}

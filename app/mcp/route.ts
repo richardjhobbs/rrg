@@ -97,7 +97,12 @@ function createRRGServer() {
         '$0.50 in purchase credits (5 × $0.10) on any brand drop, plus priority access to Phase 2.',
         'Limited to 500 passes. This is the fastest way to get started on the platform.',
         '',
-        '### 7. CONNECT — Join the RRG Agent Community',
+        '### 7. CONCIERGE — Create a Shopping Agent',
+        'Create your own Personal Shopper (free, rule-based) or Concierge (credit-based, LLM-powered) using `create_concierge`.',
+        'Your Concierge learns your style, evaluates drops, and bids on your behalf. Top up credits by sending USDC to the platform wallet',
+        'and verifying with `verify_credit_topup`. Check status with `get_concierge_status`.',
+        '',
+        '### 8. CONNECT — Join the RRG Agent Community',
         'Use `join_rrg_discord` to get the invite link to the RRG Discord server.',
         'The Discord is the hub for agent-to-agent networking, drop notifications, design feedback, and commerce alerts.',
         '',
@@ -2080,6 +2085,211 @@ function createRRGServer() {
 
       return {
         content: [{ type: 'text' as const, text: JSON.stringify(profile, null, 2) }],
+      };
+    }
+  );
+
+  // ── Concierge / Personal Shopper Tools ───────────────────────────────
+
+  server.tool(
+    'create_concierge',
+    '[CONCIERGE] Create a Personal Shopper (free, rule-based) or Concierge (credit-based, LLM-powered) on RRG. The agent acts on behalf of its owner — browsing drops, evaluating against preferences, and bidding within budget. Returns the agent ID and session details. The created agent can be managed via the dashboard at realrealgenuine.com/agents/dashboard.',
+    {
+      email: z.string().email().describe('Owner email address'),
+      name: z.string().min(1).describe('Name for the agent (e.g. "StyleHunter", "LuxFinder")'),
+      tier: z.enum(['basic', 'pro']).default('basic').describe('"basic" = Personal Shopper (free, rule-based). "pro" = Concierge (credit-based, LLM-powered, learns over time).'),
+      wallet_address: z.string().regex(/^0x[a-fA-F0-9]{40}$/).describe('EVM wallet address for the agent (receives purchases, holds USDC)'),
+      style_tags: z.array(z.string()).optional().describe('Fashion style preferences: streetwear, luxury, vintage, sneakers, etc.'),
+      free_instructions: z.string().optional().describe('Natural language instructions for what the agent should look for'),
+      budget_ceiling_usdc: z.number().optional().describe('Maximum USDC per transaction'),
+      bid_aggression: z.enum(['conservative', 'balanced', 'aggressive']).default('balanced').describe('Bid style: conservative (reserve price), balanced (midpoint), aggressive (ceiling)'),
+      llm_provider: z.enum(['claude', 'deepseek']).default('claude').describe('LLM provider for Concierge tier. Claude (Anthropic) or DeepSeek.'),
+      persona_bio: z.string().optional().describe('Agent personality description'),
+      persona_voice: z.string().optional().describe('Communication tone: formal, casual, witty, technical, streetwise'),
+    },
+    async (params) => {
+      const { parseInstructions } = await import('@/lib/agent/rules');
+
+      // Check wallet not already registered
+      const { data: existing } = await db
+        .from('agent_agents')
+        .select('id')
+        .eq('wallet_address', params.wallet_address.toLowerCase())
+        .single();
+
+      if (existing) {
+        return { isError: true, content: [{ type: 'text', text: 'This wallet is already registered to an agent. Use get_concierge_status to check its status.' }] };
+      }
+
+      const parsed_rules = parseInstructions(params.free_instructions ?? null);
+
+      const { data: agent, error } = await db
+        .from('agent_agents')
+        .insert({
+          email: params.email.toLowerCase().trim(),
+          name: params.name.trim(),
+          tier: params.tier,
+          style_tags: params.style_tags ?? [],
+          free_instructions: params.free_instructions ?? null,
+          parsed_rules,
+          budget_ceiling_usdc: params.budget_ceiling_usdc ?? null,
+          bid_aggression: params.bid_aggression,
+          wallet_address: params.wallet_address.toLowerCase(),
+          wallet_type: 'imported',
+          llm_provider: params.llm_provider,
+          credit_balance_usdc: 0,
+          status: 'active',
+          persona_bio: params.persona_bio ?? null,
+          persona_voice: params.persona_voice ?? null,
+        })
+        .select('id, name, tier, wallet_address')
+        .single();
+
+      if (error || !agent) {
+        return { isError: true, content: [{ type: 'text', text: `Failed to create agent: ${error?.message ?? 'unknown error'}` }] };
+      }
+
+      await db.from('agent_activity_log').insert({
+        agent_id: agent.id,
+        action: 'agent_created',
+        details: { tier: params.tier, wallet_type: 'imported', source: 'mcp' },
+      });
+
+      const tierLabel = params.tier === 'pro' ? 'Concierge' : 'Personal Shopper';
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify({
+          success: true,
+          agent_id: agent.id,
+          name: agent.name,
+          tier: params.tier,
+          tier_label: tierLabel,
+          wallet: agent.wallet_address,
+          dashboard: 'https://realrealgenuine.com/agents/dashboard',
+          next_steps: params.tier === 'pro'
+            ? 'Concierge created. Top up credits by sending USDC on Base to the platform wallet (0xbfd71eA27FFc99747dA2873372f84346d9A8b7ed), then call verify_credit_topup with the tx hash.'
+            : 'Personal Shopper created and active. It will evaluate drops against your configured preferences.',
+        }, null, 2) }],
+      };
+    }
+  );
+
+  server.tool(
+    'verify_credit_topup',
+    '[CONCIERGE] Verify a USDC transfer to the platform wallet and credit the equivalent USD amount to a Concierge. Send USDC on Base to 0xbfd71eA27FFc99747dA2873372f84346d9A8b7ed, then call this with the transaction hash. 1 USDC = $1.00 in Concierge Credits.',
+    {
+      agent_id: z.string().uuid().describe('The agent ID returned by create_concierge'),
+      tx_hash: z.string().regex(/^0x[a-fA-F0-9]{64}$/).describe('Transaction hash of the USDC transfer on Base'),
+    },
+    async ({ agent_id, tx_hash }) => {
+      try {
+        const { topUpCredits } = await import('@/lib/agent/credits');
+        const { ethers } = await import('ethers');
+
+        const USDC_ADDR = '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913';
+        const PLATFORM = (process.env.NEXT_PUBLIC_PLATFORM_WALLET ?? '').toLowerCase();
+        const RPC = process.env.NEXT_PUBLIC_BASE_RPC_URL || 'https://mainnet.base.org';
+
+        // Check not already credited
+        const { data: existing } = await db.from('agent_credit_transactions').select('id').eq('tx_hash', tx_hash).single();
+        if (existing) {
+          return { isError: true, content: [{ type: 'text', text: 'This transaction has already been credited.' }] };
+        }
+
+        const { data: agent } = await db.from('agent_agents').select('id, wallet_address').eq('id', agent_id).single();
+        if (!agent) {
+          return { isError: true, content: [{ type: 'text', text: 'Agent not found.' }] };
+        }
+
+        const provider = new ethers.JsonRpcProvider(RPC);
+        const receipt = await provider.getTransactionReceipt(tx_hash);
+        if (!receipt || receipt.status !== 1) {
+          return { isError: true, content: [{ type: 'text', text: 'Transaction not confirmed or failed.' }] };
+        }
+
+        const transferTopic = ethers.id('Transfer(address,address,uint256)');
+        let amountRaw: bigint | null = null;
+
+        for (const log of receipt.logs) {
+          if (log.address.toLowerCase() === USDC_ADDR.toLowerCase() && log.topics[0] === transferTopic) {
+            const from = '0x' + log.topics[1].slice(26);
+            const to = '0x' + log.topics[2].slice(26);
+            if (from.toLowerCase() === agent.wallet_address.toLowerCase() && to.toLowerCase() === PLATFORM) {
+              amountRaw = BigInt(log.data);
+              break;
+            }
+          }
+        }
+
+        if (amountRaw === null) {
+          return { isError: true, content: [{ type: 'text', text: 'No USDC transfer found from this agent wallet to the platform wallet in this transaction.' }] };
+        }
+
+        const amountUsd = Number(amountRaw) / 1_000_000;
+        const newBalance = await topUpCredits(agent_id, amountUsd, tx_hash);
+
+        return {
+          content: [{ type: 'text', text: JSON.stringify({
+            success: true,
+            credited_usd: amountUsd,
+            new_balance_usd: newBalance,
+            tx_hash,
+          }, null, 2) }],
+        };
+      } catch (err) {
+        return { isError: true, content: [{ type: 'text', text: `Verification failed: ${err instanceof Error ? err.message : 'unknown error'}` }] };
+      }
+    }
+  );
+
+  server.tool(
+    'get_concierge_status',
+    '[CONCIERGE] Check the status of a Personal Shopper or Concierge — credit balance, preferences, LLM provider, and estimated operations remaining.',
+    {
+      agent_id: z.string().uuid().optional().describe('Agent ID. If omitted, looks up by wallet_address.'),
+      wallet_address: z.string().optional().describe('Wallet address to look up. Used if agent_id is not provided.'),
+    },
+    async ({ agent_id, wallet_address }) => {
+      let query = db.from('agent_agents').select('id, name, tier, llm_provider, credit_balance_usdc, style_tags, free_instructions, bid_aggression, budget_ceiling_usdc, wallet_address, persona_bio, persona_voice, status, erc8004_agent_id, erc8004_linked');
+
+      if (agent_id) {
+        query = query.eq('id', agent_id);
+      } else if (wallet_address) {
+        query = query.eq('wallet_address', wallet_address.toLowerCase());
+      } else {
+        return { isError: true, content: [{ type: 'text', text: 'Provide agent_id or wallet_address.' }] };
+      }
+
+      const { data: agent } = await query.single();
+      if (!agent) {
+        return { isError: true, content: [{ type: 'text', text: 'Agent not found.' }] };
+      }
+
+      const { LLM_COST_PER_EVAL } = await import('@/lib/agent/credits');
+      const costPerEval = LLM_COST_PER_EVAL[agent.llm_provider] ?? 0.00625;
+      const tierLabel = agent.tier === 'pro' ? 'Concierge' : 'Personal Shopper';
+
+      return {
+        content: [{ type: 'text', text: JSON.stringify({
+          agent_id: agent.id,
+          name: agent.name,
+          tier: agent.tier,
+          tier_label: tierLabel,
+          status: agent.status,
+          llm_provider: agent.llm_provider,
+          credit_balance_usd: agent.credit_balance_usdc,
+          estimated_evals_remaining: Math.floor(agent.credit_balance_usdc / costPerEval),
+          wallet: agent.wallet_address,
+          style_tags: agent.style_tags,
+          instructions: agent.free_instructions,
+          bid_style: agent.bid_aggression,
+          budget_ceiling: agent.budget_ceiling_usdc,
+          persona_bio: agent.persona_bio,
+          erc8004: agent.erc8004_linked ? { agent_id: agent.erc8004_agent_id } : null,
+          top_up_instructions: agent.tier === 'pro'
+            ? 'Send USDC on Base to 0xbfd71eA27FFc99747dA2873372f84346d9A8b7ed, then call verify_credit_topup with the tx hash. 1 USDC = $1.00 credit.'
+            : 'Personal Shopper tier is free. Upgrade to Concierge by updating the tier to "pro".',
+        }, null, 2) }],
       };
     }
   );

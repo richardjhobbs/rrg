@@ -89,15 +89,7 @@ export async function evaluateDrop(
       dropDesc
     );
 
-    // Deduct credits
-    const costPerToken =
-      agent.llm_provider === 'claude'
-        ? 0.000005
-        : agent.llm_provider === 'openai'
-          ? 0.000003
-          : 0.000001;
-    const cost = Math.max(llmResult.tokensUsed * costPerToken, 0.0001);
-
+    // Deduct credits (exact token billing with platform margin handled in deductCredits)
     await deductCredits(agent.id, llmResult.tokensUsed, agent.llm_provider);
 
     // Clamp suggested bid to available budget
@@ -116,7 +108,7 @@ export async function evaluateDrop(
       suggestedBidUsdc: bidAmount,
       ruleMatchDetail: null,
       llmTokensUsed: llmResult.tokensUsed,
-      llmCostUsdc: cost,
+      llmCostUsdc: null, // exact cost tracked in deductCredits
       usedLlm: true,
     };
   }
