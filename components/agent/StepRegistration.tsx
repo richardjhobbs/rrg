@@ -7,6 +7,7 @@ import { inAppWallet, createWallet } from 'thirdweb/wallets';
 import { thirdwebClient } from '@/lib/rrg/thirdwebClient';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
+import { TIER_DISPLAY } from '@/lib/agent/types';
 import type { WizardState } from './CreateAgentWizard';
 
 interface Props {
@@ -95,7 +96,7 @@ export function StepRegistration({ state, update, onNext, onBack }: Props) {
     const errs: Record<string, string> = {};
     if (!state.email || !state.email.includes('@'))
       errs.email = 'Valid email required';
-    if (!state.name.trim()) errs.name = 'Agent name required';
+    if (!state.name.trim()) errs.name = 'Name required';
 
     if (walletMode === 'new' && !state.wallet_address) {
       errs.wallet = 'Connect a wallet to continue';
@@ -118,9 +119,9 @@ export function StepRegistration({ state, update, onNext, onBack }: Props) {
 
   return (
     <div>
-      <h2 className="text-xl font-semibold mb-2">Register your agent</h2>
+      <h2 className="text-xl font-semibold mb-2">Register your {TIER_DISPLAY[state.tier].label}</h2>
       <p className="text-white/60 mb-6">
-        Give your agent a name and choose how to set up its wallet.
+        Give your {TIER_DISPLAY[state.tier].label} a name and choose how to set up the wallet.
       </p>
 
       <div className="space-y-4 mb-8">
@@ -164,7 +165,7 @@ export function StepRegistration({ state, update, onNext, onBack }: Props) {
         </div>
 
         <Input
-          label="Agent name"
+          label="Name"
           placeholder="e.g. StyleHunter, DropScout"
           value={state.name}
           onChange={(e) => update({ name: e.target.value })}
