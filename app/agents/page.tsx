@@ -85,7 +85,7 @@ export default async function AgentsLanding() {
           </div>
         </div>
 
-        <div className="flex gap-4">
+        <div className="flex justify-center gap-4">
           <Link
             href="/agents/create"
             className="inline-block bg-green-500 text-black px-6 py-3 rounded-lg font-semibold hover:bg-green-400 transition-colors"
