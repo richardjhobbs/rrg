@@ -248,10 +248,11 @@ export default function DashboardPage() {
                 ${agent.credit_balance_usdc.toFixed(4)}
               </div>
               <div className="text-xs text-white/40 mb-4">USDC credit balance</div>
+              <p className="text-xs text-white/30 mb-2">Card payments coming soon. Crypto top-up available.</p>
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => window.open(`https://pay.thirdweb.com/?toAddress=${agent.wallet_address}&toChainId=8453&toTokenAddress=0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913`, '_blank')}
+                onClick={() => alert('Stripe card payments coming soon. For now, send USDC on Base to your agent wallet: ' + agent.wallet_address)}
               >
                 Top up credits
               </Button>
