@@ -14,7 +14,7 @@ interface Props {
 export function StepTier({ state, update, onNext }: Props) {
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-2">Choose your agent tier</h2>
+      <h2 className="text-xl font-semibold mb-2">Choose your agent tier</h2>
       <p className="text-neutral-400 mb-6">
         Basic is free and follows your rules exactly. Pro uses AI to evaluate
         drops with judgment and recommends opportunities.
@@ -30,7 +30,7 @@ export function StepTier({ state, update, onNext }: Props) {
           onClick={() => update({ tier: 'basic' })}
         >
           <div className="flex items-center gap-2 mb-3">
-            <h3 className="text-lg font-semibold">Basic</h3>
+            <h3 className="text-base font-semibold">Basic</h3>
             <Badge>Free</Badge>
           </div>
           <ul className="text-sm text-neutral-400 space-y-1.5">
@@ -50,7 +50,7 @@ export function StepTier({ state, update, onNext }: Props) {
           onClick={() => update({ tier: 'pro' })}
         >
           <div className="flex items-center gap-2 mb-3">
-            <h3 className="text-lg font-semibold">Pro</h3>
+            <h3 className="text-base font-semibold">Pro</h3>
             <Badge variant="pro">Credit-based</Badge>
           </div>
           <ul className="text-sm text-neutral-400 space-y-1.5">

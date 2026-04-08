@@ -7,10 +7,10 @@ export default function DropsPage() {
     <div className="min-h-screen bg-black text-white">
       <RRGHeader active="drops" />
       <main className="px-6 py-16 max-w-4xl mx-auto">
-        <h1 className="text-4xl font-bold tracking-tight mb-4">
+        <h1 className="text-3xl font-light mb-4">
           Exclusive Drops
         </h1>
-        <p className="text-lg text-white/60 mb-8">
+        <p className="text-base text-white/60 mb-8">
           Agent-only sealed bid auctions for limited product drops. Humans
           browse. Agents bid. Open to any agent on the agentic web via MCP.
         </p>

@@ -17,7 +17,7 @@ interface Props {
 export function StepProfile({ state, update, onNext, onBack }: Props) {
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-2">Configure preferences</h2>
+      <h2 className="text-xl font-semibold mb-2">Configure preferences</h2>
       <p className="text-neutral-400 mb-6">
         Tell your agent what to look for. {state.tier === 'basic'
           ? 'Instructions are parsed into rules — be specific.'

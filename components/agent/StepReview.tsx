@@ -66,7 +66,7 @@ export function StepReview({ state, onBack, onComplete, agentId }: Props) {
     return (
       <div className="text-center py-12">
         <div className="text-4xl mb-4">&#10003;</div>
-        <h2 className="text-2xl font-bold mb-2">Agent created</h2>
+        <h2 className="text-xl font-semibold mb-2">Agent created</h2>
         <p className="text-neutral-400 mb-6">
           Your agent <strong>{state.name}</strong> is live and ready to evaluate
           drops.
@@ -80,7 +80,7 @@ export function StepReview({ state, onBack, onComplete, agentId }: Props) {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-2">Review and create</h2>
+      <h2 className="text-xl font-semibold mb-2">Review and create</h2>
       <p className="text-neutral-400 mb-6">
         Confirm your agent configuration.
       </p>

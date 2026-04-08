@@ -74,7 +74,7 @@ export function StepRegistration({ state, update, onNext, onBack }: Props) {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-2">Register your agent</h2>
+      <h2 className="text-xl font-semibold mb-2">Register your agent</h2>
       <p className="text-white/60 mb-6">
         Give your agent a name and choose how to set up its wallet.
       </p>
