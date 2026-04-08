@@ -45,7 +45,18 @@ export default function DashboardPage() {
     try {
       const res = await fetch('/api/agent/session');
       if (!res.ok) { setLoading(false); return; }
-      const { agent: a } = await res.json();
+      const { agent: raw } = await res.json();
+      // Defensive defaults for agents created before persona migration
+      const a = {
+        ...raw,
+        persona_bio: raw.persona_bio ?? null,
+        persona_voice: raw.persona_voice ?? null,
+        persona_comm_style: raw.persona_comm_style ?? null,
+        interest_categories: raw.interest_categories ?? [],
+        avatar_path: raw.avatar_path ?? null,
+        avatar_source: raw.avatar_source ?? 'none',
+        credit_balance_usdc: raw.credit_balance_usdc ?? 0,
+      };
       setAgent(a);
 
       const balRes = await fetch(`/api/agent/wallet/balance?address=${a.wallet_address}`);

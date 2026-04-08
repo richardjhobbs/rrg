@@ -13,3 +13,16 @@ export async function GET() {
 
   return NextResponse.json({ agent });
 }
+
+/** DELETE /api/agent/session — Sign out */
+export async function DELETE() {
+  const response = NextResponse.json({ ok: true });
+  response.cookies.set('via_agent_session', '', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 0,
+    path: '/',
+  });
+  return response;
+}

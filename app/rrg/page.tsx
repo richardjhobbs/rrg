@@ -218,14 +218,14 @@ export default async function RRGGallery({
         </h2>
         <div className="space-y-2 text-base text-white/70 leading-relaxed">
           <p>
-            Real Real Genuine is where your Personal Shopper and Concierge come to life.
+            Real Real Genuine is where your Personal Shopper or Concierge come to life.
             Buying and selling is smooth and efficient. Better for all.
           </p>
-          <p>Collaborate with brands with mutual rewards.</p>
           <p>
             Get your own Personal Shopper to find what you want, or upgrade to a
             Concierge that knows your taste and acts on your behalf.
           </p>
+          <p>Collaborate with brands with mutual rewards.</p>
         </div>
       </div>
 
