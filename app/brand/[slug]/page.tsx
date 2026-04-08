@@ -7,8 +7,6 @@ import {
 import { getSignedUrl } from '@/lib/rrg/storage';
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import RRGHeader from '@/components/rrg/RRGHeader';
-import RRGFooter from '@/components/rrg/RRGFooter';
 import BrandCTAs from '@/components/rrg/BrandCTAs';
 
 export const dynamic = 'force-dynamic';
@@ -107,9 +105,6 @@ export default async function BrandStorefront({
   );
 
   return (
-    <div className="min-h-screen bg-black text-white">
-      <RRGHeader active="store" />
-
       <div className="px-6 py-12 max-w-6xl mx-auto">
 
         {/* ── Brand Profile ───────────────────────────────────── */}
@@ -128,7 +123,7 @@ export default async function BrandStorefront({
             <div className="flex-1 min-w-0">
               {brand.headline && <h2 className="text-3xl font-light mb-2 leading-snug">{brand.headline}</h2>}
               {brand.description && (
-                <p className="text-white/80 leading-relaxed text-base max-w-2xl">{brand.description}</p>
+                <p className="text-white/80 leading-relaxed text-base">{brand.description}</p>
               )}
               {(brand.website_url || socialEntries.length > 0) && (
                 <div className="flex flex-wrap items-center gap-4 mt-4">
@@ -156,7 +151,7 @@ export default async function BrandStorefront({
             <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent pointer-events-none" />
             <p className="text-sm font-mono uppercase tracking-[0.2em] text-white/60 mb-3">Current Brief</p>
             <h2 className="text-3xl font-light mb-3 leading-snug">{brief.title}</h2>
-            <div className="text-white/80 leading-relaxed mb-5 max-w-xl text-base whitespace-pre-line">
+            <div className="text-white/80 leading-relaxed mb-5 text-base whitespace-pre-line">
               {brief.description}
             </div>
             <div className="flex items-center gap-6">
@@ -219,8 +214,5 @@ export default async function BrandStorefront({
         <BrandCTAs brandSlug={slug} />
 
       </div>
-
-      <RRGFooter />
-    </div>
   );
 }

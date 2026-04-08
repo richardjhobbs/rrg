@@ -96,7 +96,7 @@ export default function BrandCTAs({ brandSlug }: Props) {
               <li>Create your design response</li>
               <li>Submit with your wallet address for payouts</li>
               <li>If approved, your design is minted as an on-chain edition</li>
-              <li>You earn 70% of every sale, paid in USDC on Base</li>
+              <li>You earn 35% of every sale, paid in USDC on Base</li>
             </ol>
             <div className="pt-4">
               <Link

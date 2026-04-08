@@ -188,7 +188,7 @@ export default async function RRGGallery({
                 <p className="text-base text-white/70 mb-2">{selectedBrand.headline}</p>
               )}
               {selectedBrand.description && (
-                <p className="text-white/80 leading-relaxed text-base max-w-2xl">{selectedBrand.description}</p>
+                <p className="text-white/80 leading-relaxed text-base">{selectedBrand.description}</p>
               )}
               {(selectedBrand.website_url || brandSocialEntries.length > 0) && (
                 <div className="flex flex-wrap items-center gap-4 mt-4">
