@@ -209,17 +209,17 @@ export function AvatarPicker({ agent, onAvatarChange, onClose }: Props) {
               Cost: ${AVATAR_GENERATION_COST_USDC} USDC from your credit balance
             </p>
             <p className="text-xs text-white/40">
-              Balance: ${agent.credit_balance_usdc.toFixed(4)} USDC
+              Balance: ${Number(agent.credit_balance_usdc ?? 0).toFixed(2)}
             </p>
             <Button
               size="sm"
               onClick={generateAvatar}
               loading={loading}
-              disabled={agent.credit_balance_usdc < AVATAR_GENERATION_COST_USDC}
+              disabled={Number(agent.credit_balance_usdc ?? 0) < AVATAR_GENERATION_COST_USDC}
             >
               {loading ? 'Generating...' : 'Generate avatar'}
             </Button>
-            {agent.credit_balance_usdc < AVATAR_GENERATION_COST_USDC && (
+            {Number(agent.credit_balance_usdc ?? 0) < AVATAR_GENERATION_COST_USDC && (
               <p className="text-xs text-red-400">Insufficient credits</p>
             )}
           </div>

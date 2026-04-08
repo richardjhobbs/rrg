@@ -68,7 +68,7 @@ export function TopUpModal({ agent, onClose, onCredited }: Props) {
         {/* Current balance */}
         <div className="mb-4">
           <div className="text-white/40 text-xs mb-1">Current balance</div>
-          <div className="text-2xl font-light text-green-400">${agent.credit_balance_usdc.toFixed(2)}</div>
+          <div className="text-2xl font-light text-green-400">${Number(agent.credit_balance_usdc ?? 0).toFixed(2)}</div>
         </div>
 
         {error && (

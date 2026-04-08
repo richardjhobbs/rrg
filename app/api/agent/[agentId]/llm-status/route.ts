@@ -25,10 +25,7 @@ export async function GET(
     return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
   }
 
-  const provider = LLM_PROVIDERS[agent.llm_provider as LlmProvider];
-  if (!provider) {
-    return NextResponse.json({ error: 'Unknown provider' }, { status: 400 });
-  }
+  const provider = LLM_PROVIDERS[agent.llm_provider as LlmProvider] ?? LLM_PROVIDERS.claude;
 
   const apiKeyConfigured = !!process.env[provider.envKey];
 

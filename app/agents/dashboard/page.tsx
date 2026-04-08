@@ -55,7 +55,7 @@ export default function DashboardPage() {
         interest_categories: raw.interest_categories ?? [],
         avatar_path: raw.avatar_path ?? null,
         avatar_source: raw.avatar_source ?? 'none',
-        credit_balance_usdc: raw.credit_balance_usdc ?? 0,
+        credit_balance_usdc: Number(raw.credit_balance_usdc ?? 0),
       };
       setAgent(a);
 

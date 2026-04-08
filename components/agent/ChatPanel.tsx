@@ -261,7 +261,7 @@ export function ChatPanel({ agent }: Props) {
 
           {/* Credit info */}
           <div className="mt-2 text-xs text-white/30 flex justify-between">
-            <span>Credits: ${agent.credit_balance_usdc.toFixed(2)}</span>
+            <span>Credits: ${Number(agent.credit_balance_usdc ?? 0).toFixed(2)}</span>
             <span>{agent.llm_provider}</span>
           </div>
         </div>
