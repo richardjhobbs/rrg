@@ -40,6 +40,7 @@ export function StepReview({ state, onBack, onComplete, agentId }: Props) {
         bid_aggression: state.bid_aggression,
         llm_provider: state.llm_provider,
         wallet_address: state.wallet_address,
+        wallet_type: state.wallet_type,
       };
 
       const res = await fetch(endpoint, {

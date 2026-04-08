@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
       name,
       tier = 'basic',
       wallet_address,
+      wallet_type = 'embedded',
       style_tags = [],
       free_instructions = null,
       budget_ceiling_usdc = null,
@@ -31,6 +32,7 @@ export async function POST(req: NextRequest) {
       name: string;
       tier?: AgentTier;
       wallet_address: string;
+      wallet_type?: WalletType;
       style_tags?: string[];
       free_instructions?: string | null;
       budget_ceiling_usdc?: number | null;
@@ -75,7 +77,7 @@ export async function POST(req: NextRequest) {
         budget_ceiling_usdc,
         bid_aggression,
         wallet_address: wallet_address.toLowerCase(),
-        wallet_type: 'embedded' as WalletType,
+        wallet_type,
         llm_provider,
         credit_balance_usdc: 0,
         status: 'active',

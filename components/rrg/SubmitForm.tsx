@@ -286,24 +286,32 @@ export default function SubmitForm({ brandId, brandSlug, brandName, briefId }: S
             placeholder="0x…"
           />
           <p className="mt-1.5 text-sm text-white/50">
-            70% of each sale is transferred here as USDC on Base
+            35% of each sale is transferred here as USDC on Base
           </p>
           {!form.creator_wallet && (
-            <div className="mt-3">
+            <div className="mt-3 space-y-2">
               {!walletSignupOpen ? (
-                <button
-                  type="button"
-                  onClick={() => setWalletSignupOpen(true)}
-                  className="text-sm text-green-400 hover:text-green-300 transition-colors cursor-pointer"
-                >
-                  Don&apos;t have a wallet? Sign up and we&apos;ll create one for you &rarr;
-                </button>
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setWalletSignupOpen(true)}
+                    className="text-sm text-green-400 hover:text-green-300 transition-colors cursor-pointer block"
+                  >
+                    Don&apos;t have a wallet? Sign up and we&apos;ll create one for you &rarr;
+                  </button>
+                  <a
+                    href="/agents"
+                    className="text-sm text-white/40 hover:text-green-400 transition-colors block"
+                  >
+                    Or create an agent and get a wallet automatically &rarr;
+                  </a>
+                </>
               ) : (
                 <div className="border border-white/10 rounded-lg overflow-hidden">
                   <ConnectEmbed
                     client={thirdwebClient}
                     wallets={[
-                      inAppWallet({ auth: { options: ['google', 'apple', 'email'] } }),
+                      inAppWallet({ auth: { options: ['google', 'email'] } }),
                       createWallet('io.metamask'),
                       createWallet('com.coinbase.wallet'),
                     ]}
