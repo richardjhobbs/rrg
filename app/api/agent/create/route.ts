@@ -100,10 +100,16 @@ export async function POST(req: NextRequest) {
       details: { tier, wallet_type: 'embedded' },
     });
 
-    // Set session
-    await setAgentSession(agent.id);
-
-    return NextResponse.json({ agent }, { status: 201 });
+    // Set session cookie on the response
+    const response = NextResponse.json({ agent }, { status: 201 });
+    response.cookies.set('via_agent_session', agent.id, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      maxAge: 60 * 60 * 24 * 30,
+      path: '/',
+    });
+    return response;
   } catch (err) {
     console.error('Agent create error:', err);
     return NextResponse.json(
