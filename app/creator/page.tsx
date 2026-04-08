@@ -407,6 +407,9 @@ function AuthPage({ onLogin }: { onLogin: (p: CreatorProfile) => void }) {
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center">
       <div className="w-full max-w-sm px-6">
+        <a href="/rrg" className="inline-flex items-center gap-1 text-sm text-white/50 hover:text-green-400 transition-colors mb-6">
+          &larr; Back to Store
+        </a>
         <h1 className="text-sm font-mono uppercase tracking-[0.3em] text-white/60 mb-8">
           Creator Partner
         </h1>

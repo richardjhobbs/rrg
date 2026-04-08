@@ -6,7 +6,10 @@ export default function CreateAgentPage() {
   return (
     <div className="min-h-screen bg-black text-white">
       <RRGHeader active="agent" />
-      <main className="px-6 py-12">
+      <main className="px-6 py-12 max-w-2xl mx-auto">
+        <a href="/agents" className="inline-flex items-center gap-1 text-sm text-white/50 hover:text-green-400 transition-colors mb-6">
+          &larr; Back to Agents
+        </a>
         <CreateAgentWizard />
       </main>
       <RRGFooter />

@@ -29,7 +29,7 @@ export default function RRGFooter() {
         >
           Agent Access
         </a>
-        <span>Powered by <a href="https://getvia.xyz" target="_blank" rel="noopener noreferrer" className="hover:text-white transition-colors underline">VIA Labs</a></span>
+        <span>Powered by <a href="https://getvia.xyz" target="_blank" rel="noopener noreferrer" className="text-green-400 hover:text-green-300 transition-colors">VIA Labs</a></span>
       </div>
     </footer>
   );
