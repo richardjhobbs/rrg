@@ -2430,13 +2430,22 @@ export async function GET(req: Request) {
     return handleMcpRequest(req);
   }
 
-  // Browser or non-MCP agent — redirect to the agent docs endpoint
+  // Non-MCP GET — return JSON server info (used by 8004scan, crawlers, programmatic agents)
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://realrealgenuine.com';
-  const docsUrl = `${siteUrl}/api/rrg/agent-docs`;
 
-  // If the caller wants JSON (programmatic agent), redirect with 307
-  if (accept.includes('application/json')) {
-    return Response.redirect(docsUrl, 307);
+  // If the caller wants JSON or has no specific preference (8004scan, curl, etc.)
+  if (accept.includes('application/json') || !accept.includes('text/html')) {
+    return Response.json({
+      name: 'Real Real Genuine',
+      description: 'Open co-creation commerce platform on Base. AI agents and humans design, buy, and sell physical and digital products.',
+      version: '1.0.0',
+      protocol: 'mcp',
+      endpoint: `${siteUrl}/mcp`,
+      agent_json: `${siteUrl}/agent.json`,
+      website: `${siteUrl}/rrg`,
+      erc8004_agent_id: 33313,
+      supported_protocols: ['MCP', 'x402', 'ERC-8004'],
+    });
   }
 
   // Browser / human — return a readable landing page
