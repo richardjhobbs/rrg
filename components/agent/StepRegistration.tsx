@@ -8,7 +8,7 @@ import { thirdwebClient } from '@/lib/rrg/thirdwebClient';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import { TIER_DISPLAY } from '@/lib/agent/types';
-import type { WizardState } from './CreateAgentWizard';
+import type { WizardState } from '@/lib/agent/types';
 
 interface Props {
   state: WizardState;

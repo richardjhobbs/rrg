@@ -6,26 +6,12 @@ import { StepTier } from './StepTier';
 import { StepRegistration } from './StepRegistration';
 import { StepProfile } from './StepProfile';
 import { StepReview } from './StepReview';
-import type { AgentTier, BidAggression, LlmProvider, InterestSelection } from '@/lib/agent/types';
+import type { WizardState } from '@/lib/agent/types';
+
+// Re-export for backward compat
+export type { WizardState };
 
 const STEPS = ['Tier', 'Registration', 'Profile', 'Review'];
-
-export interface WizardState {
-  tier: AgentTier;
-  email: string;
-  name: string;
-  wallet_address: string;
-  wallet_type: 'embedded' | 'imported';
-  style_tags: string[];
-  free_instructions: string;
-  budget_ceiling_usdc: string;
-  bid_aggression: BidAggression;
-  llm_provider: LlmProvider;
-  persona_bio: string;
-  persona_voice: string;
-  persona_comm_style: string;
-  interest_categories: InterestSelection[];
-}
 
 const initialState: WizardState = {
   tier: 'basic',

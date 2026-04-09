@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/Button';
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
 import { TIER_DISPLAY } from '@/lib/agent/types';
-import type { WizardState } from './CreateAgentWizard';
+import type { WizardState } from '@/lib/agent/types';
 
 interface Props {
   state: WizardState;

@@ -2,7 +2,7 @@
 
 import { Card } from '@/components/ui/Card';
 import { Badge } from '@/components/ui/Badge';
-import type { WizardState } from './CreateAgentWizard';
+import type { WizardState } from '@/lib/agent/types';
 
 interface Props {
   state: WizardState;

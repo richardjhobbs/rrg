@@ -53,6 +53,25 @@ export interface Agent {
   avatar_source: AvatarSource;
 }
 
+// ── Wizard state (creation flow) ────────────────────────────────────
+
+export interface WizardState {
+  tier: AgentTier;
+  email: string;
+  name: string;
+  wallet_address: string;
+  wallet_type: 'embedded' | 'imported';
+  style_tags: string[];
+  free_instructions: string;
+  budget_ceiling_usdc: string;
+  bid_aggression: BidAggression;
+  llm_provider: LlmProvider;
+  persona_bio: string;
+  persona_voice: string;
+  persona_comm_style: string;
+  interest_categories: InterestSelection[];
+}
+
 // ── Rules (Basic agent) ──────────────────────────────────────────────
 
 export interface AgentRules {
