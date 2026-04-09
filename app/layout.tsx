@@ -37,7 +37,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
         </Providers>
         <footer className="mt-20 border-t border-white/10 px-6 py-6 text-center">
-          <div className="flex justify-center gap-6 text-sm font-mono text-white/50">
+          <div className="flex justify-center gap-6 text-xs text-white/50">
             <a
               href="https://realrealgenuine.com/terms"
               className="hover:text-white/80 transition-colors"
