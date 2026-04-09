@@ -33,7 +33,7 @@ export default function AgentTrustBadge() {
   // Skeleton while loading
   if (!data) {
     return (
-      <div className="flex items-center gap-1.5 px-3 py-1.5 border border-white/10 text-white/40 text-xs font-mono animate-pulse">
+      <div className="flex items-center gap-1 px-2 py-0.5 border border-white/10 text-white/40 text-[10px] font-mono animate-pulse">
         <span className="w-1.5 h-1.5 rounded-full bg-white/20" />
         ERC-8004
       </div>
@@ -46,7 +46,7 @@ export default function AgentTrustBadge() {
       <div className="flex items-center gap-2">
         {/* Status pill */}
         <div
-          className="flex items-center gap-1.5 px-3 py-1.5 border text-xs font-mono uppercase tracking-wider cursor-pointer select-none
+          className="flex items-center gap-1 px-2 py-0.5 border text-[10px] font-mono uppercase tracking-wider cursor-pointer select-none
                      border-white/20 text-white/70 hover:border-white/40 hover:text-white/90 transition-colors"
           onClick={() => setTip(t => !t)}
           title="What is ERC-8004?"

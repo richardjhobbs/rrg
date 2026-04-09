@@ -25,7 +25,7 @@ export default function RRGFooter() {
           href="https://realrealgenuine.com/mcp"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-white/30 border border-white/15 px-3 py-1 text-xs font-mono uppercase tracking-wider hover:text-white/50 hover:border-white/30 transition-colors"
+          className="text-white/30 border border-white/15 px-2 py-0.5 text-[10px] font-mono uppercase tracking-wider hover:text-white/50 hover:border-white/30 transition-colors"
         >
           Agent Access
         </a>
