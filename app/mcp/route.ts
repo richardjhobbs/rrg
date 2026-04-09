@@ -2219,6 +2219,25 @@ function createRRGServer() {
         details: { tier: params.tier, wallet_type: 'imported', source: 'mcp' },
       });
 
+      // Auto-mint ERC-8004 identity (fire-and-forget)
+      (async () => {
+        try {
+          const { registerAgentIdentity, getAgentIdForWallet } = await import('@/lib/agent/erc8004');
+          const existingId = await getAgentIdForWallet(params.wallet_address.toLowerCase());
+          if (existingId !== null) {
+            await db.from('agent_agents').update({ erc8004_agent_id: Number(existingId), erc8004_linked: true }).eq('id', agent.id);
+            await db.from('agent_activity_log').insert({ agent_id: agent.id, action: 'erc8004_linked', details: { agent_id_on_chain: Number(existingId), method: 'existing' } });
+            return;
+          }
+          const { tokenId, txHash } = await registerAgentIdentity(agent.id, params.name.trim(), params.wallet_address.toLowerCase(), params.tier);
+          await db.from('agent_agents').update({ erc8004_agent_id: Number(tokenId), erc8004_linked: true }).eq('id', agent.id);
+          await db.from('agent_activity_log').insert({ agent_id: agent.id, action: 'erc8004_minted', details: { agent_id_on_chain: Number(tokenId), method: 'auto_mcp' }, tx_hash: txHash });
+          console.log(`ERC-8004 auto-minted via MCP: VIA #${tokenId} for agent ${agent.id}`);
+        } catch (err) {
+          console.error('ERC-8004 auto-mint (MCP) failed (non-blocking):', err);
+        }
+      })();
+
       const tierLabel = params.tier === 'pro' ? 'Concierge' : 'Personal Shopper';
 
       return {

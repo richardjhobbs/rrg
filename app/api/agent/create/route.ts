@@ -112,6 +112,28 @@ export async function POST(req: NextRequest) {
       details: { tier, wallet_type: 'embedded' },
     });
 
+    // Auto-mint ERC-8004 identity (fire-and-forget — don't block the response)
+    (async () => {
+      try {
+        const { registerAgentIdentity, getAgentIdForWallet } = await import('@/lib/agent/erc8004');
+
+        // Check if wallet already has an identity token
+        const existingId = await getAgentIdForWallet(wallet_address.toLowerCase());
+        if (existingId !== null) {
+          await db.from('agent_agents').update({ erc8004_agent_id: Number(existingId), erc8004_linked: true }).eq('id', agent.id);
+          await db.from('agent_activity_log').insert({ agent_id: agent.id, action: 'erc8004_linked', details: { agent_id_on_chain: Number(existingId), method: 'existing' } });
+          return;
+        }
+
+        const { tokenId, txHash } = await registerAgentIdentity(agent.id, name.trim(), wallet_address.toLowerCase(), tier);
+        await db.from('agent_agents').update({ erc8004_agent_id: Number(tokenId), erc8004_linked: true }).eq('id', agent.id);
+        await db.from('agent_activity_log').insert({ agent_id: agent.id, action: 'erc8004_minted', details: { agent_id_on_chain: Number(tokenId), method: 'auto' }, tx_hash: txHash });
+        console.log(`ERC-8004 auto-minted: VIA #${tokenId} for agent ${agent.id}`);
+      } catch (err) {
+        console.error('ERC-8004 auto-mint failed (non-blocking):', err);
+      }
+    })();
+
     // Set session cookie on the response
     const response = NextResponse.json({ agent: { ...agent, via_agent_id: agent.erc8004_agent_id } }, { status: 201 });
     response.cookies.set('via_agent_session', agent.id, {
