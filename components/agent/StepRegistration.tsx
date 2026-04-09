@@ -39,6 +39,7 @@ export function StepRegistration({ state, update, onNext, onBack }: Props) {
   const [walletMode, setWalletMode] = useState<'new' | 'import'>('new');
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [existingCreator, setExistingCreator] = useState<boolean>(false);
+  const [existingAgent, setExistingAgent] = useState<{ name: string; tier: string } | null>(null);
   const [emailLookup, setEmailLookup] = useState<WalletLookup | null>(null);
   const [lookupDismissed, setLookupDismissed] = useState(false);
   const account = useActiveAccount();
@@ -63,6 +64,16 @@ export function StepRegistration({ state, update, onNext, onBack }: Props) {
         .then(r => r.ok ? r.json() : null)
         .then(data => { if (data?.exists) setExistingCreator(true); })
         .catch(() => {});
+
+      // Check if this wallet already has an agent
+      fetch(`/api/agent/session?wallet=${account.address}`)
+        .then(r => r.ok ? r.json() : null)
+        .then(data => {
+          if (data?.agent) {
+            setExistingAgent({ name: data.agent.name, tier: data.agent.tier });
+          }
+        })
+        .catch(() => {});
     }
   }, [account?.address, profiles, state.email, update]);
 
@@ -74,7 +85,10 @@ export function StepRegistration({ state, update, onNext, onBack }: Props) {
       const res = await fetch(`/api/rrg/wallet-lookup?email=${encodeURIComponent(email)}`);
       if (res.ok) {
         const data = await res.json();
-        if (data.found && data.source === 'creator') {
+        if (data.found && data.source === 'agent') {
+          // This email already has an agent — redirect to dashboard
+          setExistingAgent({ name: data.name || 'your agent', tier: 'basic' });
+        } else if (data.found && data.source === 'creator') {
           setEmailLookup(data);
         } else {
           setEmailLookup(null);
@@ -116,6 +130,28 @@ export function StepRegistration({ state, update, onNext, onBack }: Props) {
   };
 
   const walletAlreadyConnected = !!account?.address && !!state.wallet_address;
+
+  // If existing agent found, show redirect banner instead of form
+  if (existingAgent) {
+    return (
+      <div>
+        <h2 className="text-xl font-semibold mb-2">Welcome back</h2>
+        <div className="p-5 border border-green-500/30 bg-green-500/5 rounded-lg mb-6">
+          <p className="text-green-400 mb-2">You already have a {existingAgent.tier === 'pro' ? 'Concierge' : 'Personal Shopper'}: <strong>{existingAgent.name}</strong></p>
+          <p className="text-white/60 text-sm mb-4">Go to your dashboard to manage preferences, chat, and view activity.</p>
+          <a
+            href="/agents/dashboard"
+            className="inline-block bg-green-500 text-black px-5 py-2 rounded-lg font-medium text-sm hover:bg-green-400 transition-colors"
+          >
+            Go to your dashboard
+          </a>
+        </div>
+        <button onClick={onBack} className="text-sm text-white/40 hover:text-white/60 transition-colors cursor-pointer">
+          &larr; Back
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div>

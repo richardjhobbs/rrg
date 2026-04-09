@@ -119,7 +119,7 @@ export default function AgentsPage() {
               >
                 <div className="flex items-center gap-2 mb-3">
                   <h3 className="text-base font-semibold">Personal Shopper</h3>
-                  <Badge>Free</Badge>
+                  <Badge variant="success">Free</Badge>
                 </div>
                 <p className="text-sm text-white/60 mb-4">
                   Works on the preferences you set. Finds, filters, and surfaces
