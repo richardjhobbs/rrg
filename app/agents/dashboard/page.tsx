@@ -206,11 +206,9 @@ export default function DashboardPage() {
                 </Badge>
                 {agent.erc8004_linked && agent.erc8004_agent_id && (
                   <a
-                    href={`https://8004scan.io/agents/base/${agent.erc8004_agent_id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                    href={`/agents/via/${agent.erc8004_agent_id}`}
                     className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-mono bg-green-500/10 text-green-400 border border-green-500/30 rounded hover:bg-green-500/20 transition-colors"
-                    title="View on 8004scan"
+                    title="View public profile"
                   >
                     VIA #{agent.erc8004_agent_id}
                   </a>

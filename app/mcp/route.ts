@@ -2227,6 +2227,7 @@ function createRRGServer() {
           agent_id: agent.id,
           via_agent_id: null,
           via_agent_id_note: 'A VIA Agent ID will be assigned when the on-chain ERC-8004 identity is linked. This is your portable identity across the VIA network.',
+          profile_url: null,
           name: agent.name,
           tier: params.tier,
           tier_label: tierLabel,
@@ -2339,6 +2340,9 @@ function createRRGServer() {
         content: [{ type: 'text', text: JSON.stringify({
           agent_id: agent.id,
           via_agent_id: agent.erc8004_linked ? agent.erc8004_agent_id : null,
+          profile_url: agent.erc8004_linked && agent.erc8004_agent_id
+            ? `https://realrealgenuine.com/agents/via/${agent.erc8004_agent_id}`
+            : null,
           name: agent.name,
           tier: agent.tier,
           tier_label: tierLabel,
