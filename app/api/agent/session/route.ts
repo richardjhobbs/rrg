@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
   // Try cookie first
   const agent = await getSessionAgent();
   if (agent) {
-    return NextResponse.json({ agent });
+    return NextResponse.json({ agent: { ...agent, via_agent_id: agent.erc8004_agent_id } });
   }
 
   // Fallback: wallet-based lookup
@@ -23,7 +23,7 @@ export async function GET(req: NextRequest) {
 
     if (data) {
       // Restore the session cookie
-      const response = NextResponse.json({ agent: data });
+      const response = NextResponse.json({ agent: { ...data, via_agent_id: data.erc8004_agent_id } });
       response.cookies.set('via_agent_session', data.id, {
         httpOnly: true,
         secure: process.env.NODE_ENV === 'production',

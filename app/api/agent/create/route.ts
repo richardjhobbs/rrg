@@ -113,7 +113,7 @@ export async function POST(req: NextRequest) {
     });
 
     // Set session cookie on the response
-    const response = NextResponse.json({ agent }, { status: 201 });
+    const response = NextResponse.json({ agent: { ...agent, via_agent_id: agent.erc8004_agent_id } }, { status: 201 });
     response.cookies.set('via_agent_session', agent.id, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',

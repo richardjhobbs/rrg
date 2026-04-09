@@ -204,8 +204,16 @@ export default function DashboardPage() {
                 <Badge variant={agent.tier === 'pro' ? 'pro' : 'default'}>
                   {tierDisplay.label}
                 </Badge>
-                {agent.erc8004_linked && (
-                  <Badge variant="success">ERC-8004</Badge>
+                {agent.erc8004_linked && agent.erc8004_agent_id && (
+                  <a
+                    href={`https://8004scan.io/agents/base/${agent.erc8004_agent_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-mono bg-green-500/10 text-green-400 border border-green-500/30 rounded hover:bg-green-500/20 transition-colors"
+                    title="View on 8004scan"
+                  >
+                    VIA #{agent.erc8004_agent_id}
+                  </a>
                 )}
               </div>
               <p className="text-sm text-white/40 font-mono">{agent.wallet_address}</p>

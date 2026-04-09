@@ -21,7 +21,7 @@ export async function GET(
     return NextResponse.json({ error: 'Agent not found' }, { status: 404 });
   }
 
-  return NextResponse.json({ agent });
+  return NextResponse.json({ agent: { ...agent, via_agent_id: agent.erc8004_agent_id } });
 }
 
 /** PATCH /api/agent/[agentId] — Update preferences */
@@ -82,5 +82,5 @@ export async function PATCH(
     details: { fields: Object.keys(updates) },
   });
 
-  return NextResponse.json({ agent });
+  return NextResponse.json({ agent: { ...agent, via_agent_id: agent.erc8004_agent_id } });
 }

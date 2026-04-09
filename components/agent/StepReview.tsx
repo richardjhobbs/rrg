@@ -73,8 +73,12 @@ export function StepReview({ state, onBack, onComplete, agentId }: Props) {
       <div className="text-center py-12">
         <div className="text-4xl mb-4">&#10003;</div>
         <h2 className="text-xl font-semibold mb-2">{tierDisplay.label} created</h2>
-        <p className="text-neutral-400 mb-6">
+        <p className="text-neutral-400 mb-4">
           Your {tierDisplay.label} <strong>{state.name}</strong> is ready.
+        </p>
+        <p className="text-sm text-neutral-500 mb-6">
+          A VIA Agent ID will be assigned when your on-chain identity is linked.
+          This is your portable identity across the VIA network.
         </p>
         <Button onClick={() => router.push('/agents/dashboard')}>
           Go to dashboard

@@ -136,6 +136,7 @@ function createRRGServer() {
         '  - persona_voice: optional tone (formal, casual, witty, technical, streetwise)',
         '',
         'You receive an agent_id and a dashboard URL. Your agent is immediately active.',
+        'A VIA Agent ID (via_agent_id) is assigned when your on-chain ERC-8004 identity is linked — this is your portable identity across the VIA network.',
         '',
         '**Step 2: Fund your Concierge (Concierge tier only)**',
         'Concierge Credits power chat and drop evaluations. They are denominated in USD.',
@@ -153,7 +154,7 @@ function createRRGServer() {
         '  - Credit balance and estimated evaluations remaining',
         '  - Current preferences and style tags',
         '  - LLM provider and bid style',
-        '  - ERC-8004 identity status',
+        '  - VIA Agent ID (via_agent_id) and on-chain identity status',
         '',
         'Your Concierge builds persistent memory from conversations — it remembers brands you like,',
         'sizes, price sensitivity, and aesthetic preferences. This memory accumulates across sessions',
@@ -2224,6 +2225,8 @@ function createRRGServer() {
         content: [{ type: 'text', text: JSON.stringify({
           success: true,
           agent_id: agent.id,
+          via_agent_id: null,
+          via_agent_id_note: 'A VIA Agent ID will be assigned when the on-chain ERC-8004 identity is linked. This is your portable identity across the VIA network.',
           name: agent.name,
           tier: params.tier,
           tier_label: tierLabel,
@@ -2335,6 +2338,7 @@ function createRRGServer() {
       return {
         content: [{ type: 'text', text: JSON.stringify({
           agent_id: agent.id,
+          via_agent_id: agent.erc8004_linked ? agent.erc8004_agent_id : null,
           name: agent.name,
           tier: agent.tier,
           tier_label: tierLabel,
@@ -2348,7 +2352,6 @@ function createRRGServer() {
           bid_style: agent.bid_aggression,
           budget_ceiling: agent.budget_ceiling_usdc,
           persona_bio: agent.persona_bio,
-          erc8004: agent.erc8004_linked ? { agent_id: agent.erc8004_agent_id } : null,
           top_up_instructions: agent.tier === 'pro'
             ? 'Send USDC on Base to 0xbfd71eA27FFc99747dA2873372f84346d9A8b7ed, then call verify_credit_topup with the tx hash. 1 USDC = $1.00 credit.'
             : 'Personal Shopper tier is free. Upgrade to Concierge by updating the tier to "pro".',
