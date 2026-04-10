@@ -41,6 +41,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Drop not found' }, { status: 404 });
     }
 
+    // ── Validate shipping for physical products (BEFORE on-chain mint) ──
+    // Must validate before mintWithPermit — the on-chain tx is irreversible.
+    if (drop.is_physical_product) {
+      if (!shipping_name || !shipping_address_line1 || !shipping_city || !shipping_postal_code || !shipping_country) {
+        return NextResponse.json(
+          { error: 'Shipping address required for physical products' },
+          { status: 400 }
+        );
+      }
+      if (!physical_terms_accepted) {
+        return NextResponse.json(
+          { error: 'Physical product delivery terms must be accepted' },
+          { status: 400 }
+        );
+      }
+    }
+
     // ── Split signature ────────────────────────────────────────────────
     const { v, r, s } = splitSignature(signature);
 
@@ -71,22 +88,6 @@ export async function POST(req: NextRequest) {
     const downloadExpiry  = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
 
     // ── Insert purchase record ─────────────────────────────────────────
-    // Validate shipping for physical products
-    if (drop.is_physical_product) {
-      if (!shipping_name || !shipping_address_line1 || !shipping_city || !shipping_postal_code || !shipping_country) {
-        return NextResponse.json(
-          { error: 'Shipping address required for physical products' },
-          { status: 400 }
-        );
-      }
-      if (!physical_terms_accepted) {
-        return NextResponse.json(
-          { error: 'Physical product delivery terms must be accepted' },
-          { status: 400 }
-        );
-      }
-    }
-
     const { data: purchase, error: dbError } = await db
       .from('rrg_purchases')
       .insert({
